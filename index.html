@@ -456,8 +456,26 @@
               return;
             }
 
-            // Simulate submission (replace with real API call if available)
-            console.log('Promo signup submitted:', { name: name || null, email });
+            // Save to Firebase (if configured)
+            (async () => {
+              try {
+                if (window.submitPromoSignup) {
+                  const res = await window.submitPromoSignup(email, name || null);
+                  if (!res?.ok) {
+                    console.warn('Signup saved locally but Firebase failed:', res?.error);
+                    showToast('DB save failed: ' + (res?.error || 'unknown error'), true);
+                  } else {
+                    showToast('Thanks! You\u2019ll get 50 free credits when we launch.');
+                  }
+                } else {
+                  console.log('Firebase module not loaded yet. Skipping DB save.');
+                  showToast('DB not configured (missing firebase-email.js)', true);
+                }
+              } catch (err) {
+                console.error('Unexpected error saving signup', err);
+                showToast('Unexpected error: ' + (err?.message || String(err)), true);
+              }
+            })();
 
             // Close overlay and navigate to signup section
             hide();
@@ -551,6 +569,29 @@
           if(window.innerWidth > 979) setOpen(false);
         });
       })();
+
+      // Toast helper
+      function showToast(message, isError){
+        let el = document.getElementById('toast');
+        if(!el){
+          el = document.createElement('div');
+          el.id = 'toast';
+          el.className = 'toast';
+          document.body.appendChild(el);
+        }
+        el.textContent = message;
+        el.classList.remove('error');
+        if(isError) el.classList.add('error');
+        el.classList.add('show');
+        el.removeAttribute('hidden');
+        clearTimeout(el._hideTimer);
+        el._hideTimer = setTimeout(()=>{
+          el.classList.remove('show');
+        }, 4200);
+      }
     </script>
+    <!-- Firebase config (fill values in firebase-config.js) and email capture module -->
+    <script src="firebase-config.js"></script>
+    <script type="module" src="firebase-email.js"></script>
   </body>
 </html>

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+# Update disallow rules if you add private paths later
