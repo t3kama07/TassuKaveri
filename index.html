@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TassuKaveri Community Pet Care</title>
+    <meta name="description" content="Community pet care made simple. Find sitters, earn credits, and keep pets happy.">
+    <meta name="theme-color" content="#ffffff">
+
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="icon-profile" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><line x1="19" x2="19" y1="8" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="22" x2="16" y1="11" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="icon-credit" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 6h1v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m16.71 13.88.7.71-2.82 2.82" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="icon-bookearn" viewBox="0 0 24 24"><path d="M8 2v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 2v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect width="18" height="18" x="3" y="4" rx="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 10h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="icon-earn" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 6h1v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m16.71 13.88.7.71-2.82 2.82" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="icon-spend" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 21 4-4-4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 17H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="icon-bonus" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </svg>
+    <!-- Full-bleed header with centered inner container -->
+    <header class="site-header">
+      <div class="header-inner wrap">
+        <a class="brand" href="#">
+          <svg class="logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ff7a2d"/>
+                <stop offset="100%" stop-color="#e66a1f"/>
+              </linearGradient>
+            </defs>
+            <rect width="48" height="48" rx="12" fill="url(#logoGradient)"/>
+            <!-- Modern pet paw with heart -->
+            <g transform="translate(12 12)" fill="#fff">
+              <circle cx="6" cy="8" r="3.5" fill="#fff" opacity="0.9"/>
+              <circle cx="18" cy="8" r="3.5" fill="#fff" opacity="0.9"/>
+              <circle cx="12" cy="16" r="4.5" fill="#fff"/>
+              <path d="M12 20c-2 0-4-1.5-4-3.5s2-3.5 4-3.5 4 1.5 4 3.5-2 3.5-4 3.5z" fill="#fff" opacity="0.8"/>
+              <!-- Heart in center -->
+              <path d="M12 11.5c-1-1-2.5 0-2.5 1s2.5 3 2.5 3 2.5-2 2.5-3-1.5-2-2.5-1z" fill="#ff7a2d"/>
+            </g>
+          </svg>
+          <strong>TassuKaveri</strong>
+        </a>
+
+        <div class="nav-center">
+          <nav aria-label="primary">
+            <a href="#how" data-i18n="nav.how">How it Works</a>
+            <a href="#find" data-i18n="nav.find">Find Sitter</a>
+            <a href="#become" data-i18n="nav.become">Become Sitter</a>
+            <a href="#about" data-i18n="nav.about">About</a>
+            <a href="faq.html" data-i18n="nav.faq">FAQ</a>
+            <a href="#contact" data-i18n="nav.contact">Contact</a>
+          </nav>
+        </div>
+
+        <div class="header-right">
+          <div class="lang-switch" role="tablist" aria-label="Language switch">
+            <button class="lang-btn" data-lang="fi" aria-pressed="false">FI</button>
+            <button class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+          </div>
+          <a class="login" href="#login" data-i18n="login">Login</a>
+          <a class="btn-sign" href="#signup" data-i18n="signup">Sign Up</a>
+          <!-- Mobile hamburger toggle -->
+          <button class="hamburger" type="button" aria-label="Toggle menu" aria-controls="mobile-menu" aria-expanded="false" data-mobile-toggle>
+            <span class="bar" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <!-- Mobile menu (hidden on desktop) -->
+      <nav id="mobile-menu" class="mobile-menu" aria-label="mobile" hidden>
+        <div class="mobile-menu-inner">
+          <a href="#how" data-i18n="nav.how">How it Works</a>
+          <a href="#find" data-i18n="nav.find">Find Sitter</a>
+          <a href="#become" data-i18n="nav.become">Become Sitter</a>
+          <a href="#about" data-i18n="nav.about">About</a>
+          <a href="faq.html" data-i18n="nav.faq">FAQ</a>
+          <a href="#contact" data-i18n="nav.contact">Contact</a>
+          <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
+          <a href="#login" data-i18n="login">Login</a>
+          <a href="#signup" data-i18n="signup">Sign Up</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="wrap" role="main">
+
+      <section class="hero" aria-labelledby="hero-heading">
+        <div>
+          <h1 id="hero-heading" data-i18n="hero.title">Community Pet Care<br><span class="accent">Made Simple</span></h1>
+          <p class="lead" data-i18n="hero.lead">Join Finland's trusted pet-sitting community. Exchange pet care time using credits - no money involved. Safe, reliable, and built for pet lovers.</p>
+
+          <div class="actions" role="group">
+            <a class="btn btn-primary" href="#find" data-i18n="hero.find">Find a Pet Sitter</a>
+            <a class="btn btn-ghost" href="#become" data-i18n="hero.become">Become a Sitter</a>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="true">
+          <div class="photo">
+            <img src="Main Image.jpeg" alt="Happy pets and pet sitters in community" loading="lazy">
+          </div>
+        </div>
+      </section>
+
+      <section id="how" class="how" aria-labelledby="how-heading">
+            <h2 id="how-heading" data-i18n="how.title">How TassuKaveri Works</h2>
+  <p data-i18n="how.subtitle">Simple credit-based pet care exchange</p>
+
+        <div class="how-grid">
+          <div class="how-item">
+            <div class="how-icon icon-circle" aria-hidden="true">
+              <svg class="icon-svg" aria-hidden="true"><use href="#icon-profile"></use></svg>
+            </div>
+            <h3 data-i18n="how.item1.title">Create Your Profile</h3>
+            <p data-i18n="how.item1.text">Sign up and tell us about yourself and your pets. Add photos and preferences.</p>
+          </div>
+          <div class="how-item">
+            <div class="how-icon icon-circle" aria-hidden="true">
+              <svg class="icon-svg" aria-hidden="true"><use href="#icon-search"></use></svg>
+            </div>
+            <h3 data-i18n="how.item2.title">Find Pet Sitters</h3>
+            <p data-i18n="how.item2.text">Browse local sitters by location, pet type, and availability.</p>
+          </div>
+          <div class="how-item">
+            <div class="how-icon icon-circle" aria-hidden="true">
+              <svg class="icon-svg" aria-hidden="true"><use href="#icon-bookearn"></use></svg>
+            </div>
+            <h3 data-i18n="how.item3.title">Book & Earn Credits</h3>
+            <p data-i18n="how.item3.text">Book a sitter and pay with credits. Provide pet care to earn credits.</p>
+          </div>
+          <div class="how-item">
+            <div class="how-icon icon-circle" aria-hidden="true">
+              <svg class="icon-svg" aria-hidden="true"><use href="#icon-heart"></use></svg>
+            </div>
+            <h3 data-i18n="how.item4.title">Happy Pets & Community</h3>
+            <p data-i18n="how.item4.text">Your pets get loving care while you build lasting friendships.</p>
+          </div>
+        </div>
+
+        <div class="credit-wrap">
+          <h3 data-i18n="credit.title">Credit System</h3>
+          <p data-i18n="credit.subtitle">Fair exchange, no money involved</p>
+          <div class="credit-cards">
+            <div class="card">
+              <div class="icon-circle icon-earn" aria-hidden="true">
+                <svg class="icon-svg" aria-hidden="true"><use href="#icon-earn"></use></svg>
+              </div>
+              <strong data-i18n="credit.earn.title">Earn credits</strong>
+              <p data-i18n="credit.earn.text">Earn 1 credit per hour of pet care you provide.</p>
+            </div>
+            <div class="card">
+              <div class="icon-circle icon-spend" aria-hidden="true">
+                <svg class="icon-svg" aria-hidden="true"><use href="#icon-spend"></use></svg>
+              </div>
+              <strong data-i18n="credit.spend.title">Spend credits</strong>
+              <p data-i18n="credit.spend.text">Spend 1 credit per hour of care you receive.</p>
+            </div>
+            <div class="card">
+              <div class="icon-circle icon-bonus" aria-hidden="true">
+                <svg class="icon-svg" aria-hidden="true"><use href="#icon-bonus"></use></svg>
+              </div>
+              <strong data-i18n="credit.bonus.title">Welcome bonus</strong>
+              <p data-i18n="credit.bonus.text">New members get 5 free credits to start.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <footer class="site" role="contentinfo">
+        <div class="footer-inner">
+        <div class="footer-col">
+          <a class="brand footer-brand" href="#">
+            <svg class="logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="logoGradientFooter" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#ff7a2d"/>
+                  <stop offset="100%" stop-color="#e66a1f"/>
+                </linearGradient>
+              </defs>
+              <rect width="48" height="48" rx="12" fill="url(#logoGradientFooter)"/>
+              <g transform="translate(12 12)" fill="#fff">
+                <circle cx="6" cy="8" r="3.5" fill="#fff" opacity="0.9"/>
+                <circle cx="18" cy="8" r="3.5" fill="#fff" opacity="0.9"/>
+                <circle cx="12" cy="16" r="4.5" fill="#fff"/>
+                <path d="M12 20c-2 0-4-1.5-4-3.5s2-3.5 4-3.5 4 1.5 4 3.5-2 3.5-4 3.5z" fill="#fff" opacity="0.8"/>
+                <path d="M12 11.5c-1-1-2.5 0-2.5 1s2.5 3 2.5 3 2.5-2 2.5-3-1.5-2-2.5-1z" fill="#ff7a2d"/>
+              </g>
+            </svg>
+            <strong>TassuKaveri</strong>
+          </a>
+          <p class="footer-muted" data-i18n="footer.tagline">Finland's trusted community for pet care exchange. Join thousands of pet lovers sharing care through our credit system.</p>
+
+          <div class="follow" data-i18n="footer.follow">Follow Us</div>
+          <div class="socials" aria-hidden="true">
+            <a class="social-btn" href="https://www.facebook.com/TassuKaveri" title="Facebook" aria-label="Facebook" rel="noopener" target="_blank">
+              <img src="assest/facebook.png" alt="Facebook" width="20" height="20" loading="lazy" />
+            </a>
+            <a class="social-btn" href="#" title="Instagram" aria-label="Instagram">
+              <img src="assest/instagram.png" alt="Instagram" width="20" height="20" loading="lazy" />
+            </a>
+            <a class="social-btn" href="#" title="TikTok" aria-label="TikTok">
+              <img src="assest/tik-tok.png" alt="TikTok" width="20" height="20" loading="lazy" />
+            </a>
+          </div>
+        </div>
+        <div>
+          <h4 data-i18n="footer.company">Company</h4>
+          <a href="#" data-i18n="nav.about">About Us</a><br>
+          <a href="#how" data-i18n="nav.how">How it Works</a><br>
+          <a href="#" data-i18n="footer.safety">Safety</a><br>
+          <!-- Removed Careers & Press for now -->
+        </div>
+        <div>
+          <h4 data-i18n="footer.support">Support</h4>
+          <a href="#" data-i18n="footer.help">Help Center</a><br>
+          <a href="#" data-i18n="footer.contact">Contact Us</a><br>
+          <a href="#" data-i18n="footer.guidelines">Community Guidelines</a><br>
+          <!-- Removed Trust & Safety and Insurance for now -->
+        </div>
+        <div>
+          <h4 data-i18n="footer.legal">Legal</h4>
+          <a href="#" data-i18n="footer.privacy">Privacy Policy</a><br>
+          <a href="#" data-i18n="footer.terms">Terms of Service</a><br>
+          <a href="#" data-i18n="footer.cookies">Cookie Policy</a><br>
+          <!-- Removed GDPR Compliance for now -->
+        </div>
+      </div>
+      <div class="footer-contact-area">
+        <div class="footer-divider" aria-hidden="true"></div>
+        <h4 class="contact-heading" data-i18n="footer.contactinfo">Contact Info</h4>
+        <div class="contact-line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7a2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg> hello@tassukaveri.fi &nbsp; · &nbsp; <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7a2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92V21a1 1 0 0 1-1.11 1A19 19 0 0 1 3 4.11 1 1 0 0 1 4 3h4.09a1 1 0 0 1 1 .75c.12.72.36 1.73.78 2.86a1 1 0 0 1-.24 1L8.5 9.5c1.06 2.12 2.8 3.86 4.92 4.92l1.9-1.9a1 1 0 0 1 1-.24c1.13.42 2.14.66 2.86.78a1 1 0 0 1 .75 1V21z"/></svg> +358 40 123 4567 &nbsp; · &nbsp; <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff7a2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg> Mannerheimintie 12, 00100 Helsinki</div>
+        <div class="copyright">© <span id="year"></span> TassuKaveri</div>
+      </div>
+    </footer>
+
+    <!-- One-time email signup popup removed per user request; only the promotional popup remains. -->
+
+    <!-- Promotional Early Bird Popup -->
+    <div id="promo-overlay" class="promo-overlay" aria-hidden="true">
+      <div class="promo-container" role="dialog" aria-labelledby="promo-heading" aria-describedby="promo-desc">
+        <button class="promo-close" aria-label="Close promotional popup" type="button">&times;</button>
+        <div class="promo-body">
+          <div class="promo-icon" aria-hidden="true">
+            <!-- friendly paw/gift icon -->
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M12 13.5c1.933 0 3.5 1.567 3.5 3.5S13.933 20.5 12 20.5 8.5 18.933 8.5 17s1.567-3.5 3.5-3.5z" fill="#ff7a2d"/>
+              <path d="M7 7.5C8.104 7.5 9 6.604 9 5.5S8.104 3.5 7 3.5 5 4.396 5 5.5 5.896 7.5 7 7.5z" fill="#ff7a2d"/>
+              <path d="M17 7.5C18.104 7.5 19 6.604 19 5.5S18.104 3.5 17 3.5 15 4.396 15 5.5 15.896 7.5 17 7.5z" fill="#ff7a2d"/>
+              <path d="M4.5 11.2C5.55 11.2 6.4 10.35 6.4 9.3S5.55 7.4 4.5 7.4 2.6 8.25 2.6 9.3s.85 1.9 1.9 1.9z" fill="#ff7a2d"/>
+            </svg>
+          </div>
+          <div class="promo-content">
+            <h3 id="promo-heading" data-i18n="promo.heading">Early Bird Bonus 50 Free Credits for the First 100 Sign-ups!</h3>
+            <p id="promo-desc" data-i18n="promo.description">Be one of the first pet owners or sitters to join TassuKaveri and get 50 bonus credits to start exchanging pet care time. Limited offer only for the first 100 members.</p>
+            <div class="promo-actions">
+              <form id="promo-form" class="promo-form" novalidate>
+                <!-- compact inline row: name | email | CTA. Each field has a visible label above the input. -->
+                <div class="promo-inline-row">
+                  <div class="promo-field">
+                    <label for="promo-email" class="promo-label" data-i18n="promo.email.label">Email address</label>
+                    <input type="email" id="promo-email" name="promo-email" data-i18n="promo.email.placeholder" placeholder="Enter your email address" required aria-label="Email address">
+                  </div>
+                  <div class="promo-field promo-cta-field">
+                    <!-- keep CTA vertically centered with inputs -->
+                    <label class="promo-label" aria-hidden="true">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary promo-btn" id="promo-cta" data-i18n="promo.cta">Join &amp; Claim Bonus</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Simple on-page i18n for EN/FI (no external libs)
+      (function(){
+        const strings = {
+          en: {
+            'nav.how':'How it Works','nav.find':'Find Sitter','nav.become':'Become Sitter','nav.about':'About','nav.faq':'FAQ','nav.contact':'Contact',
+            'hero.title':'Community Pet Care<br><span class="accent">Made Simple</span>',
+            'hero.lead':'Join Finland\'s trusted pet-sitting community. Exchange pet care time using credits - no money involved. Safe, reliable, and built for pet lovers.',
+            'hero.find':'Find a Pet Sitter','hero.become':'Become a Sitter','how.title':'How TassuKaveri Works','how.subtitle':'Simple credit-based pet care exchange',
+            'how.item1.title':'Create Your Profile','how.item1.text':'Sign up and tell us about yourself and your pets. Add photos and preferences.',
+            'how.item2.title':'Find Pet Sitters','how.item2.text':'Browse local sitters by location, pet type, and availability.',
+            'how.item3.title':'Book & Earn Credits','how.item3.text':'Book a sitter and pay with credits. Provide pet care to earn credits.',
+            'how.item4.title':'Happy Pets & Community','how.item4.text':'Your pets get loving care while you build lasting friendships.',
+            'credit.title':'Credit System','credit.subtitle':'Fair exchange, no money involved',
+            'credit.earn.title':'Earn credits','credit.earn.text':'Earn 1 credit per hour of pet care you provide.',
+            'credit.spend.title':'Spend credits','credit.spend.text':'Spend 1 credit per hour of care you receive.',
+            'credit.bonus.title':'Welcome bonus','credit.bonus.text':'New members get 5 free credits to start.',
+            'login':'Login','signup':'Sign Up',
+            // Popup / Promo
+            'popup.heading':'Join Our Launch List','popup.description':'Get 20 credits free when we launch!','popup.email.placeholder':'Enter your email address','popup.notify':'Notify Me',
+            'popup.name.label':'Name','popup.name.placeholder':'Your name (optional)',
+            'promo.heading':'Early Bird Bonus 50 Free Credits for the First 100 Sign-ups!','promo.description':'Be one of the first pet owners or sitters to join TassuKaveri and get 50 bonus credits to start exchanging pet care time. Limited offer only for the first 100 members.','promo.name.label':'Name','promo.name.placeholder':'Your name','promo.email.label':'Email address','promo.email.placeholder':'Enter your email address','promo.cta':'Join & Claim Bonus'
+            ,
+            // Footer translations (English)
+            'footer.tagline':'Finland\'s trusted community for pet care exchange. Join thousands of pet lovers sharing care through our credit system.',
+            'footer.follow':'Follow Us',
+            'footer.company':'Company',
+            'footer.safety':'Safety',
+            'footer.support':'Support',
+            'footer.help':'Help Center',
+            'footer.contact':'Contact Us',
+            'footer.guidelines':'Community Guidelines',
+            'footer.trust':'Trust & Safety',
+            'footer.legal':'Legal',
+            'footer.privacy':'Privacy Policy',
+            'footer.terms':'Terms of Service',
+            'footer.cookies':'Cookie Policy',
+            'footer.gdpr':'GDPR Compliance',
+            'footer.careers':'Careers',
+            'footer.press':'Press',
+            'footer.insurance':'Insurance',
+            'footer.contactinfo':'Contact Info'
+          },
+          fi: {
+            'nav.how':'Kuinka se toimii','nav.find':'Etsi hoitajaa','nav.become':'Ryhdy hoitajaksi','nav.about':'Tietoja','nav.faq':'UKK','nav.contact':'Yhteystiedot',
+            'hero.title':'Yhteisöllinen lemmikkihuolto<br><span class="accent">Helppoa ja luotettavaa</span>',
+            'hero.lead':'Liity Suomen luotettuun lemmikkihoitoyhteisöön. Vaihda lemmikkihuoltoaikaa krediiteillä - ei rahaa mukana. Turvallista, luotettavaa ja lemmikkirakastajille rakennettua.',
+            'hero.find':'Etsi hoitaja','hero.become':'Ryhdy hoitajaksi','how.title':'Kuinka TassuKaveri toimii','how.subtitle':'Yksinkertainen krediittipohjainen lemmikkihuolto',
+            'how.item1.title':'Luo profiili','how.item1.text':'Rekisteröidy ja kerro itsestäsi ja lemmikeistäsi. Lisää kuvia ja mieltymyksiä.',
+            'how.item2.title':'Etsi hoitajia','how.item2.text':'Selaa paikallisia hoitajia sijainnin, lemmikkityypin ja saatavuuden mukaan.',
+            'how.item3.title':'Varaa ja ansaitse krediittejä','how.item3.text':'Varaa hoitaja ja maksa krediiteillä. Tarjoa hoitoa ansaitaksesi krediittejä.',
+            'how.item4.title':'Onnelliset lemmikit & yhteisö','how.item4.text':'Lemmikkisi saa rakastavaa hoitoa samalla kun rakennat kestäviä ystävyyssuhteita.',
+            'credit.title':'Krediittijärjestelmä','credit.subtitle':'Reilu vaihtojärjestelmä, ei rahaa mukana',
+            'credit.earn.title':'Ansaitse krediittejä','credit.earn.text':'Ansaitse 1 krediitti tunnilta antamastasi lemmikkihuollosta.',
+            'credit.spend.title':'Käytä krediittejä','credit.spend.text':'Käytä 1 krediitti tunnilta saamastasi hoidosta.',
+            'credit.bonus.title':'Tervetuliaispalkkio','credit.bonus.text':'Uudet jäsenet saavat 5 ilmaista krediittiä aluksi.',
+            'login':'Kirjaudu','signup':'Rekisteröidy',
+            // Popup / Promo (Finnish)
+            'popup.heading':'Liity lanseerauslistalle','popup.description':'Saat 20 krediittiä ilmaiseksi, kun lanseeraamme!','popup.email.placeholder':'Kirjoita sähköpostiosoitteesi','popup.notify':'Ilmoita minulle',
+            'popup.name.label':'Nimi','popup.name.placeholder':'Nimesi (valinnainen)',
+            'promo.heading':'Early Bird -etu 50 ilmaista krediittiä ensimmäisille 100 rekisteröityneelle!','promo.description':'Ole yksi ensimmäisistä TassuKaveri-jäsenistä ja saat 50 bonuskrediittiä lemmikkihuollon vaihtoon. Tarjous koskee vain ensimmäisiä 100 jäsentä.','promo.name.label':'Nimi','promo.name.placeholder':'Nimesi','promo.email.label':'Sähköpostiosoite','promo.email.placeholder':'Kirjoita sähköpostiosoitteesi','promo.cta':'Liity & Hae Bonusta'
+            ,
+            // Footer translations
+            'footer.tagline':'Suomen luotettu yhteisö lemmikkihuollon vaihtoon. Liity tuhansien lemmikkirakastajien joukkoon.',
+            'footer.follow':'Seuraa meitä',
+            'footer.company':'Yritys',
+            'footer.safety':'Turvallisuus',
+            'footer.support':'Tuki',
+            'footer.help':'Ohjekeskus',
+            'footer.contact':'Ota yhteyttä',
+            'footer.guidelines':'Yhteisön säännöt',
+            'footer.trust':'Luottamus & Turvallisuus',
+            'footer.legal':'Lainopilliset',
+            'footer.privacy':'Tietosuojakäytäntö',
+            'footer.terms':'Käyttöehdot',
+            'footer.cookies':'Evästekäytäntö',
+            'footer.gdpr':'GDPR-yhteensopivuus',
+            'footer.careers':'Urat',
+            'footer.press':'Lehdistö',
+            'footer.insurance':'Vakuutus',
+            'footer.contactinfo':'Yhteystiedot'
+          }
+        };
+
+        function applyLang(lang){
+          document.querySelectorAll('[data-i18n]').forEach(el=>{
+            const key = el.getAttribute('data-i18n');
+            const txt = strings[lang] && strings[lang][key];
+            if(!txt) return;
+            if(el.tagName.toLowerCase()==='input' || el.tagName.toLowerCase()==='textarea'){
+                el.placeholder = txt;
+                try{ el.setAttribute('aria-label', txt); }catch(e){}
+              } else if(el.tagName.toLowerCase()==='a' || el.tagName.toLowerCase()==='button'){
+                el.innerHTML = txt;
+              } else {
+                el.innerHTML = txt;
+              }
+          });
+
+          // update pressed state
+          document.querySelectorAll('.lang-btn').forEach(b=>{
+            b.setAttribute('aria-pressed', b.getAttribute('data-lang')===lang ? 'true' : 'false');
+          });
+          // set the document language attribute for accessibility and assistive tech
+          try{ document.documentElement.lang = lang; }catch(e){}
+
+            localStorage.setItem('tassukaveri-lang', lang);
+        }
+
+    // init (default to Finnish)
+  // Use stored language only if the user explicitly selected it before (we track that with 'tassukaveri-lang-set')
+  const saved = localStorage.getItem('tassukaveri-lang');
+  const langWasSet = localStorage.getItem('tassukaveri-lang-set');
+  const initialLang = langWasSet ? (saved || 'fi') : 'fi';
+    applyLang(initialLang);
+
+        // wire buttons
+        document.querySelectorAll('.lang-btn').forEach(btn=>{
+          btn.addEventListener('click', ()=> {
+            const lang = btn.getAttribute('data-lang');
+            applyLang(lang);
+            try{ localStorage.setItem('tassukaveri-lang-set','true'); }catch(e){}
+          });
+        });
+      })();
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // One-time email signup popup removed per user request; no handler required.
+
+      // Promotional early-bird popup (shows after 2s)
+      (function(){
+        const overlay = document.getElementById('promo-overlay');
+        const closeBtn = overlay && overlay.querySelector('.promo-close');
+        const cta = overlay && overlay.querySelector('#promo-cta');
+        const promoForm = overlay && overlay.querySelector('#promo-form');
+        const promoEmail = overlay && overlay.querySelector('#promo-email');
+
+        if(!overlay) return;
+
+        function show(){
+          overlay.style.display = 'flex';
+          overlay.setAttribute('aria-hidden','false');
+          // focus the email input for fast action
+          if(promoEmail) promoEmail.focus();
+        }
+
+        function hide(){
+          overlay.style.display = 'none';
+          overlay.setAttribute('aria-hidden','true');
+        }
+
+        // show after 2 seconds (always)
+        setTimeout(show, 2000);
+
+        // close handlers (do not persist so it shows on every refresh)
+        closeBtn && closeBtn.addEventListener('click', ()=> hide());
+        overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hide(); });
+        document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && overlay.style.display==='flex') hide(); });
+
+  // Handle the promo form submission: validate email, then hide and navigate to signup
+        if(promoForm && promoEmail){
+          promoForm.addEventListener('submit', function(e){
+            e.preventDefault();
+            const nameInput = document.getElementById('promo-name');
+            const name = nameInput && nameInput.value.trim();
+            const email = promoEmail.value.trim();
+            if(!email){
+              promoEmail.focus();
+              return;
+            }
+
+            if(!promoEmail.checkValidity()){
+              // this will show the browser validation tooltip
+              promoEmail.reportValidity();
+              promoEmail.focus();
+              return;
+            }
+
+            // Simulate submission (replace with real API call if available)
+            console.log('Promo signup submitted:', { name: name || null, email });
+
+            // Close overlay and navigate to signup section
+            hide();
+            try{ location.hash = '#signup'; }catch(e){}
+          });
+        } else {
+          // Fallback: existing CTA (if present) simply hides
+          cta && cta.addEventListener('click', ()=> { hide(); });
+        }
+        // expose show() globally so other handlers can open the promo
+        try{ window.showPromoOverlay = show; }catch(e){}
+      })();
+
+      // Delegate clicks so that most interactions open the promo overlay
+      (function(){
+        document.addEventListener('click', function(e){
+          // find nearest actionable element
+          const el = e.target.closest('a, button');
+          if(!el) return;
+
+          // Ignore clicks that originate inside our popups (allow normal behavior there)
+          if (e.target.closest('#promo-overlay') || e.target.closest('#popup-overlay')) return;
+
+          // Ignore clicks on the language switcher/buttons so selecting EN/FI works normally
+          if (el.closest('.lang-switch') || el.classList.contains('lang-btn') || el.getAttribute('data-lang')) return;
+
+          // Ignore clicks on the mobile hamburger toggle so it can open/close the menu
+          if (el.classList.contains('hamburger') || el.hasAttribute('data-mobile-toggle')) return;
+
+          // Allow some links to function normally (How & FAQ)
+          if(el.tagName.toLowerCase()==='a'){
+            const href = el.getAttribute('href');
+            const key = el.getAttribute('data-i18n');
+            if(href === '#how' || key === 'nav.how' || href === 'faq.html' || key === 'nav.faq') return;
+          }
+
+          // If button is disabled, don't intercept
+          if(el.disabled) return;
+
+          // Intercept the click and show promo instead of navigating
+          e.preventDefault();
+          e.stopPropagation();
+
+          try{
+            if(window.showPromoOverlay) return window.showPromoOverlay();
+            const overlay = document.getElementById('promo-overlay');
+            const promoEmail = overlay && overlay.querySelector('#promo-email');
+            if(overlay){ overlay.style.display = 'flex'; overlay.setAttribute('aria-hidden','false'); if(promoEmail) promoEmail.focus(); }
+          }catch(err){
+            console.error('Failed to open promo overlay', err);
+          }
+        }, {capture: true});
+      })();
+
+      // Mobile menu toggle logic
+      (function(){
+        const hamburger = document.querySelector('.hamburger');
+        const mobileMenu = document.getElementById('mobile-menu');
+        if(!hamburger || !mobileMenu) return;
+
+        function setOpen(open){
+          hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+          mobileMenu.classList.toggle('open', !!open);
+          mobileMenu.hidden = !open;
+        }
+
+        hamburger.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          const open = hamburger.getAttribute('aria-expanded') === 'true';
+          setOpen(!open);
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e){
+          const open = hamburger.getAttribute('aria-expanded') === 'true';
+          if(!open) return;
+          if(e.target.closest('#mobile-menu') || e.target.closest('.hamburger')) return;
+          setOpen(false);
+        });
+
+        // Close menu when a link is clicked
+        mobileMenu.addEventListener('click', function(e){
+          const link = e.target.closest('a');
+          if(!link) return;
+          setOpen(false);
+        });
+
+        // Close if window resized to desktop
+        window.addEventListener('resize', function(){
+          if(window.innerWidth > 979) setOpen(false);
+        });
+      })();
+    </script>
+  </body>
+</html>
