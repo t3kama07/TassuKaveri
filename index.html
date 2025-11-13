@@ -462,8 +462,14 @@
                 if (window.submitPromoSignup) {
                   const res = await window.submitPromoSignup(email, name || null);
                   if (!res?.ok) {
-                    console.warn('Signup saved locally but Firebase failed:', res?.error);
-                    showToast('DB save failed: ' + (res?.error || 'unknown error'), true);
+                    if (res?.error === 'duplicate') {
+                      showToast('That email is already registered.');
+                    } else if (res?.error === 'invalid-email') {
+                      showToast('Please enter a valid email.', true);
+                    } else {
+                      console.warn('Signup attempt failed:', res?.error);
+                      showToast('DB save failed: ' + (res?.error || 'unknown error'), true);
+                    }
                   } else {
                     showToast('Thanks! You\u2019ll get 50 free credits when we launch.');
                   }
