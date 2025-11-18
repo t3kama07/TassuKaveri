@@ -24,13 +24,14 @@ async function submitPromoSignup(email, name) {
   if (!_db) {
     return { ok: false, error: "Firebase not configured" };
   }
+  // Declare docRef so catch block can inspect it for race duplicates.
+  let docRef;
   try {
-    // Normalize email for uniqueness (lowercase + trim)
     const normalizedEmail = (email || '').trim().toLowerCase();
     if (!normalizedEmail) {
       return { ok: false, error: 'invalid-email' };
     }
-    const docRef = doc(_db, 'promoSignups', normalizedEmail);
+    docRef = doc(_db, 'promoSignups', normalizedEmail);
     const existing = await getDoc(docRef);
     if (existing.exists()) {
       return { ok: false, error: 'duplicate' };
@@ -44,12 +45,20 @@ async function submitPromoSignup(email, name) {
       path: location.pathname + location.hash
     };
     console.log('[promoSignups] Attempting write payload:', payload);
-    // setDoc creates since rules forbid updates; if simultaneous duplicate occurs, second attempt becomes update and will be denied.
     await setDoc(docRef, payload);
     return { ok: true };
   } catch (err) {
     console.error("Failed to save signup to Firestore", err);
-    return { ok: false, error: err?.message || String(err) };
+    // If we hit a permission error it might be a race where another client just created the doc.
+    try {
+      if ((err.code === 'permission-denied' || /PERMISSION_DENIED/i.test(err.message || '')) && docRef) {
+        const after = await getDoc(docRef);
+        if (after.exists()) {
+          return { ok: false, error: 'duplicate' };
+        }
+      }
+    } catch (_) { /* ignore secondary errors */ }
+    return { ok: false, error: err.code === 'permission-denied' ? 'permission-denied' : (err?.message || String(err)) };
   }
 }
 
