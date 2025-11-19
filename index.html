@@ -3,9 +3,37 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>TassuKaveri Community Pet Care</title>
-    <meta name="description" content="Community pet care made simple. Find sitters, earn credits, and keep pets happy.">
-    <meta name="theme-color" content="#ffffff">
+ <title>TassuKaveri – Community Pet Sitting in Finland | Free Credit-Based Pet Care</title>
+<meta name="description" content="Community pet care made simple in Finland. Exchange pet sitting time using credits — no money needed. Join and get 50 free credits.">
+
+<meta property="og:title" content="TassuKaveri — Finland’s Community Pet Sitting">
+<meta property="og:description" content="Exchange pet care time using credits. No money needed. Join waitlist — 50 free credits!">
+<meta property="og:image" content="https://tassukaveri.fi/assest/social-cover.jpg">
+<meta property="og:url" content="https://tassukaveri.fi">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assest/LogoPaw.png" type="image/png">
+<link rel="apple-touch-icon" href="assest/LogoPaw.png">
+<meta name="msapplication-TileImage" content="assest/LogoPaw.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "TassuKaveri",
+  "url": "https://tassukaveri.fi",
+  "logo": "https://tassukaveri.fi/assest/Logo.png",
+  "sameAs": [
+    "https://www.facebook.com/TassuKaveri",
+    "https://www.instagram.com/TassuKaveri"
+  ]
+}
+</script>
+
+
+<link rel="canonical" href="https://tassukaveri.fi/">
+
+
 
     <link rel="stylesheet" href="style.css">
   </head>
@@ -386,35 +414,9 @@
               return;
             }
 
-            // Save to Firebase (if configured)
-            (async () => {
-              try {
-                if (window.submitPromoSignup) {
-                  const res = await window.submitPromoSignup(email, null);
-                  if (!res?.ok) {
-                    console.warn('Signup attempt failed:', res);
-                    if (res?.error === 'duplicate') {
-                      showToast('That email is already registered.');
-                    } else if (res?.error === 'invalid-email') {
-                      showToast('Please enter a valid email.', true);
-                    } else if (res?.error === 'permission-denied') {
-                      showToast('Could not save right now. Please retry.', true);
-                    } else {
-                      showToast('DB save failed: ' + (res?.error || 'unknown error'), true);
-                    }
-                  } else {
-                    showToast('Thanks! You\u2019ll get 50 free credits when we launch.');
-                  }
-                } else {
-                  console.log('Firebase module not loaded yet. Skipping DB save.');
-                  showToast('DB not configured (missing firebase-email.js)', true);
-                }
-              } catch (err) {
-                console.error('Unexpected error saving signup', err);
-                showToast('Unexpected error: ' + (err?.message || String(err)), true);
-              }
-              promoForm._submitting = false;
-            })();
+            // No backend: immediately show success toast and skip any DB logic
+            showToast('Thanks! You\u2019ll get 50 free credits when we launch.');
+            promoForm._submitting = false;
 
             // Close overlay and navigate to signup section
             hide();
@@ -536,6 +538,51 @@
           el.classList.remove('show');
         }, 4200);
       }
+
+//email submission promotion
+
+// Handle ALL email signup forms (Home + FAQ)
+document.addEventListener("DOMContentLoaded", () => {
+
+  const forms = [
+    { form: document.getElementById("promo-form"), email: document.getElementById("promo-email") },
+    { form: document.getElementById("promo-form-faq"), email: document.getElementById("promo-email-faq") }
+  ];
+
+  forms.forEach(item => {
+    if (!item.form || !item.email) return;
+
+    item.form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const email = item.email.value.trim();
+      if (!email) return;
+
+      fetch("save_email.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "email=" + encodeURIComponent(email)
+      })
+      .then(res => res.text())
+      .then(data => {
+
+        // Detect language
+        const lang = document.documentElement.lang || "fi";
+
+        // Messages per language
+        const msg = {
+          fi: "Kiitos! Saat 50 ilmaista krediittiä julkaisupäivänä.",
+          en: "Thanks! You'll get 50 free credits when we launch."
+        };
+
+        showToast(msg[lang]);
+        item.email.value = "";
+      });
+    });
+  });
+
+});
+
     </script>
     
   </body>
