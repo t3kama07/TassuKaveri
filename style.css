@@ -938,6 +938,7 @@ footer.site::before {
   display: flex;
   gap: 8px;
   align-items: center; /* keep everything on the same row */
+  justify-content: center; /* center input and button horizontally */
 }
 
 .promo-field {
@@ -950,6 +951,7 @@ footer.site::before {
   flex-direction: row;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto; /* don't stretch; keep compact */
 }
 
 .promo-label {
@@ -990,13 +992,15 @@ footer.site::before {
 }
 
 .promo-inline-row input[type="email"] {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  max-width: 360px; /* keep a nice width while centered */
 }
 
 .promo-cta-field {
   display: flex;
   flex-direction: column;
   align-items: center; /* center the button vertically with input */
+  flex: 0 0 auto; /* don't stretch; sit next to input */
 }
 
 .promo-btn {
