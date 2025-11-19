@@ -35,6 +35,19 @@ body {
   line-height: 1.6;
 }
 
+/* About page specific spacing adjustments */
+body.about-page .faq-hero {
+  padding-top: 40px; /* reduce excessive top gap */
+  margin-top: 0;
+  margin-bottom: 8px; /* tighter bottom spacing below hero */
+}
+body.about-page .faq {
+  padding-top: 12px; /* was 48px globally; reduce for about */
+}
+body.about-page main.faq h1 {
+  margin-top: 0; /* ensure heading sits flush */
+}
+
 a {
   color: inherit;
   transition: all 0.15s ease;
@@ -167,7 +180,7 @@ header .header-inner {
 }
 
 .logo {
-  height: 40px;
+  height: 50px;
   width: auto;
   border-radius: 0;
   display: inline-block;
