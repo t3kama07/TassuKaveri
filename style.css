@@ -746,6 +746,16 @@ footer.site::before {
   align-items: center;
   color: rgba(223,234,246,0.9);
   font-size: 14px;
+  user-select: text;
+}
+
+.contact-line a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.contact-line a:hover {
+  text-decoration: underline;
 }
 
 .footer-inner a {
@@ -759,6 +769,13 @@ footer.site::before {
 
 .footer-inner a:hover {
   color: #ffffff;
+}
+
+/* Disable interaction for placeholder links and social buttons */
+a.disabled-link,
+.social-btn.disabled-link {
+  pointer-events: none;
+  cursor: default;
 }
 
 .footer-contact-area {
@@ -920,12 +937,14 @@ footer.site::before {
   margin: 0 0 8px 0;
   font-size: 20px;
   color: var(--navy);
+  text-align: center;
 }
 
 .promo-content p {
   margin: 0 0 14px 0;
   color: var(--navy);
   opacity: 0.9;
+  text-align: center;
 }
 
 .promo-form {
