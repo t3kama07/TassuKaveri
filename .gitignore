@@ -12,17 +12,4 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Firebase local emulators (if used later)
-firebase-debug.log
-
-# Firebase optional / sensitive artifacts (none currently committed)
-# Keep firebase.json, .firebaserc and firestore.rules in version control so deployments work.
-# Ignore real Firebase config (tracked example provided as firebase-config.example.js)
-firebase-config.js
-*.serviceAccount.json
-serviceAccount*.json
-.firebase/
-.firestore/
-.runtimeconfig.json
-.env*
-firebase-config.local.js
+# (Firebase entries removed; no Firebase used)

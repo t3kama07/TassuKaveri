@@ -1,30 +1,6 @@
-.faq-hero {
-  background: var(--gradient-warm);
-  border: 1px solid rgba(255, 122, 45, 0.08);
-  border-radius: 20px;
-  padding: 28px 24px;
-  margin: 32px 0 12px;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(16,24,40,0.06);
-}
-
-.faq-badge {
-  position: absolute;
-  top: -16px;
-  left: -16px;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
-  box-shadow: 0 8px 22px rgba(255,122,45,0.25);
-}
 /* TassuKaveri Landing Page - Enhanced Styles */
-
 :root {
-  --max: 1600px; /* widened to spread middle and footer content */
+  --max: 1600px;
   --accent: #ff7a2d;
   --accent-hover: #e66a1f;
   --accent-2: #ffeddc;
@@ -33,7 +9,6 @@
   --muted-dark: #4b5563;
   --bg: #ffffff;
   --navy: #0f2640;
-  /* Promotional popup styles (promo-overlay & promo-container) — ensure the promo appears centered */
   --border: #f6e7df;
   --shadow: rgba(15, 38, 64, 0.06);
   --shadow-hover: rgba(15, 38, 64, 0.12);
@@ -69,11 +44,10 @@ a {
 .wrap {
   max-width: var(--max);
   margin: 0 auto;
-  padding: 28px 40px; /* unify with header/footer horizontal padding */
+  padding: 28px 40px;
 }
 
-/* Header - Enhanced */
-/* Header - Enhanced (full-bleed header with centered inner container) */
+/* Header */
 header {
   width: 100%;
   border-bottom: 1px solid var(--border);
@@ -84,19 +58,17 @@ header {
   z-index: 100;
 }
 
-/* inner container inside header that aligns with page content */
 header .header-inner {
-  /* Allow header content to span full width for more horizontal room */
-  max-width: none;
+  max-width: var(--max);
   width: 100%;
-  margin: 0;
-  padding: 18px 40px; /* a bit more side padding when full-width */
+  margin: 0 auto;
+  padding: 18px 40px;
   display: flex;
   align-items: center;
   gap: 28px;
 }
 
-/* Mobile hamburger (hidden on desktop) */
+/* Mobile hamburger */
 .hamburger {
   display: none;
   width: 40px;
@@ -145,7 +117,7 @@ header .header-inner {
   transform: translateY(-6px) rotate(-45deg);
 }
 
-/* Mobile menu panel (inside header) */
+/* Mobile menu */
 .mobile-menu {
   display: none;
   position: absolute;
@@ -155,7 +127,7 @@ header .header-inner {
   background: #fff;
   border-bottom: 1px solid var(--border);
   box-shadow: 0 10px 30px var(--shadow);
-  z-index: 110; /* sit above header content */
+  z-index: 110;
 }
 
 .mobile-menu.open { display: block; }
@@ -177,7 +149,6 @@ header .header-inner {
   color: var(--accent);
 }
 
-/* Let nav section consume remaining space so we can right-align links */
 .nav-center { flex: 1 1 auto; }
 
 .brand {
@@ -185,7 +156,7 @@ header .header-inner {
   align-items: center;
   gap: 12px;
   text-decoration: none;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   font-weight: 700;
   font-size: 18px;
   transition: transform 0.2s ease;
@@ -196,11 +167,17 @@ header .header-inner {
 }
 
 .logo {
-  width: 40px;
   height: 40px;
-  border-radius: 10px;
+  width: auto;
+  border-radius: 0;
   display: inline-block;
-  box-shadow: 0 4px 12px rgba(255, 122, 45, 0.15);
+  object-fit: contain;
+  transition: all 0.3s ease;
+}
+
+.brand:hover .logo {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
 }
 
 .nav-center {
@@ -208,17 +185,14 @@ header .header-inner {
   text-align: center;
 }
 
-/* Spread nav links horizontally */
 .nav-center nav {
   display: flex;
   width: 100%;
-  justify-content: flex-end; /* push links toward right side */
+  justify-content: flex-end;
   align-items: center;
-  gap: 32px; /* breathing room between links */
-  margin-left: 0; /* remove previous manual offset */
+  gap: 32px;
 }
 
-/* Remove symmetric side margins; allow equal distribution */
 .nav-center a {
   flex: 0 0 auto;
   text-align: left;
@@ -269,15 +243,6 @@ header .header-inner {
   color: white;
 }
 
-.lang {
-  font-size: 13px;
-  color: var(--muted);
-  padding: 8px 10px;
-  background: var(--accent-light);
-  border-radius: 6px;
-  font-weight: 600;
-}
-
 .login {
   font-size: 14px;
   color: var(--muted);
@@ -310,47 +275,13 @@ header .header-inner {
   box-shadow: 0 6px 20px rgba(255, 122, 45, 0.35);
 }
 
-/* Typography and buttons - Enhanced */
+/* Typography and buttons */
 h1 {
   font-size: clamp(32px, 5vw, 52px);
   margin: 0 0 16px;
   line-height: 1.1;
   font-weight: 800;
   color: var(--navy);
-  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Fallback for browsers that don't support background-clip */
-@supports not (-webkit-background-clip: text) {
-  h1 {
-    color: var(--navy);
-    background: none;
-  }
-}
-
-/* Ensure hero heading is always visible: some browsers or overlays can make the
-   background-clip gradient render transparent; force a clear fallback for the
-   hero heading specifically so the title is always readable. */
-.hero h1 {
-  color: var(--navy) !important;
-  background: none !important;
-  -webkit-text-fill-color: unset !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
-  z-index: 2;
-  position: relative;
-}
-
-/* Ensure FAQ hero heading is always visible (disable gradient clip like hero) */
-.faq-hero h1 {
-  color: var(--navy) !important;
-  background: none !important;
-  -webkit-text-fill-color: unset !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
 }
 
 h2 {
@@ -420,7 +351,7 @@ p.lead {
   transform: translateY(-2px);
 }
 
-/* Hero section - Enhanced */
+/* Hero section */
 .hero {
   display: grid;
   grid-template-columns: 1fr;
@@ -472,13 +403,10 @@ p.lead {
 }
 
 .hero-visual .photo:hover img {
-  
   transform: scale(1.02);
 }
 
-
-
-/* How it works section - Enhanced */
+/* How it works section */
 section.how {
   padding: 48px 0;
 }
@@ -503,7 +431,6 @@ section.how {
 }
 
 .how-item {
-  /* Make cards more visible and eye-catching */
   background: linear-gradient(180deg, #ffffff 0%, #fff7f1 100%);
   padding: 32px 24px;
   text-align: center;
@@ -534,7 +461,6 @@ section.how {
 
 .how-item:hover::before { opacity: 0.9; }
 
-/* subtle glow around the icon to draw attention */
 .how-item::after {
   content: '';
   position: absolute;
@@ -560,7 +486,7 @@ section.how {
   text-align: center;
 }
 
-/* Icon styling - Enhanced */
+/* Icon styling */
 .how-icon, .icon-circle {
   width: 64px;
   height: 64px;
@@ -573,7 +499,6 @@ section.how {
   box-shadow: 0 10px 26px rgba(255, 122, 45, 0.18);
   transition: all 0.3s ease;
   position: relative;
-  /* icon color is driven by currentColor for easy theming */
   color: var(--accent);
 }
 
@@ -617,12 +542,7 @@ section.how {
   filter: drop-shadow(0 2px 4px rgba(255, 122, 45, 0.08));
 }
 
-/* Per-icon color overrides */
-.icon-earn { color: #00c851; }
-.icon-spend { color: var(--accent); }
-.icon-bonus { color: #ffd700; }
-
-/* Credit section - Enhanced */
+/* Credit section */
 .credit-wrap {
   background: linear-gradient(135deg, #fff6f0, #ffeee3);
   padding: 56px;
@@ -721,11 +641,10 @@ section.how {
   line-height: 1.5;
 }
 
-/* Footer - Enhanced */
+/* Footer */
 footer.site {
-  /* Solid fallback + gradient to avoid appearing white on some browsers */
   background-color: var(--navy);
-  background: var(--navy); /* match screenshot: flat navy tone */
+  background: var(--navy);
   color: #dfeaf6;
   margin-top: 64px;
   position: relative;
@@ -747,10 +666,10 @@ footer.site::before {
 .footer-inner {
   max-width: var(--max);
   margin: 0 auto;
-  padding: 48px 40px 32px; /* match new horizontal rhythm */
+  padding: 48px 40px 32px;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 40px; /* slightly more gap now that width increased */
+  gap: 40px;
   position: relative;
 }
 
@@ -770,9 +689,9 @@ footer.site::before {
 }
 
 .footer-brand .logo {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  height: 32px;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .follow {
@@ -816,7 +735,6 @@ footer.site::before {
 }
 
 .social-btn:hover img { transform: scale(1.12); }
-/* Removed stray closing brace */
 
 .footer-muted {
   color: rgba(223,234,246,0.8);
@@ -843,11 +761,10 @@ footer.site::before {
   color: #ffffff;
 }
 
-/* New contact area matching screenshot */
 .footer-contact-area {
   max-width: var(--max);
   margin: 0 auto;
-  padding: 8px 40px 40px; /* align with header/wrap */
+  padding: 8px 40px 40px;
   color: rgba(255,255,255,0.8);
   font-size: 14px;
 }
@@ -871,14 +788,31 @@ footer.site::before {
   color: rgba(255,255,255,0.6);
 }
 
-/* Responsive design */
-@media (min-width: 980px) {
-  .hero {
-    grid-template-columns: 1fr 700px;
-  }
+/* FAQ page styles */
+.faq-hero {
+  background: var(--gradient-warm);
+  border: 1px solid rgba(255, 122, 45, 0.08);
+  border-radius: 20px;
+  padding: 28px 24px;
+  margin: 32px 0 12px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(16,24,40,0.06);
 }
 
-/* FAQ page styles */
+.faq-badge {
+  position: absolute;
+  top: -16px;
+  left: -16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(255,122,45,0.25);
+}
+
 .faq {
   padding: 48px 0 64px;
 }
@@ -912,7 +846,7 @@ footer.site::before {
 .faq-item summary::-webkit-details-marker { display: none; }
 
 .faq-item summary::after {
-  content: '\25BE'; /* small caret */
+  content: '\25BE';
   position: absolute;
   right: 6px; top: 2px;
   color: var(--muted);
@@ -930,6 +864,210 @@ footer.site::before {
   color: var(--muted);
 }
 
+/* Promotional popup styles */
+.promo-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 38, 64, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.promo-static { margin: 32px 0 48px; }
+
+.promo-container {
+  background: #fdd8e5;
+  border-radius: 18px;
+  max-width: 920px;
+  width: 100%;
+  box-shadow: 0 30px 60px rgba(15, 38, 64, 0.2);
+  padding: 26px;
+  position: relative;
+  animation: slideUp 0.36s ease;
+  margin: 0 auto; /* center within page flow for static section */
+}
+
+.promo-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: 0;
+  font-size: 26px;
+  color: var(--navy);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.promo-close:hover {
+  background: rgba(15, 38, 64, 0.1);
+  border-radius: 50%;
+}
+
+.promo-body {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.promo-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: var(--navy);
+}
+
+.promo-content p {
+  margin: 0 0 14px 0;
+  color: var(--navy);
+  opacity: 0.9;
+}
+
+.promo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.promo-inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: center; /* keep everything on the same row */
+}
+
+.promo-field {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+/* Inline the email label with its input inside the row */
+.promo-inline-row .promo-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.promo-label {
+  font-size: 14px;
+  color: var(--navy);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+/* Compact the label when inline */
+.promo-inline-row .promo-label {
+  margin-bottom: 0;
+  font-size: 15px; /* increased label size */
+}
+
+.promo-field input {
+  padding: 10px 12px;
+  border: 2px solid rgba(15, 38, 64, 0.1);
+  border-radius: 12px;
+  font-size: 16px; /* larger input text */
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--navy);
+  transition: all 0.2s ease;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+/* Match placeholder size to input text */
+.promo-field input::placeholder {
+  font-size: 16px;
+}
+
+.promo-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 122, 45, 0.1);
+}
+
+.promo-inline-row input[type="email"] {
+  flex: 1 1 auto;
+}
+
+.promo-cta-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* center the button vertically with input */
+}
+
+.promo-btn {
+  height: 42px;
+  padding: 0 14px; /* reduce button length */
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.promo-cta-field .promo-label {
+  display: none;
+}
+
+.promo-more { 
+  margin-top: 8px; 
+  text-align: center; 
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(15,38,64,0.25);
+  z-index: 12000;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.toast.show { opacity:1; transform: translateY(0); }
+.toast.error { background: linear-gradient(135deg,#d92d20,#b42318); }
+
+/* Responsive design */
+@media (min-width: 980px) {
+  .hero {
+    grid-template-columns: 1fr 700px;
+  }
+}
+
 @media (max-width: 979px) {
   .nav-center {
     display: none;
@@ -937,51 +1075,145 @@ footer.site::before {
   .hamburger {
     display: inline-flex;
   }
-  /* Optional: tighten header paddings slightly on small screens */
   header .header-inner {
     padding: 14px 16px;
   }
-  /* Push controls (lang switch + hamburger) to far right on mobile/tablet */
   .header-right { margin-left: auto; }
-  
   .header-right {
     gap: 8px;
   }
-  
   .footer-inner {
     grid-template-columns: 1fr 1fr;
     gap: 24px;
   }
-  
   .actions {
     flex-direction: column;
   }
-  
   .btn {
     text-align: center;
     justify-content: center;
   }
 }
 
+@media (max-width: 1250px) and (min-width: 980px) {
+  header .header-inner { gap: 20px; }
+  .nav-center nav { gap: 20px; }
+  .brand strong { font-size: 16px; }
+  .btn-sign { padding: 8px 14px; }
+  .login { padding: 6px 10px; }
+}
+
+@media (min-width: 980px) {
+  .nav-center nav a { flex-shrink: 0; }
+  .header-right { flex-shrink: 0; }
+  .nav-center { min-width: 0; }
+}
+
 @media (max-width: 480px) {
   .wrap {
     padding: 16px 20px;
   }
-  /* Reduce hero image height on small phones */
   .hero-visual .photo { height: 280px; }
-  /* Hide desktop-only auth actions to reduce header crowding; in mobile menu instead */
   .header-right .login,
   .header-right .btn-sign { display: none; }
-  
   .credit-wrap {
     padding: 24px 20px;
   }
-  
   .credit-cards {
     flex-direction: column;
   }
-  /* Footer stacks to a single column for narrow screens */
   .footer-inner { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 780px) {
+  .promo-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .promo-content h3 {
+    font-size: 18px;
+    text-align: center;
+  }
+  .promo-content p {
+    font-size: 14px;
+    text-align: center;
+  }
+  .promo-inline-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .promo-inline-row input {
+    width: 100%;
+  }
+  .promo-inline-row input[type="text"] {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+  .promo-form { align-items: center; }
+  .promo-field { align-items: center; }
+  .promo-label { text-align: center; }
+  .promo-cta-field .promo-label { display: none; }
+  .promo-inline-row input[type="email"] {
+    max-width: 320px;
+    margin: 0 auto;
+  }
+  .promo-cta-field { align-items: center; }
+  .promo-btn {
+    font-size: 14px;
+    padding: 12px 16px;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    justify-content: center;
+  }
+  .promo-container {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .promo-overlay {
+    padding: 10px;
+  }
+  .promo-container {
+    padding: 15px;
+    margin: 0;
+    max-width: none;
+    width: auto;
+  }
+  .promo-content h3 {
+    font-size: 16px;
+  }
+  .promo-content p {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 780px) {
+  .promo-inline-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .promo-field, .promo-cta-field {
+    width: 100%;
+  }
+  .promo-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .promo-inline-row {
+    gap: 10px;
+  }
+  .promo-field input,
+  .promo-btn {
+    height: 44px;
+    font-size: 16px;
+  }
 }
 
 /* Enhanced animations */
@@ -989,19 +1221,15 @@ footer.site::before {
   .hero-visual {
     animation: fadeInUp 0.8s ease-out;
   }
-  
   .how-item {
     animation: fadeInUp 0.6s ease-out;
   }
-  
   .how-item:nth-child(2) {
     animation-delay: 0.1s;
   }
-  
   .how-item:nth-child(3) {
     animation-delay: 0.2s;
   }
-  
   .how-item:nth-child(4) {
     animation-delay: 0.3s;
   }
@@ -1045,259 +1273,3 @@ footer.site::before {
   white-space: nowrap;
   border: 0; padding: 0; margin: -1px;
 }
-/* Promotional popup styles - properly centered overlay */
-.promo-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(15, 38, 64, 0.45);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 20px;
-}
-
-.promo-container {
-  background: #fdd8e5;
-  border-radius: 18px;
-  max-width: 920px;
-  width: 100%;
-  box-shadow: 0 30px 60px rgba(15, 38, 64, 0.2);
-  padding: 26px;
-  position: relative;
-  animation: slideUp 0.36s ease;
-}
-
-.promo-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: transparent;
-  border: 0;
-  font-size: 26px;
-  color: var(--navy);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.promo-close:hover {
-  background: rgba(15, 38, 64, 0.1);
-  border-radius: 50%;
-}
-
-.promo-body {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-}
-
-.promo-icon {
-  flex: 0 0 72px;
-  width: 72px;
-  height: 72px;
-  background: linear-gradient(180deg, white, rgba(255, 255, 255, 0.92));
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 8px 20px rgba(255, 122, 45, 0.08);
-}
-
-.promo-content h3 {
-  margin: 0 0 8px 0;
-  font-size: 20px;
-  color: var(--navy);
-}
-
-.promo-content p {
-  margin: 0 0 14px 0;
-  color: var(--navy);
-  opacity: 0.9;
-}
-
-.promo-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.promo-label {
-  font-size: 16px;
-  color: var(--navy);
-  font-weight: 700;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.promo-inline-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.promo-field {
-  display: flex;
-  flex-direction: column;
-}
-
-.promo-field input {
-  padding: 10px 12px;
-  border: 2px solid rgba(15, 38, 64, 0.1);
-  border-radius: 12px;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--navy);
-  transition: all 0.2s ease;
-}
-
-.promo-field input[type="text"] {
-  border-radius: 12px;
-}
-
-.promo-field input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 122, 45, 0.1);
-}
-
-.promo-inline-row input[type="text"] {
-  flex: 0 0 140px;
-  min-width: 120px;
-  width: 140px;
-  height: 36px;
-}
-
-.promo-inline-row input[type="email"] {
-  flex: 1 1 auto;
-  height: 36px;
-}
-
-.promo-cta-field {
-  display: flex;
-  align-items: flex-end;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Responsive promo styles */
-@media (max-width: 780px) {
-  .promo-body {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  /* Hide the promo logo/icon on mobile per request */
-  .promo-icon { display: none; }
-  
-  .promo-content h3 {
-    font-size: 18px;
-    text-align: center;
-  }
-  
-  .promo-content p {
-    font-size: 14px;
-    text-align: center;
-  }
-  
-  .promo-inline-row {
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-  
-  .promo-inline-row input {
-    width: 100%;
-  }
-  
-  .promo-inline-row input[type="text"] {
-    width: 100%;
-    flex: 1 1 auto;
-  }
-  
-  /* Center labels and controls on mobile */
-  .promo-form { align-items: center; }
-  .promo-field { align-items: center; }
-  .promo-label { text-align: center; }
-  /* Hide the spacer label in the CTA column on mobile */
-  .promo-cta-field .promo-label { display: none; }
-  .promo-inline-row input[type="email"] {
-    max-width: 320px;
-    margin: 0 auto;
-  }
-  .promo-cta-field { align-items: center; }
-  .promo-btn {
-    font-size: 14px; /* slightly smaller button */
-    padding: 12px 16px;
-    width: 100%;
-    max-width: 320px; /* align width with input for neat stack */
-    margin: 0 auto;
-    justify-content: center;
-  }
-  
-  .promo-container {
-    padding: 18px;
-  }
-}
-
-@media (max-width: 640px) {
-  .promo-overlay {
-    padding: 10px;
-  }
-  
-  .promo-container {
-    padding: 15px;
-    margin: 0;
-    max-width: none;
-    width: auto;
-  }
-  
-  .promo-content h3 {
-    font-size: 16px;
-  }
-  
-  .promo-content p {
-    font-size: 13px;
-  }
-}
-  .promo-content { text-align: center; }
-
-  /* Toast notification component */
-  .toast {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-    color: #fff;
-    padding: 12px 18px;
-    border-radius: 12px;
-    font-weight: 600;
-    box-shadow: 0 10px 28px rgba(15,38,64,0.25);
-    z-index: 12000;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity .25s ease, transform .25s ease;
-    pointer-events: none;
-  }
-  .toast.show { opacity:1; transform: translateY(0); }
-  .toast.error { background: linear-gradient(135deg,#d92d20,#b42318); }
-
