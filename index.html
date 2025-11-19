@@ -450,10 +450,12 @@
           // Ignore clicks on the mobile hamburger toggle so it can open/close the menu
           if (el.classList.contains('hamburger') || el.hasAttribute('data-mobile-toggle')) return;
 
-          // Allow some links to function normally (How, About & FAQ)
+          // Allow some links to function normally (How, About, FAQ, mailto)
           if(el.tagName.toLowerCase()==='a'){
-            const href = el.getAttribute('href');
+            const href = el.getAttribute('href') || '';
             const key = el.getAttribute('data-i18n');
+            // Skip mailto links and contact footer area for selection/copy
+            if(href.startsWith('mailto:') || el.closest('.footer-contact-area') || el.closest('.contact-line')) return;
             if(href === '#how' || key === 'nav.how' || href === 'about.html' || key === 'nav.about' || href === 'faq.html' || key === 'nav.faq') return;
           }
 
