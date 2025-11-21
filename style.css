@@ -765,6 +765,7 @@ footer.site::before {
   display: flex;
   gap: 10px;
   align-items: center;
+  justify-content: flex-start; /* align left */
   color: rgba(223,234,246,0.9);
   font-size: 14px;
   user-select: text;
@@ -820,12 +821,14 @@ a.disabled-link,
   font-size: 16px;
   font-weight: 700;
   color: #ffffff;
+  text-align: center;
 }
 
 .copyright {
   margin-top: 14px;
   font-size: 13px;
   color: rgba(255,255,255,0.6);
+  text-align: center; /* keep copyright centered */
 }
 
 /* FAQ page styles */
