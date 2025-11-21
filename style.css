@@ -1098,24 +1098,42 @@ a.disabled-link,
 .toast.error { background: linear-gradient(135deg,#d92d20,#b42318); }
 
 /* Responsive design */
+@media (min-width: 860px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 540px);
+    gap: 40px;
+  }
+}
+
 @media (min-width: 980px) {
   .hero {
     grid-template-columns: minmax(0,1fr) minmax(480px, 640px);
     gap: 60px;
   }
 }
-@media (min-width: 1400px) {
+
+@media (min-width: 1200px) {
   .hero {
     grid-template-columns: minmax(0,1fr) minmax(520px, 700px);
-    gap: 80px;
+    gap: 70px;
   }
   .hero-visual { max-width: 760px; }
+  h1 { font-size: clamp(40px, 3.5vw, 56px); }
+  p.lead { font-size: 18px; max-width: 55ch; }
 }
 
-@media (min-width: 1800px) {
-  .wrap { padding-left: 60px; padding-right: 60px; }
-  .hero { gap: 100px; }
-  h1 { font-size: clamp(40px, 3.6vw, 60px); }
+@media (min-width: 1600px) {
+  .wrap { padding-left: 48px; padding-right: 48px; }
+  .hero { gap: 80px; }
+  h1 { font-size: clamp(44px, 3.2vw, 62px); }
+}
+
+@media (min-width: 1900px) {
+  .wrap { max-width: 90vw; padding-left: 64px; padding-right: 64px; }
+  .hero { gap: clamp(80px, 8vw, 120px); }
+  h1 { font-size: clamp(48px, 3vw, 68px); }
+  .how-grid { gap: 32px; }
+  .credit-wrap { padding: 64px 48px; }
 }
 
 @media (max-width: 979px) {
@@ -1163,7 +1181,7 @@ a.disabled-link,
   .wrap {
     padding: 16px 20px;
   }
-  .hero-visual .photo { height: 280px; }
+  .hero-visual .photo { height: clamp(280px, 40vh, 360px); }
   .header-right .login,
   .header-right .btn-sign { display: none; }
   .credit-wrap {
@@ -1173,13 +1191,22 @@ a.disabled-link,
     flex-direction: column;
   }
   .footer-inner { grid-template-columns: 1fr; }
+  h1 { font-size: clamp(28px, 8vw, 36px); }
+  h2 { font-size: clamp(26px, 7vw, 32px); }
+  p.lead { font-size: 16px; }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 779px) {
   .promo-body {
     flex-direction: column;
     align-items: stretch;
   }
+  /* Tablet mobile optimizations */
+  .hero { margin-top: 28px; gap: 28px; }
+  .credit-wrap { padding: 32px 24px; }
+  .how-item { padding: 28px 20px; }
+  h1 { font-size: clamp(32px, 6.5vw, 48px); }
+  h2 { font-size: clamp(28px, 6vw, 38px); }
   .promo-content h3 {
     font-size: 18px;
     text-align: center;
@@ -1220,6 +1247,16 @@ a.disabled-link,
   .promo-container {
     padding: 18px;
   }
+}
+
+/* Mid-size tablet refinement */
+@media (min-width: 641px) and (max-width: 859px) {
+  .wrap { padding: 24px 32px; }
+  .hero { margin-top: 36px; }
+  .how-grid { gap: 20px; }
+  .credit-cards { gap: 20px; }
+  h1 { font-size: clamp(36px, 6vw, 48px); }
+  p.lead { font-size: 17px; }
 }
 
 @media (max-width: 640px) {
