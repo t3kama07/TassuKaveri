@@ -56,8 +56,10 @@ a {
 /* Layout */
 .wrap {
   max-width: var(--max);
+  width: 100%;
   margin: 0 auto;
   padding: 28px 40px;
+  box-sizing: border-box;
 }
 
 /* Header */
@@ -79,6 +81,7 @@ header .header-inner {
   display: flex;
   align-items: center;
   gap: 28px;
+  box-sizing: border-box;
 }
 
 /* Mobile hamburger */
@@ -681,12 +684,14 @@ footer.site::before {
 
 .footer-inner {
   max-width: var(--max);
+  width: 100%;
   margin: 0 auto;
   padding: 48px 40px 32px;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 40px;
   position: relative;
+  box-sizing: border-box;
 }
 
 .footer-inner h4 {
@@ -796,10 +801,12 @@ a.disabled-link,
 
 .footer-contact-area {
   max-width: var(--max);
+  width: 100%;
   margin: 0 auto;
   padding: 8px 40px 40px;
   color: rgba(255,255,255,0.8);
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 .footer-divider {
