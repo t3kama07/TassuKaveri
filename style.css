@@ -196,6 +196,8 @@ header .header-inner {
 .nav-center {
   flex: 1 1 auto;
   text-align: center;
+  min-width: 0; /* prevent nav overflow */
+  overflow: hidden; /* contain nav within bounds */
 }
 
 .nav-center nav {
@@ -204,6 +206,7 @@ header .header-inner {
   justify-content: flex-end;
   align-items: center;
   gap: 32px;
+  flex-wrap: wrap;
 }
 
 .nav-center a {
@@ -1163,12 +1166,19 @@ a.disabled-link,
   }
 }
 
-@media (max-width: 1250px) and (min-width: 980px) {
-  header .header-inner { gap: 20px; }
-  .nav-center nav { gap: 20px; }
+/* Early narrowing of header to prevent nav overlap */
+@media (max-width: 1250px) {
+  header .header-inner { gap: 16px; padding: 14px 24px; }
+  .nav-center nav { gap: 24px; }
   .brand strong { font-size: 16px; }
-  .btn-sign { padding: 8px 14px; }
-  .login { padding: 6px 10px; }
+}
+
+@media (max-width: 1100px) {
+  header .header-inner { gap: 12px; padding: 12px 20px; }
+  .nav-center nav { gap: 20px; font-size: 13px; }
+  .nav-center a { padding: 6px 3px; font-size: 13px; }
+  .login { padding: 6px 10px; font-size: 13px; }
+  .btn-sign { padding: 8px 12px; font-size: 13px; }
 }
 
 @media (min-width: 980px) {
