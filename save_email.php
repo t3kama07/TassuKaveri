@@ -6,11 +6,30 @@ require __DIR__ . '/phpmailer/src/PHPMailer.php';
 require __DIR__ . '/phpmailer/src/SMTP.php';
 require __DIR__ . '/phpmailer/src/Exception.php';
 
-// Database
-$host = "localhost";
-$user = "tasslszw_tassu_user"; 
-$pass = "Priyanath@1990"; 
-$db   = "tasslszw_tassu_db"; 
+// Load environment variables from .env file
+$envFile = __DIR__ . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+            list($key, $value) = explode('=', $line, 2);
+            $_ENV[trim($key)] = trim($value);
+        }
+    }
+}
+
+// Get credentials from environment variables
+$host = $_ENV['DB_HOST'] ?? 'localhost';
+$user = $_ENV['DB_USER'] ?? '';
+$pass = $_ENV['DB_PASS'] ?? '';
+$db   = $_ENV['DB_NAME'] ?? '';
+
+$smtpHost     = $_ENV['SMTP_HOST'] ?? '';
+$smtpUser     = $_ENV['SMTP_USER'] ?? '';
+$smtpPass     = $_ENV['SMTP_PASS'] ?? '';
+$smtpPort     = $_ENV['SMTP_PORT'] ?? 465;
+$fromEmail    = $_ENV['FROM_EMAIL'] ?? 'no-reply@tassukaveri.fi';
+$adminEmail   = $_ENV['ADMIN_EMAIL'] ?? 'info@tassukaveri.fi';
 
 $email = trim($_POST['email'] ?? '');
 
@@ -41,14 +60,14 @@ $mail = new PHPMailer(true);
 
 try {
     $mail->isSMTP();
-    $mail->Host = 'server704.web-hosting.com';
+    $mail->Host = $smtpHost;
     $mail->SMTPAuth = true;
-    $mail->Username = 'no-reply@tassukaveri.fi';
-    $mail->Password = 'Priyanath@1990';
+    $mail->Username = $smtpUser;
+    $mail->Password = $smtpPass;
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-    $mail->Port = 465;
+    $mail->Port = $smtpPort;
 
-    $mail->setFrom('no-reply@tassukaveri.fi', 'TassuKaveri');
+    $mail->setFrom($fromEmail, 'TassuKaveri');
     $mail->addAddress($email);
 
     $mail->Subject = "Tervetuloa TassuKaveriin!";
@@ -74,21 +93,21 @@ try {
 try {
     $adminMail = new PHPMailer(true);
     $adminMail->isSMTP();
-    $adminMail->Host = 'server704.web-hosting.com';
+    $adminMail->Host = $smtpHost;
     $adminMail->SMTPAuth = true;
-    $adminMail->Username = 'no-reply@tassukaveri.fi';
-    $adminMail->Password = 'Priyanath@1990';
+    $adminMail->Username = $smtpUser;
+    $adminMail->Password = $smtpPass;
     $adminMail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-    $adminMail->Port = 465;
+    $adminMail->Port = $smtpPort;
 
-    $adminMail->setFrom('no-reply@tassukaveri.fi', 'TassuKaveri');
-    $adminMail->addAddress('info@tassukaveri.fi'); // Admin email
+    $adminMail->setFrom($fromEmail, 'TassuKaveri');
+    $adminMail->addAddress($adminEmail); // Admin email
 
     $adminMail->Subject = "New Subscriber Joined";
     $adminMail->isHTML(true);
     $adminMail->Body = "
         <h2>New subscriber joined TassuKaveri</h2>
-        <p><strong>Email:</strong> $email</p>
+        <p><strong>Email:</strong> " . htmlspecialchars($email) . "</p>
         <p>Timestamp: " . date("Y-m-d H:i:s") . "</p>
     ";
 
