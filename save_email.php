@@ -34,7 +34,9 @@ if (!$conn->connect_errno) {
     }
 }
 
-// Send email
+
+// 1️ SEND WELCOME EMAIL TO USER
+
 $mail = new PHPMailer(true);
 
 try {
@@ -56,13 +58,45 @@ try {
     if (file_exists($template)) {
         $mail->Body = file_get_contents($template);
     } else {
-        $mail->Body = "<h2>Tervetuloa TassuKaveriin!</h2><p>Kiitos liittymisest채!</p>";
+        $mail->Body = "<h2>Tervetuloa TassuKaveriin!</h2><p>Kiitos liittymisestä!</p>";
     }
 
     $mail->send();
-    echo "success";
 
 } catch (Exception $e) {
-    echo "Mailer Error: " . $mail->ErrorInfo;
+    // do not stop script
 }
+
+
+// 2 SEND ADMIN NOTIFICATION TO info@tassukaveri.fi
+
+
+try {
+    $adminMail = new PHPMailer(true);
+    $adminMail->isSMTP();
+    $adminMail->Host = 'server704.web-hosting.com';
+    $adminMail->SMTPAuth = true;
+    $adminMail->Username = 'no-reply@tassukaveri.fi';
+    $adminMail->Password = 'Priyanath@1990';
+    $adminMail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+    $adminMail->Port = 465;
+
+    $adminMail->setFrom('no-reply@tassukaveri.fi', 'TassuKaveri');
+    $adminMail->addAddress('info@tassukaveri.fi'); // Admin email
+
+    $adminMail->Subject = "New Subscriber Joined";
+    $adminMail->isHTML(true);
+    $adminMail->Body = "
+        <h2>New subscriber joined TassuKaveri</h2>
+        <p><strong>Email:</strong> $email</p>
+        <p>Timestamp: " . date("Y-m-d H:i:s") . "</p>
+    ";
+
+    $adminMail->send();
+
+} catch (Exception $e) {
+    // don't show error to user
+}
+
+echo "success";
 ?>
