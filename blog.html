@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TassuKaveri • Blogi</title>
+  <meta name="description" content="Lue TassuKaverin blogista vinkkejä, uutisia ja artikkeleita lemmikkien hoidosta ja yhteisöllisyydestä.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="canonical" href="https://tassukaveri.fi/blog.html">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner wrap">
+      <a class="brand" href="index.html">
+        <img src="assest/Logo.png" class="logo" alt="TassuKaveri logo" loading="lazy">
+      </a>
+      <nav aria-label="primary">
+        <a href="index.html">Etusivu</a>
+        <a href="about.html">Tietoja</a>
+        <a href="faq.html">UKK</a>
+        <a href="blog.html" aria-current="page">Blogi</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="blog-hero">
+      <h1>Blogi</h1>
+      <p>Tervetuloa TassuKaverin blogiin! Täältä löydät vinkkejä, uutisia ja tarinoita lemmikkien hoidosta sekä yhteisöllisestä toiminnasta Suomessa.</p>
+    </section>
+    <section class="blog-list">
+      <!-- Esimerkkipostaus -->
+      <article class="blog-post">
+        <h2><a href="#">Miksi yhteisöllinen lemmikinhoito kannattaa?</a></h2>
+        <p class="blog-meta">29.11.2025 • TassuKaveri-tiimi</p>
+        <p>Lemmikinhoito yhteisössä tuo turvaa, säästöjä ja uusia ystäviä. Lue miksi yhä useampi suomalainen valitsee TassuKaverin!</p>
+        <a href="#" class="btn btn-primary">Lue lisää</a>
+      </article>
+      <!-- Lisää artikkeleita tähän -->
+    </section>
+  </main>
+  <footer class="site" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <a class="brand footer-brand" href="#"><strong>TassuKaveri</strong></a>
+        <p class="footer-muted">Suomen luotettu yhteisö lemmikkihuollon vaihtoon.</p>
+        <div class="contact-line"><a href="mailto:info@tassukaveri.fi">info@tassukaveri.fi</a></div>
+        <div class="follow">Seuraa meitä</div>
+        <div class="socials" aria-hidden="true">
+          <a class="social-btn" href="https://www.facebook.com/TassuKaveri" title="Facebook" aria-label="Facebook" rel="noopener" target="_blank"><img src="assest/facebook.png" alt="Facebook" width="20" height="20" loading="lazy" /></a>
+          <a class="social-btn" href="#" title="Instagram" aria-label="Instagram"><img src="assest/instagram.png" alt="Instagram" width="20" height="20" loading="lazy" /></a>
+          <a class="social-btn disabled-link" title="TikTok" aria-label="TikTok"><img src="assest/tik-tok.png" alt="TikTok" width="20" height="20" loading="lazy" /></a>
+        </div>
+      </div>
+      <div>
+        <h4>Yritys</h4>
+        <a href="about.html">Tietoja</a><br>
+        <a href="#how">Kuinka se toimii</a><br>
+        <a href="blog.html">Blogi</a><br>
+        <a class="disabled-link">Turvallisuus</a><br>
+      </div>
+      <div>
+        <h4>Tuki</h4>
+        <a class="disabled-link">Ohjekeskus</a><br>
+        <a class="disabled-link">Ota yhteyttä</a><br>
+        <a class="disabled-link">Yhteisön säännöt</a><br>
+      </div>
+      <div>
+        <h4>Lainopilliset</h4>
+        <a class="disabled-link">Tietosuojakäytäntö</a><br>
+        <a class="disabled-link">Käyttöehdot</a><br>
+        <a class="disabled-link">Evästekäytäntö</a><br>
+      </div>
+    </div>
+    <div class="footer-contact-area">
+      <div class="footer-divider" aria-hidden="true"></div>
+      <div class="copyright">© <span id="year"></span> TassuKaveri</div>
+    </div>
+  </footer>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

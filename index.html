@@ -91,8 +91,10 @@
             <button class="lang-btn" data-lang="fi" aria-pressed="false">FI</button>
             <button class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
           </div>
-          <a class="login" href="#login" data-i18n="login">Login</a>
-          <a class="btn-sign" href="#signup" data-i18n="signup">Sign Up</a>
+          <!-- <a class="login" href="#login" data-i18n="login">Login</a>
+          <a class="btn-sign" href="#signup" data-i18n="signup">Sign Up</a> -->
+<a class="btn-sign" href="#" onclick="showPromoOverlay()" data-i18n="waitlist.cta">Join the Waitlist</a>
+
           <!-- Mobile hamburger toggle -->
           <button class="hamburger" type="button" aria-label="Toggle menu" aria-controls="mobile-menu" aria-expanded="false" data-mobile-toggle>
             <span class="bar" aria-hidden="true"></span>
@@ -109,8 +111,10 @@
           <a href="faq.html" data-i18n="nav.faq">FAQ</a>
           <a class="disabled-link" data-i18n="nav.contact">Contact</a>
           <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
-          <a href="#login" data-i18n="login">Login</a>
-          <a href="#signup" data-i18n="signup">Sign Up</a>
+          <!-- <a href="#login" data-i18n="login">Login</a>
+          <a href="#signup" data-i18n="signup">Sign Up</a> -->
+<a href="#" onclick="showPromoOverlay()" class="btn-sign" data-i18n="waitlist.cta">Join the Waitlist</a>
+
         </div>
       </nav>
     </header>
@@ -226,6 +230,7 @@
           <h4 data-i18n="footer.company">Company</h4>
           <a href="about.html" data-i18n="nav.about">About Us</a><br>
           <a href="#how" data-i18n="nav.how">How it Works</a><br>
+          <a href="blog.html" id="footer-blog-link" data-i18n="footer.blog">Blog</a><br>
           <a class="disabled-link" data-i18n="footer.safety">Safety</a><br>
         </div>
         <div>
@@ -282,7 +287,7 @@
       (function(){
         const strings = {
           en: {
-            'nav.how':'How it Works','nav.find':'Find Sitter','nav.become':'Become Sitter','nav.about':'About','nav.faq':'FAQ','nav.contact':'Contact',
+            'nav.how':'How it Works','nav.find':'Find Sitter','nav.become':'Become Sitter','nav.about':'About','nav.faq':'FAQ','nav.contact':'Contact', 
             'hero.title':'Community Pet Care<br><span class="accent">Made Simple</span>',
             'hero.lead':'Join Finland\'s trusted pet-sitting community. Exchange pet care time using credits no money involved. Safe, reliable, and built for pet lovers.',
             'hero.find':'Find a Pet Sitter','hero.become':'Become a Sitter','how.title':'How TassuKaveri Works','how.subtitle':'Simple credit-based pet care exchange',
@@ -297,6 +302,7 @@
             'login':'Login','signup':'Sign Up',
             'promo.heading':'Early Bird Bonus 50 Free Credits for the First 100 Sign-ups!','promo.description':'Be one of the first pet owners or sitters to join the TassuKaveri waitlist and get 50 bonus credits to start exchanging pet care time.','promo.email.label':'Email address','promo.email.placeholder':'Enter your email address','promo.cta':'Join & Claim Bonus','promo.more':'More info',
             'footer.tagline':'Finland\'s trusted community for pet care exchange. Join thousands of pet lovers sharing care through our credit system.',
+                        'footer.blog':'Blog',
             'footer.follow':'Follow Us',
             'footer.company':'Company',
             'footer.safety':'Safety',
@@ -308,7 +314,8 @@
             'footer.privacy':'Privacy Policy',
             'footer.terms':'Terms of Service',
             'footer.cookies':'Cookie Policy',
-            'footer.contactinfo':'Contact Info'
+            'footer.contactinfo':'Contact Info','waitlist.cta': 'Join the Waitlist',
+
           },
           fi: {
             'nav.how':'Kuinka se toimii','nav.find':'Etsi hoitajaa','nav.become':'Ryhdy hoitajaksi','nav.about':'Tietoja','nav.faq':'UKK','nav.contact':'Yhteystiedot',
@@ -326,6 +333,7 @@
             'login':'Kirjaudu','signup':'Rekisteröidy',
             'promo.heading':'Early Bird -etu 50 ilmaista krediittiä ensimmäisille 100 rekisteröityneelle!','promo.description':'Ole yksi ensimmäisistä lemmikinomistajista tai hoitajista, jotka liittyvät TassuKaverin jonotuslistalle, ja saat 50 bonuskrediittiä lemmikinhoitoajan vaihtamiseen. Tarjous koskee vain ensimmäistä 100 jäsentä.','promo.email.label':'Sähköpostiosoite','promo.email.placeholder':'Kirjoita sähköpostiosoitteesi','promo.cta':'Liity & Hae Bonusta','promo.more':'Lisätietoja',
             'footer.tagline':'Suomen luotettu yhteisö lemmikkihuollon vaihtoon. Liity tuhansien lemmikkirakastajien joukkoon.',
+                        'footer.blog':'Blogi',
             'footer.follow':'Seuraa meitä',
             'footer.company':'Yritys',
             'footer.safety':'Turvallisuus',
@@ -337,7 +345,9 @@
             'footer.privacy':'Tietosuojakäytäntö',
             'footer.terms':'Käyttöehdot',
             'footer.cookies':'Evästekäytäntö',
-            'footer.contactinfo':'Yhteystiedot'
+            'footer.contactinfo':'Yhteystiedot',
+            'waitlist.cta': 'Liity jonolistalle',
+
           }
         };
 
@@ -478,7 +488,7 @@
             const key = el.getAttribute('data-i18n');
             // Skip mailto links and contact footer area for selection/copy
             if(href.startsWith('mailto:') || el.closest('.footer-contact-area') || el.closest('.contact-line')) return;
-            if(href === '#how' || key === 'nav.how' || href === 'about.html' || key === 'nav.about' || href === 'faq.html' || key === 'nav.faq') return;
+            if(href === '#how' || key === 'nav.how' || href === 'about.html' || key === 'nav.about' || href === 'faq.html' || key === 'nav.faq' || href === 'blog.html' || key === 'footer.blog') return;
           }
 
           // If button is disabled, don't intercept
