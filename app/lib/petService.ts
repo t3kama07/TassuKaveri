@@ -6,8 +6,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  serverTimestamp,
-  Timestamp 
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Pet, CreatePetData, UpdatePetData } from '@/types/pet';
@@ -31,6 +30,15 @@ export async function createPet(ownerId: string, data: CreatePetData): Promise<s
     age: data.age,
     size: data.size,
     notes: data.notes,
+    behaviour: data.behaviour || '',
+    allergies: data.allergies || '',
+    vaccinationStatus: data.vaccinationStatus || '',
+    friendlyWithDogs: Boolean(data.friendlyWithDogs),
+    friendlyWithCats: Boolean(data.friendlyWithCats),
+    friendlyWithChildren: Boolean(data.friendlyWithChildren),
+    medicationRequired: Boolean(data.medicationRequired),
+    specialCareInstructions: data.specialCareInstructions || '',
+    emergencyVetContact: data.emergencyVetContact || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -58,6 +66,15 @@ export async function getPet(ownerId: string, petId: string): Promise<Pet | null
     age: data.age,
     size: data.size,
     notes: data.notes,
+    behaviour: data.behaviour || '',
+    allergies: data.allergies || '',
+    vaccinationStatus: data.vaccinationStatus || '',
+    friendlyWithDogs: Boolean(data.friendlyWithDogs),
+    friendlyWithCats: Boolean(data.friendlyWithCats),
+    friendlyWithChildren: Boolean(data.friendlyWithChildren),
+    medicationRequired: Boolean(data.medicationRequired),
+    specialCareInstructions: data.specialCareInstructions || '',
+    emergencyVetContact: data.emergencyVetContact || '',
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
@@ -82,6 +99,15 @@ export async function getUserPets(ownerId: string): Promise<Pet[]> {
       age: data.age,
       size: data.size,
       notes: data.notes,
+      behaviour: data.behaviour || '',
+      allergies: data.allergies || '',
+      vaccinationStatus: data.vaccinationStatus || '',
+      friendlyWithDogs: Boolean(data.friendlyWithDogs),
+      friendlyWithCats: Boolean(data.friendlyWithCats),
+      friendlyWithChildren: Boolean(data.friendlyWithChildren),
+      medicationRequired: Boolean(data.medicationRequired),
+      specialCareInstructions: data.specialCareInstructions || '',
+      emergencyVetContact: data.emergencyVetContact || '',
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     });
@@ -102,8 +128,12 @@ export async function updatePet(ownerId: string, petId: string, data: UpdatePetD
     throw new Error('Pet not found');
   }
 
+  const filteredData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+
   await updateDoc(petRef, {
-    ...data,
+    ...filteredData,
     updatedAt: serverTimestamp(),
   });
 }

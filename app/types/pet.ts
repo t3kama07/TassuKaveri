@@ -10,6 +10,15 @@ export interface Pet {
   age: number;
   size: PetSize;
   notes: string;
+  behaviour: string;
+  allergies: string;
+  vaccinationStatus: string;
+  friendlyWithDogs: boolean;
+  friendlyWithCats: boolean;
+  friendlyWithChildren: boolean;
+  medicationRequired: boolean;
+  specialCareInstructions: string;
+  emergencyVetContact: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +30,15 @@ export interface CreatePetData {
   age: number;
   size: PetSize;
   notes: string;
+  behaviour?: string;
+  allergies?: string;
+  vaccinationStatus?: string;
+  friendlyWithDogs?: boolean;
+  friendlyWithCats?: boolean;
+  friendlyWithChildren?: boolean;
+  medicationRequired?: boolean;
+  specialCareInstructions?: string;
+  emergencyVetContact?: string;
 }
 
 export interface UpdatePetData {
@@ -30,4 +48,13 @@ export interface UpdatePetData {
   age?: number;
   size?: PetSize;
   notes?: string;
+  behaviour?: string;
+  allergies?: string;
+  vaccinationStatus?: string;
+  friendlyWithDogs?: boolean;
+  friendlyWithCats?: boolean;
+  friendlyWithChildren?: boolean;
+  medicationRequired?: boolean;
+  specialCareInstructions?: string;
+  emergencyVetContact?: string;
 }

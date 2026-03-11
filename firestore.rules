@@ -1,0 +1,262 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function userDoc(userId) {
+      return get(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isAdmin() {
+      return signedIn() && userDoc(request.auth.uid).data.role == 'admin';
+    }
+
+    function actorNotFrozen() {
+      return !signedIn() || userDoc(request.auth.uid).data.frozen != true;
+    }
+
+    function ownerOrAdmin(userId) {
+      return isSelf(userId) || isAdmin();
+    }
+
+    match /users/{userId} {
+      // Needed for sitter discovery and public owner/sitter metadata in request flow.
+      allow read: if signedIn();
+      allow create, update: if ownerOrAdmin(userId) && actorNotFrozen();
+      allow delete: if isAdmin();
+
+      match /pets/{petId} {
+        allow read, create, update, delete: if ownerOrAdmin(userId) && actorNotFrozen();
+      }
+
+      match /wallet/{walletId} {
+        function walletDocPath() {
+          return /databases/$(database)/documents/users/$(userId)/wallet/$(walletId);
+        }
+
+        function escrowReleaseWalletUpdateAllowed() {
+          let action = request.resource.data.lastWalletAction;
+          let requestId = request.resource.data.lastRequestId;
+          let ownerId = request.resource.data.lastRequestOwnerId;
+          let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+          return signedIn()
+            && actorNotFrozen()
+            && action == 'escrow_release'
+            && request.auth.uid == ownerId
+            && requestDoc.ownerId == ownerId
+            && requestDoc.sitterId == userId
+            && requestDoc.status == 'completed'
+            && requestDoc.escrowStatus == 'released'
+            && request.resource.data.balance == resource.data.balance + requestDoc.creditsOffered;
+        }
+
+        function escrowRefundWalletUpdateAllowed() {
+          let action = request.resource.data.lastWalletAction;
+          let requestId = request.resource.data.lastRequestId;
+          let ownerId = request.resource.data.lastRequestOwnerId;
+          let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+          return signedIn()
+            && actorNotFrozen()
+            && action == 'escrow_refund'
+            && userId == ownerId
+            && (request.auth.uid == ownerId || request.auth.uid == requestDoc.sitterId)
+            && requestDoc.ownerId == ownerId
+            && requestDoc.status == 'cancelled'
+            && requestDoc.escrowStatus == 'refunded'
+            && request.resource.data.balance == resource.data.balance + requestDoc.creditsOffered;
+        }
+
+        allow read, create: if ownerOrAdmin(userId) && actorNotFrozen();
+        allow update: if (ownerOrAdmin(userId) && actorNotFrozen())
+          || escrowReleaseWalletUpdateAllowed()
+          || escrowRefundWalletUpdateAllowed();
+        allow delete: if false;
+
+        match /transactions/{txId} {
+          function escrowReleaseTransactionAllowed() {
+            let walletAfter = getAfter(walletDocPath()).data;
+            let ownerId = walletAfter.lastRequestOwnerId;
+            let requestId = walletAfter.lastRequestId;
+            let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+            return signedIn()
+              && actorNotFrozen()
+              && request.resource.data.type == 'escrow-release'
+              && request.resource.data.requestId == requestId
+              && walletAfter.lastWalletAction == 'escrow_release'
+              && request.auth.uid == ownerId
+              && requestDoc.ownerId == ownerId
+              && requestDoc.sitterId == userId
+              && requestDoc.status == 'completed'
+              && requestDoc.escrowStatus == 'released'
+              && request.resource.data.amount == requestDoc.creditsOffered;
+          }
+
+          function escrowRefundTransactionAllowed() {
+            let walletAfter = getAfter(walletDocPath()).data;
+            let ownerId = walletAfter.lastRequestOwnerId;
+            let requestId = walletAfter.lastRequestId;
+            let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+            return signedIn()
+              && actorNotFrozen()
+              && request.resource.data.type == 'escrow-refund'
+              && request.resource.data.requestId == requestId
+              && walletAfter.lastWalletAction == 'escrow_refund'
+              && userId == ownerId
+              && (request.auth.uid == ownerId || request.auth.uid == requestDoc.sitterId)
+              && requestDoc.ownerId == ownerId
+              && requestDoc.status == 'cancelled'
+              && requestDoc.escrowStatus == 'refunded'
+              && request.resource.data.amount == requestDoc.creditsOffered;
+          }
+
+          allow read: if ownerOrAdmin(userId);
+          allow create: if (ownerOrAdmin(userId) && actorNotFrozen())
+            || escrowReleaseTransactionAllowed()
+            || escrowRefundTransactionAllowed();
+          allow update, delete: if false;
+        }
+      }
+
+      match /requests/{requestId} {
+        function isRequestOwner() {
+          return isSelf(userId);
+        }
+
+        function isAssignedSitter() {
+          return signedIn() && resource.data.sitterId == request.auth.uid;
+        }
+
+        // Sitter apply/withdraw support: only applications + updatedAt can change on open requests.
+        function applicantApplicationUpdateAllowed() {
+          return signedIn()
+            && actorNotFrozen()
+            && !isRequestOwner()
+            && resource.data.status == 'open'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applications', 'updatedAt']);
+        }
+
+        // Sitter flow support:
+        // accepted -> awaiting_confirmation, or accepted/awaiting_confirmation -> cancelled.
+        function assignedSitterStatusUpdateAllowed() {
+          return signedIn()
+            && actorNotFrozen()
+            && isAssignedSitter()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'escrowStatus'])
+            && (
+              (resource.data.status == 'accepted'
+                && request.resource.data.status == 'awaiting_confirmation'
+                && request.resource.data.escrowStatus == resource.data.escrowStatus)
+              || (
+                (resource.data.status == 'accepted' || resource.data.status == 'awaiting_confirmation')
+                && request.resource.data.status == 'cancelled'
+                && request.resource.data.escrowStatus == 'refunded'
+              )
+            );
+        }
+
+        allow read: if signedIn() && (
+          resource.data.status == 'open'
+          || isRequestOwner()
+          || isAssignedSitter()
+          || isAdmin()
+        );
+        allow create: if isRequestOwner() && actorNotFrozen();
+        allow update, delete: if (isRequestOwner() && actorNotFrozen())
+          || applicantApplicationUpdateAllowed()
+          || assignedSitterStatusUpdateAllowed()
+          || isAdmin();
+
+        match /conversations/{conversationId} {
+          function participantInConversation(data) {
+            return signedIn()
+              && data.participants is list
+              && request.auth.uid in data.participants;
+          }
+
+          allow read: if isAdmin() || participantInConversation(resource.data);
+          allow create: if signedIn()
+            && actorNotFrozen()
+            && participantInConversation(request.resource.data)
+            && request.resource.data.ownerId == userId
+            && request.resource.data.requestId == requestId;
+          allow update: if signedIn()
+            && actorNotFrozen()
+            && (isAdmin() || participantInConversation(resource.data))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'lastMessage',
+              'lastMessageAt',
+              'updatedAt',
+              'status'
+            ]);
+          allow delete: if isAdmin() || isRequestOwner();
+
+          match /messages/{messageId} {
+            function parentConversation() {
+              return get(
+                /databases/$(database)/documents/users/$(userId)/requests/$(requestId)/conversations/$(conversationId)
+              );
+            }
+
+            function participantInParentConversation() {
+              return signedIn()
+                && parentConversation().data.participants is list
+                && request.auth.uid in parentConversation().data.participants;
+            }
+
+            allow read: if isAdmin() || participantInParentConversation();
+            allow create: if signedIn()
+              && actorNotFrozen()
+              && participantInParentConversation()
+              && request.resource.data.senderId == request.auth.uid
+              && request.resource.data.ownerId == userId
+              && request.resource.data.requestId == requestId
+              && request.resource.data.sitterId == parentConversation().data.sitterId;
+            allow update: if signedIn()
+              && actorNotFrozen()
+              && participantInParentConversation()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+            allow delete: if isAdmin();
+          }
+        }
+      }
+    }
+
+    match /favorites/{favoriteId} {
+      allow read: if signedIn()
+        && (
+          resource.data.ownerId == request.auth.uid
+          || resource.data.sitterId == request.auth.uid
+          || isAdmin()
+        );
+      allow create: if signedIn()
+        && actorNotFrozen()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.sitterId is string
+        && request.resource.data.sitterId != request.auth.uid;
+      allow delete: if signedIn()
+        && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if signedIn() && actorNotFrozen();
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow create: if signedIn() && actorNotFrozen();
+      allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+  }
+}

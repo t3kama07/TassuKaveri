@@ -4,7 +4,6 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/types/profile';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -12,7 +11,6 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
-  const [role, setRole] = useState<UserRole>('owner');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup, user } = useAuth();
@@ -47,8 +45,8 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      await signup(email, password, { name, location, role });
-      router.push('/dashboard');
+      await signup(email, password, { name, location });
+      router.push('/verify-email');
     } catch (err: any) {
       setError('Failed to create account: ' + (err.message || 'Unknown error'));
     } finally {
@@ -92,21 +90,6 @@ export default function SignupPage() {
             placeholder="e.g., Helsinki"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#0f2640] mb-1">
-            Role
-          </label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as UserRole)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-          >
-            <option value="owner">Pet Owner</option>
-            <option value="sitter">Pet Sitter</option>
-            <option value="both">Both</option>
-          </select>
         </div>
 
         <div>

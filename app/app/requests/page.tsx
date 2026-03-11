@@ -1,22 +1,41 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserRequests, createRequest, updateRequest, cancelRequest, deleteRequest } from '@/lib/requestService';
+import {
+  getUserRequests,
+  getSitterRequests,
+  createRequest,
+  updateRequest,
+  cancelRequest,
+  deleteRequest,
+  cancelAcceptedRequest,
+  markAwaitingConfirmation,
+  confirmCompletion,
+  acceptApplication,
+  submitReview,
+} from '@/lib/requestService';
 import { getUserPets } from '@/lib/petService';
-import { Request, CreateRequestData, CareType } from '@/types/request';
+import { Request, CreateRequestData, CareType, RequestApplication } from '@/types/request';
 import { Pet } from '@/types/pet';
 
 export default function RequestsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [requests, setRequests] = useState<Request[]>([]);
+  const [sitterJobs, setSitterJobs] = useState<Request[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [actioningRequestId, setActioningRequestId] = useState<string | null>(null);
+  const [reviewRatings, setReviewRatings] = useState<Record<string, number>>({});
+  const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
 
   // Form fields
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -28,6 +47,11 @@ export default function RequestsPage() {
   const [location, setLocation] = useState('');
   const [creditsOffered, setCreditsOffered] = useState(10);
   const [notes, setNotes] = useState('');
+  const [feedingSchedule, setFeedingSchedule] = useState('');
+  const [walkSchedule, setWalkSchedule] = useState('');
+  const [medicationInstructions, setMedicationInstructions] = useState('');
+  const [sleepInstructions, setSleepInstructions] = useState('');
+  const [specialWarnings, setSpecialWarnings] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -39,12 +63,14 @@ export default function RequestsPage() {
 
     try {
       setLoading(true);
-      const [userRequests, userPets] = await Promise.all([
+      const [userRequests, userPets, sitterRequests] = await Promise.all([
         getUserRequests(user.uid),
         getUserPets(user.uid),
+        getSitterRequests(user.uid),
       ]);
       setRequests(userRequests);
       setPets(userPets);
+      setSitterJobs(sitterRequests);
     } catch (err: any) {
       setError('Failed to load data: ' + (err.message || 'Unknown error'));
     } finally {
@@ -63,6 +89,11 @@ export default function RequestsPage() {
     setLocation('');
     setCreditsOffered(10);
     setNotes('');
+    setFeedingSchedule('');
+    setWalkSchedule('');
+    setMedicationInstructions('');
+    setSleepInstructions('');
+    setSpecialWarnings('');
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -84,6 +115,11 @@ export default function RequestsPage() {
     setLocation(request.location);
     setCreditsOffered(request.creditsOffered);
     setNotes(request.notes || '');
+    setFeedingSchedule(request.feedingSchedule || '');
+    setWalkSchedule(request.walkSchedule || '');
+    setMedicationInstructions(request.medicationInstructions || '');
+    setSleepInstructions(request.sleepInstructions || '');
+    setSpecialWarnings(request.specialWarnings || '');
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -113,6 +149,11 @@ export default function RequestsPage() {
         location,
         creditsOffered,
         notes,
+        feedingSchedule,
+        walkSchedule,
+        medicationInstructions,
+        sleepInstructions,
+        specialWarnings,
       };
 
       if (editingRequest) {
@@ -165,6 +206,108 @@ export default function RequestsPage() {
     }
   }
 
+  async function handleMarkAwaitingConfirmation(request: Request) {
+    if (!user) return;
+    if (!confirm(`Mark this job as completed? The owner will need to confirm before credits are released.`)) return;
+
+    setActioningRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await markAwaitingConfirmation(request.ownerId, request.id, user.uid);
+      setSuccess('Job marked as completed! Waiting for owner confirmation.');
+      await loadData();
+    } catch (err: any) {
+      setError('Failed to mark as completed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setActioningRequestId(null);
+    }
+  }
+
+  async function handleConfirmCompletion(request: Request) {
+    if (!user) return;
+    if (!confirm(`Confirm that the job is completed? Credits will be released to the sitter.`)) return;
+
+    setActioningRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await confirmCompletion(request.ownerId, request.id);
+      setSuccess('Request completed! Credits have been released to the sitter.');
+      await loadData();
+    } catch (err: any) {
+      setError('Failed to confirm completion: ' + (err.message || 'Unknown error'));
+    } finally {
+      setActioningRequestId(null);
+    }
+  }
+
+  async function handleCancelAcceptedRequest(request: Request) {
+    if (!user) return;
+    if (!confirm(`Cancel this accepted request? Credits will be refunded to the owner.`)) return;
+
+    setActioningRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await cancelAcceptedRequest(request.ownerId, request.id, user.uid);
+      setSuccess('Request cancelled successfully! Credits have been refunded to the owner.');
+      await loadData();
+    } catch (err: any) {
+      setError('Failed to cancel request: ' + (err.message || 'Unknown error'));
+    } finally {
+      setActioningRequestId(null);
+    }
+  }
+
+  async function handleAcceptApplicant(request: Request, application: RequestApplication) {
+    if (!user) return;
+    if (!confirm(`Accept ${application.sitterName} for this request?`)) return;
+
+    setActioningRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await acceptApplication(request.ownerId, request.id, application.sitterId);
+      setSuccess(`Accepted ${application.sitterName}. Credits moved to escrow.`);
+      await loadData();
+    } catch (err: any) {
+      setError('Failed to accept applicant: ' + (err.message || 'Unknown error'));
+    } finally {
+      setActioningRequestId(null);
+    }
+  }
+
+  async function handleSubmitReview(request: Request) {
+    if (!user) return;
+
+    const rating = reviewRatings[request.id] || 0;
+    const comment = reviewComments[request.id] || '';
+
+    if (rating < 1 || rating > 5) {
+      setError('Please select a rating between 1 and 5.');
+      return;
+    }
+
+    setActioningRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await submitReview(request.ownerId, request.id, rating, comment);
+      setSuccess('Review submitted successfully.');
+      await loadData();
+    } catch (err: any) {
+      setError('Failed to submit review: ' + (err.message || 'Unknown error'));
+    } finally {
+      setActioningRequestId(null);
+    }
+  }
+
   function togglePetSelection(petId: string) {
     setSelectedPetIds((prev) =>
       prev.includes(petId) ? prev.filter((id) => id !== petId) : [...prev, petId]
@@ -177,6 +320,8 @@ export default function RequestsPage() {
         return 'text-blue-600 bg-blue-50';
       case 'accepted':
         return 'text-green-600 bg-green-50';
+      case 'awaiting_confirmation':
+        return 'text-yellow-600 bg-yellow-50';
       case 'completed':
         return 'text-gray-600 bg-gray-50';
       case 'cancelled':
@@ -186,11 +331,33 @@ export default function RequestsPage() {
     }
   }
 
+  function getStatusText(status: string) {
+    switch (status) {
+      case 'open':
+        return 'OPEN';
+      case 'accepted':
+        return 'ACCEPTED';
+      case 'awaiting_confirmation':
+        return 'AWAITING CONFIRMATION';
+      case 'completed':
+        return 'COMPLETED';
+      case 'cancelled':
+        return 'CANCELLED';
+      default:
+        return status.toUpperCase();
+    }
+  }
+
   return (
     <ProtectedRoute>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-[#0f2640]">My Requests</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-[#0f2640]">My Requests</h1>
+            <p className="text-sm text-[#6b7280] mt-1">
+              Looking for a sitter? <Link href="/requests/browse" className="text-[#ff7a2d] hover:underline">Browse requests</Link> from other pet owners
+            </p>
+          </div>
           {!showForm && (
             <button
               onClick={handleAddNew}
@@ -213,7 +380,7 @@ export default function RequestsPage() {
           </div>
         )}
 
-        {pets.length === 0 && !loading && (
+        {pets.length === 0 && !loading && !showForm && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
             You need to add pets before creating requests. Go to the Pets page first.
           </div>
@@ -229,23 +396,42 @@ export default function RequestsPage() {
                 <label className="block text-sm font-medium text-[#0f2640] mb-2">
                   Select Pet(s)
                 </label>
-                <div className="space-y-2">
-                  {pets.map((pet) => (
-                    <label key={pet.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedPetIds.includes(pet.id)}
-                        onChange={() => togglePetSelection(pet.id)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-[#0f2640]">
-                        {pet.name} ({pet.type})
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {pets.length === 0 && (
-                  <p className="text-sm text-red-600 mt-1">No pets available. Add pets first.</p>
+                {pets.length > 0 ? (
+                  <div className="space-y-2">
+                    {pets.map((pet) => (
+                      <label key={pet.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedPetIds.includes(pet.id)}
+                          onChange={() => togglePetSelection(pet.id)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-[#0f2640]">
+                          {pet.name} ({pet.type})
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed">
+                      No pets available
+                    </div>
+                    <div className="mt-3 flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm text-blue-800 font-medium">
+                          You need to add at least one pet before creating a request.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/pets')}
+                        className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm whitespace-nowrap"
+                      >
+                        + Add a Pet
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -360,6 +546,70 @@ export default function RequestsPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Feeding Schedule
+                  </label>
+                  <textarea
+                    value={feedingSchedule}
+                    onChange={(e) => setFeedingSchedule(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Times and food portions"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Walk Schedule
+                  </label>
+                  <textarea
+                    value={walkSchedule}
+                    onChange={(e) => setWalkSchedule(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Walk times and duration"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Medication Instructions
+                  </label>
+                  <textarea
+                    value={medicationInstructions}
+                    onChange={(e) => setMedicationInstructions(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Medicine dose and timing"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Sleep Instructions
+                  </label>
+                  <textarea
+                    value={sleepInstructions}
+                    onChange={(e) => setSleepInstructions(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Where and how the pet should sleep"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                  Special Warnings
+                </label>
+                <textarea
+                  value={specialWarnings}
+                  onChange={(e) => setSpecialWarnings(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                  placeholder="Anything critical to avoid or monitor"
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -385,100 +635,423 @@ export default function RequestsPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-[#6b7280]">Loading requests...</p>
           </div>
-        ) : requests.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">
-              No requests yet. {pets.length > 0 ? 'Click "Create Request" to get started.' : 'Add pets first.'}
-            </p>
-          </div>
         ) : (
-          <div className="space-y-4">
-            {requests.map((request) => (
-              <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-[#0f2640] mb-1">
-                      {request.petNames.join(', ')}
-                    </h3>
-                    <span
-                      className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusColor(
-                        request.status
-                      )}`}
-                    >
-                      {request.status.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
+          <>
+            {/* My Requests (as owner) */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-[#0f2640] mb-4">My Requests</h2>
+              {requests.length === 0 ? (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <p className="text-[#6b7280]">
+                    No requests yet. {pets.length > 0 ? 'Click "Create Request" to get started.' : 'Add pets first.'}
+                  </p>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  {requests.map((request) => (
+                    <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-[#0f2640] mb-1">
+                            {request.petNames.join(', ')}
+                          </h3>
+                          <span
+                            className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusColor(
+                              request.status
+                            )}`}
+                          >
+                            {getStatusText(request.status)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
+                          {request.status === 'accepted' && (
+                            <p className="text-xs text-[#6b7280]">(In escrow)</p>
+                          )}
+                          {request.status === 'awaiting_confirmation' && (
+                            <p className="text-xs text-[#6b7280]">(In escrow)</p>
+                          )}
+                        </div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                  <div>
-                    <p className="text-[#6b7280]">Care Type:</p>
-                    <p className="text-[#0f2640] font-medium">
-                      {request.careType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[#6b7280]">Location:</p>
-                    <p className="text-[#0f2640] font-medium">{request.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#6b7280]">Start Date:</p>
-                    <p className="text-[#0f2640] font-medium">
-                      {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[#6b7280]">End Date:</p>
-                    <p className="text-[#0f2640] font-medium">
-                      {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                          <p className="text-[#6b7280]">Care Type:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.careType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">Location:</p>
+                          <p className="text-[#0f2640] font-medium">{request.location}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">Start Date:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">End Date:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {request.notes && (
+                        <div className="mb-4">
+                          <p className="text-sm text-[#6b7280]">Notes:</p>
+                          <p className="text-sm text-[#0f2640]">{request.notes}</p>
+                        </div>
+                      )}
+
+                      {(request.feedingSchedule ||
+                        request.walkSchedule ||
+                        request.medicationInstructions ||
+                        request.sleepInstructions ||
+                        request.specialWarnings) && (
+                        <div className="mb-4 p-3 border border-gray-200 rounded-lg text-sm space-y-1">
+                          <p className="font-medium text-[#0f2640]">Care Instructions</p>
+                          {request.feedingSchedule && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Feeding:</span>{' '}
+                              {request.feedingSchedule}
+                            </p>
+                          )}
+                          {request.walkSchedule && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Walks:</span>{' '}
+                              {request.walkSchedule}
+                            </p>
+                          )}
+                          {request.medicationInstructions && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Medication:</span>{' '}
+                              {request.medicationInstructions}
+                            </p>
+                          )}
+                          {request.sleepInstructions && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Sleep:</span>{' '}
+                              {request.sleepInstructions}
+                            </p>
+                          )}
+                          {request.specialWarnings && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Warnings:</span>{' '}
+                              {request.specialWarnings}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {request.sitterName && (
+                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-[#6b7280]">Sitter:</p>
+                          <p className="text-sm text-[#0f2640] font-medium">{request.sitterName}</p>
+                        </div>
+                      )}
+
+                      {request.status === 'open' && (
+                        <div className="mb-4 p-3 border border-gray-200 rounded-lg">
+                          <p className="text-sm text-[#6b7280] mb-2">
+                            Applicants: {request.applications?.length || 0}
+                          </p>
+                          {!request.applications || request.applications.length === 0 ? (
+                            <p className="text-sm text-[#6b7280]">No applications yet.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {request.applications.map((application) => (
+                                <div
+                                  key={application.sitterId}
+                                  className="flex items-center justify-between border border-gray-100 rounded p-2"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-[#0f2640]">
+                                      {application.sitterName}
+                                    </p>
+                                    {application.message && (
+                                      <p className="text-xs text-[#6b7280]">{application.message}</p>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => handleAcceptApplicant(request, application)}
+                                    disabled={actioningRequestId === request.id}
+                                    className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                  >
+                                    {actioningRequestId === request.id ? 'Processing...' : 'Accept'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {request.status === 'completed' && (
+                        <div className="mb-4 p-3 border border-gray-200 rounded-lg">
+                          {request.review ? (
+                            <>
+                              <p className="text-sm font-medium text-[#0f2640] mb-1">Your review</p>
+                              <p className="text-sm text-[#0f2640]">Rating: {request.review.rating}/5</p>
+                              <p className="text-sm text-[#6b7280]">{request.review.comment || 'No comment'}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium text-[#0f2640] mb-2">Rate this sitter</p>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <select
+                                  value={reviewRatings[request.id] || ''}
+                                  onChange={(e) =>
+                                    setReviewRatings((prev) => ({
+                                      ...prev,
+                                      [request.id]: Number(e.target.value),
+                                    }))
+                                  }
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                >
+                                  <option value="">Rating</option>
+                                  <option value="1">1</option>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                  <option value="4">4</option>
+                                  <option value="5">5</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  value={reviewComments[request.id] || ''}
+                                  onChange={(e) =>
+                                    setReviewComments((prev) => ({
+                                      ...prev,
+                                      [request.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Short comment"
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm md:col-span-2"
+                                />
+                              </div>
+                              <button
+                                onClick={() => handleSubmitReview(request)}
+                                disabled={actioningRequestId === request.id}
+                                className="mt-2 px-3 py-1 text-sm bg-[#ff7a2d] text-white rounded hover:bg-[#e66a1f] transition-colors disabled:opacity-50"
+                              >
+                                {actioningRequestId === request.id ? 'Submitting...' : 'Submit Review'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        {request.status === 'open' && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(request)}
+                              className="px-3 py-1 text-sm border border-[#ff7a2d] text-[#ff7a2d] rounded hover:bg-[#ff7a2d] hover:text-white transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleCancelRequest(request)}
+                              className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {request.status === 'awaiting_confirmation' && (
+                          <>
+                            <button
+                              onClick={() => handleConfirmCompletion(request)}
+                              disabled={actioningRequestId === request.id}
+                              className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                              {actioningRequestId === request.id ? 'Processing...' : 'Confirm Completion'}
+                            </button>
+                            <button
+                              onClick={() => handleCancelAcceptedRequest(request)}
+                              disabled={actioningRequestId === request.id}
+                              className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel Request'}
+                            </button>
+                          </>
+                        )}
+                        {request.status === 'accepted' && (
+                          <>
+                            <button
+                              onClick={() => handleCancelAcceptedRequest(request)}
+                              disabled={actioningRequestId === request.id}
+                              className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel Request'}
+                            </button>
+                          </>
+                        )}
+                        {(request.status === 'open' || request.status === 'cancelled') && (
+                          <button
+                            onClick={() => handleDelete(request)}
+                            className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
 
-                {request.notes && (
-                  <div className="mb-4">
-                    <p className="text-sm text-[#6b7280]">Notes:</p>
-                    <p className="text-sm text-[#0f2640]">{request.notes}</p>
-                  </div>
-                )}
+            {/* Jobs I'm helping with (as sitter) */}
+            {sitterJobs.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-bold text-[#0f2640] mb-4">Jobs I'm Helping With</h2>
+                <div className="space-y-4">
+                  {sitterJobs.map((request) => (
+                    <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-[#0f2640] mb-1">
+                            {request.petNames.join(', ')}
+                          </h3>
+                          <span
+                            className={`inline-block px-2 py-1 text-xs font-medium rounded ${getStatusColor(
+                              request.status
+                            )}`}
+                          >
+                            {getStatusText(request.status)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
+                          {request.status === 'accepted' && (
+                            <p className="text-xs text-green-600">(To be earned on completion)</p>
+                          )}
+                          {request.status === 'awaiting_confirmation' && (
+                            <p className="text-xs text-yellow-600">(Awaiting owner confirmation)</p>
+                          )}
+                          {request.status === 'completed' && (
+                            <p className="text-xs text-green-600">(Earned)</p>
+                          )}
+                        </div>
+                      </div>
 
-                {request.sitterName && (
-                  <div className="mb-4">
-                    <p className="text-sm text-[#6b7280]">Sitter:</p>
-                    <p className="text-sm text-[#0f2640] font-medium">{request.sitterName}</p>
-                  </div>
-                )}
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div>
+                          <p className="text-[#6b7280]">Owner:</p>
+                          <p className="text-[#0f2640] font-medium">{request.ownerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">Care Type:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.careType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">Location:</p>
+                          <p className="text-[#0f2640] font-medium">{request.location}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">Start Date:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#6b7280]">End Date:</p>
+                          <p className="text-[#0f2640] font-medium">
+                            {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
 
-                <div className="flex gap-2">
-                  {request.status === 'open' && (
-                    <>
-                      <button
-                        onClick={() => handleEdit(request)}
-                        className="px-3 py-1 text-sm border border-[#ff7a2d] text-[#ff7a2d] rounded hover:bg-[#ff7a2d] hover:text-white transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleCancelRequest(request)}
-                        className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors"
-                      >
-                        Cancel Request
-                      </button>
-                    </>
-                  )}
-                  {(request.status === 'open' || request.status === 'cancelled') && (
-                    <button
-                      onClick={() => handleDelete(request)}
-                      className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors"
-                    >
-                      Delete
-                    </button>
-                  )}
+                      {request.notes && (
+                        <div className="mb-4">
+                          <p className="text-sm text-[#6b7280]">Notes:</p>
+                          <p className="text-sm text-[#0f2640]">{request.notes}</p>
+                        </div>
+                      )}
+
+                      {(request.feedingSchedule ||
+                        request.walkSchedule ||
+                        request.medicationInstructions ||
+                        request.sleepInstructions ||
+                        request.specialWarnings) && (
+                        <div className="mb-4 p-3 border border-gray-200 rounded-lg text-sm space-y-1">
+                          <p className="font-medium text-[#0f2640]">Care Instructions</p>
+                          {request.feedingSchedule && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Feeding:</span>{' '}
+                              {request.feedingSchedule}
+                            </p>
+                          )}
+                          {request.walkSchedule && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Walks:</span>{' '}
+                              {request.walkSchedule}
+                            </p>
+                          )}
+                          {request.medicationInstructions && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Medication:</span>{' '}
+                              {request.medicationInstructions}
+                            </p>
+                          )}
+                          {request.sleepInstructions && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Sleep:</span>{' '}
+                              {request.sleepInstructions}
+                            </p>
+                          )}
+                          {request.specialWarnings && (
+                            <p className="text-[#6b7280]">
+                              <span className="font-medium text-[#0f2640]">Warnings:</span>{' '}
+                              {request.specialWarnings}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {request.status === 'accepted' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleMarkAwaitingConfirmation(request)}
+                            disabled={actioningRequestId === request.id}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                          >
+                            {actioningRequestId === request.id ? 'Processing...' : 'Mark as Complete'}
+                          </button>
+                          <button
+                            onClick={() => handleCancelAcceptedRequest(request)}
+                            disabled={actioningRequestId === request.id}
+                            className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                          >
+                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel Job'}
+                          </button>
+                        </div>
+                      )}
+                      {request.status === 'awaiting_confirmation' && (
+                        <div className="flex gap-2">
+                          <div className="px-3 py-1 text-sm bg-yellow-50 border border-yellow-300 text-yellow-700 rounded">
+                            Awaiting owner confirmation
+                          </div>
+                          <button
+                            onClick={() => handleCancelAcceptedRequest(request)}
+                            disabled={actioningRequestId === request.id}
+                            className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                          >
+                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel Job'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </ProtectedRoute>

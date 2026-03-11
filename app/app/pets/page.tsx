@@ -22,6 +22,15 @@ export default function PetsPage() {
   const [age, setAge] = useState(0);
   const [size, setSize] = useState<PetSize>('medium');
   const [notes, setNotes] = useState('');
+  const [behaviour, setBehaviour] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [vaccinationStatus, setVaccinationStatus] = useState('');
+  const [friendlyWithDogs, setFriendlyWithDogs] = useState(false);
+  const [friendlyWithCats, setFriendlyWithCats] = useState(false);
+  const [friendlyWithChildren, setFriendlyWithChildren] = useState(false);
+  const [medicationRequired, setMedicationRequired] = useState(false);
+  const [specialCareInstructions, setSpecialCareInstructions] = useState('');
+  const [emergencyVetContact, setEmergencyVetContact] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -50,6 +59,15 @@ export default function PetsPage() {
     setAge(0);
     setSize('medium');
     setNotes('');
+    setBehaviour('');
+    setAllergies('');
+    setVaccinationStatus('');
+    setFriendlyWithDogs(false);
+    setFriendlyWithCats(false);
+    setFriendlyWithChildren(false);
+    setMedicationRequired(false);
+    setSpecialCareInstructions('');
+    setEmergencyVetContact('');
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -63,6 +81,15 @@ export default function PetsPage() {
     setAge(pet.age);
     setSize(pet.size);
     setNotes(pet.notes);
+    setBehaviour(pet.behaviour || '');
+    setAllergies(pet.allergies || '');
+    setVaccinationStatus(pet.vaccinationStatus || '');
+    setFriendlyWithDogs(pet.friendlyWithDogs);
+    setFriendlyWithCats(pet.friendlyWithCats);
+    setFriendlyWithChildren(pet.friendlyWithChildren);
+    setMedicationRequired(pet.medicationRequired);
+    setSpecialCareInstructions(pet.specialCareInstructions || '');
+    setEmergencyVetContact(pet.emergencyVetContact || '');
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -91,6 +118,15 @@ export default function PetsPage() {
         age,
         size,
         notes,
+        behaviour,
+        allergies,
+        vaccinationStatus,
+        friendlyWithDogs,
+        friendlyWithCats,
+        friendlyWithChildren,
+        medicationRequired,
+        specialCareInstructions,
+        emergencyVetContact,
       };
 
       if (editingPet) {
@@ -244,6 +280,107 @@ export default function PetsPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Behaviour
+                  </label>
+                  <input
+                    type="text"
+                    value={behaviour}
+                    onChange={(e) => setBehaviour(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Calm, active, anxious..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                    Allergies
+                  </label>
+                  <input
+                    type="text"
+                    value={allergies}
+                    onChange={(e) => setAllergies(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                    placeholder="Food or medication allergies"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                  Vaccination Status
+                </label>
+                <input
+                  type="text"
+                  value={vaccinationStatus}
+                  onChange={(e) => setVaccinationStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                  placeholder="Up to date, partial, unknown..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={friendlyWithDogs}
+                    onChange={(e) => setFriendlyWithDogs(e.target.checked)}
+                  />
+                  Friendly with dogs
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={friendlyWithCats}
+                    onChange={(e) => setFriendlyWithCats(e.target.checked)}
+                  />
+                  Friendly with cats
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={friendlyWithChildren}
+                    onChange={(e) => setFriendlyWithChildren(e.target.checked)}
+                  />
+                  Friendly with children
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={medicationRequired}
+                    onChange={(e) => setMedicationRequired(e.target.checked)}
+                  />
+                  Medication required
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                  Special Care Instructions
+                </label>
+                <textarea
+                  value={specialCareInstructions}
+                  onChange={(e) => setSpecialCareInstructions(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                  placeholder="Handling, routines, sensitive triggers..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f2640] mb-1">
+                  Emergency Vet Contact
+                </label>
+                <input
+                  type="text"
+                  value={emergencyVetContact}
+                  onChange={(e) => setEmergencyVetContact(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                  placeholder="Phone/email/clinic"
+                />
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -296,6 +433,45 @@ export default function PetsPage() {
                   {pet.notes && (
                     <p className="text-[#6b7280]">
                       <span className="font-medium">Notes:</span> {pet.notes}
+                    </p>
+                  )}
+                  {pet.behaviour && (
+                    <p className="text-[#6b7280]">
+                      <span className="font-medium">Behaviour:</span> {pet.behaviour}
+                    </p>
+                  )}
+                  {pet.allergies && (
+                    <p className="text-[#6b7280]">
+                      <span className="font-medium">Allergies:</span> {pet.allergies}
+                    </p>
+                  )}
+                  {pet.vaccinationStatus && (
+                    <p className="text-[#6b7280]">
+                      <span className="font-medium">Vaccination:</span> {pet.vaccinationStatus}
+                    </p>
+                  )}
+                  <p className="text-[#6b7280]">
+                    <span className="font-medium">Friendly with:</span>{' '}
+                    {[
+                      pet.friendlyWithDogs ? 'dogs' : '',
+                      pet.friendlyWithCats ? 'cats' : '',
+                      pet.friendlyWithChildren ? 'children' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(', ') || 'not specified'}
+                  </p>
+                  <p className="text-[#6b7280]">
+                    <span className="font-medium">Medication:</span>{' '}
+                    {pet.medicationRequired ? 'Required' : 'Not required'}
+                  </p>
+                  {pet.specialCareInstructions && (
+                    <p className="text-[#6b7280]">
+                      <span className="font-medium">Special care:</span> {pet.specialCareInstructions}
+                    </p>
+                  )}
+                  {pet.emergencyVetContact && (
+                    <p className="text-[#6b7280]">
+                      <span className="font-medium">Emergency vet:</span> {pet.emergencyVetContact}
                     </p>
                   )}
                 </div>

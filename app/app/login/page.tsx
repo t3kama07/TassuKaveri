@@ -25,8 +25,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.push('/dashboard');
+      const credential = await login(email, password);
+      if (!credential.user.emailVerified) {
+        router.push('/verify-email');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError('Failed to login: ' + (err.message || 'Unknown error'));
     } finally {
