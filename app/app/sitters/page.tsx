@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +8,30 @@ import { addFavoriteSitter, getFavoriteSitters, removeFavoriteSitter } from '@/l
 import { reportUser } from '@/lib/moderationService';
 import { getProfile } from '@/lib/profileService';
 import { getAvailableSitters, NearbySitter } from '@/lib/sitterService';
+
+function formatAvailabilityWindow(startAt: Date, endAt: Date): string {
+  return `${startAt.toLocaleDateString()} ${startAt.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })} - ${endAt.toLocaleDateString()} ${endAt.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function formatRequestedWindow(startAtValue: string, endAtValue: string): string | null {
+  if (!startAtValue.trim() || !endAtValue.trim()) {
+    return null;
+  }
+
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return null;
+  }
+
+  return formatAvailabilityWindow(startAt, endAt);
+}
 
 export default function SittersPage() {
   const { user } = useAuth();
@@ -19,51 +44,91 @@ export default function SittersPage() {
   const [petType, setPetType] = useState('');
   const [petSize, setPetSize] = useState('');
   const [requiredExperienceLevel, setRequiredExperienceLevel] = useState('');
+  const [requestedStartAt, setRequestedStartAt] = useState('');
+  const [requestedEndAt, setRequestedEndAt] = useState('');
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [favoriteSitterIds, setFavoriteSitterIds] = useState<string[]>([]);
+  const requestedWindowLabel = formatRequestedWindow(requestedStartAt, requestedEndAt);
 
   useEffect(() => {
-    initializeAndSearch();
-  }, [user]);
-
-  async function initializeAndSearch() {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      setError('');
-      const [profile, favorites] = await Promise.all([
-        getProfile(user.uid),
-        getFavoriteSitters(user.uid),
-      ]);
-
-      setFavoriteSitterIds(favorites.map((favorite) => favorite.sitterId));
-
-      if (profile) {
-        setCity(profile.location || '');
-        setLatitude(profile.latitude);
-        setLongitude(profile.longitude);
-      }
-
-      await runSearch(profile?.location || '', profile?.latitude, profile?.longitude);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load sitters: ' + message);
-    } finally {
-      setLoading(false);
+    if (!user) {
+      return;
     }
-  }
+
+    void (async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const [profile, favorites] = await Promise.all([
+          getProfile(user.uid),
+          getFavoriteSitters(user.uid),
+        ]);
+
+        setFavoriteSitterIds(favorites.map((favorite) => favorite.sitterId));
+
+        if (profile) {
+          setCity(profile.location || '');
+          setLatitude(profile.latitude);
+          setLongitude(profile.longitude);
+        }
+
+        const results = await getAvailableSitters({
+          excludeUserId: user.uid,
+          city: profile?.location || '',
+          latitude: profile?.latitude,
+          longitude: profile?.longitude,
+          maxDistanceKm: 10,
+          petTypes: [],
+        });
+        setSitters(results);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setError('Failed to load sitters: ' + message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user]);
 
   async function runSearch(
     nextCity: string = city,
     nextLat: number | undefined = latitude,
-    nextLng: number | undefined = longitude
+    nextLng: number | undefined = longitude,
+    nextRequestedStartAt: string = requestedStartAt,
+    nextRequestedEndAt: string = requestedEndAt
   ) {
     if (!user) return;
 
     try {
       setLoading(true);
+      setError('');
+
+      const hasStart = nextRequestedStartAt.trim().length > 0;
+      const hasEnd = nextRequestedEndAt.trim().length > 0;
+      if (hasStart !== hasEnd) {
+        throw new Error('Choose both start and end dates to filter by availability');
+      }
+
+      let parsedRequestedStartAt: Date | undefined;
+      let parsedRequestedEndAt: Date | undefined;
+
+      if (hasStart && hasEnd) {
+        parsedRequestedStartAt = new Date(nextRequestedStartAt);
+        parsedRequestedEndAt = new Date(nextRequestedEndAt);
+
+        if (
+          Number.isNaN(parsedRequestedStartAt.getTime()) ||
+          Number.isNaN(parsedRequestedEndAt.getTime())
+        ) {
+          throw new Error('Please enter valid dates for availability filtering');
+        }
+
+        if (parsedRequestedEndAt.getTime() <= parsedRequestedStartAt.getTime()) {
+          throw new Error('Availability end date must be after the start date');
+        }
+      }
+
       const results = await getAvailableSitters({
         excludeUserId: user.uid,
         city: nextCity,
@@ -73,6 +138,8 @@ export default function SittersPage() {
         petTypes: petType ? [petType] : [],
         petSize: petSize || undefined,
         requiredExperienceLevel: requiredExperienceLevel || undefined,
+        requestedStartAt: parsedRequestedStartAt,
+        requestedEndAt: parsedRequestedEndAt,
       });
       setSitters(results);
     } catch (err: unknown) {
@@ -116,7 +183,9 @@ export default function SittersPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Find Sitters</h1>
-          <p className="text-[#6b7280]">Browse available sitters near your location.</p>
+          <p className="text-[#6b7280]">
+            Browse sitters near your location. Detailed availability stays private until you contact a sitter.
+          </p>
         </div>
 
         {error && (
@@ -126,13 +195,31 @@ export default function SittersPage() {
         )}
 
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <label className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2640] mb-1">Need Care From</label>
+              <input
+                type="datetime-local"
+                value={requestedStartAt}
+                onChange={(e) => setRequestedStartAt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2640] mb-1">Need Care Until</label>
+              <input
+                type="datetime-local"
+                value={requestedEndAt}
+                onChange={(e) => setRequestedEndAt(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
             </div>
@@ -195,14 +282,34 @@ export default function SittersPage() {
               </label>
             </div>
             <div className="flex items-end">
-              <button
-                onClick={() => runSearch()}
-                className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm"
-              >
-                Search
-              </button>
+              <div className="flex w-full gap-2">
+                <button
+                  onClick={() => runSearch()}
+                  className="flex-1 px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm"
+                >
+                  Find Sitters
+                </button>
+                <button
+                  onClick={() => {
+                    setRequestedStartAt('');
+                    setRequestedEndAt('');
+                    runSearch(city, latitude, longitude, '', '');
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-[#0f2640] rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+                >
+                  Browse All
+                </button>
+              </div>
             </div>
           </div>
+          <p className="text-xs text-[#6b7280] mt-3">
+            Leave the date fields empty if you just want to browse all sitters who are open for bookings.
+          </p>
+          <p className="text-sm text-[#0f2640] mt-3">
+            {requestedWindowLabel
+              ? `Showing sitters who are open for bookings around ${requestedWindowLabel}.`
+              : `Showing sitters who are open for bookings${city ? ` in or near ${city}` : ''}.`}
+          </p>
         </div>
 
         {loading ? (
@@ -211,7 +318,11 @@ export default function SittersPage() {
           </div>
         ) : sitters.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">No available sitters found for this filter.</p>
+            <p className="text-[#6b7280]">
+              {requestedWindowLabel
+                ? 'No sitters are open for bookings with these filters right now. Try widening the time range or tap Browse All.'
+                : 'No available sitters found for this filter.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -225,14 +336,7 @@ export default function SittersPage() {
                 <p className="text-xs text-[#6b7280] mt-1">Match score: {entry.matchScore}</p>
 
                 <div className="flex flex-wrap gap-2 mt-3 mb-3">
-                  <span className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700">Available</span>
-                  <span
-                    className={`px-2 py-1 text-xs rounded ${
-                      entry.emailVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {entry.emailVerified ? 'Email Verified' : 'Email Not Verified'}
-                  </span>
+                  <span className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700">Open for bookings</span>
                   <span
                     className={`px-2 py-1 text-xs rounded ${
                       entry.profile.phoneVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -259,18 +363,45 @@ export default function SittersPage() {
                 <p className="text-sm text-[#6b7280]">
                   Experience: {entry.profile.petExperience || 'Not provided'}
                 </p>
-                <button
-                  onClick={() => toggleFavorite(entry.profile.uid)}
-                  className="mt-3 px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                >
-                  {favoriteSitterIds.includes(entry.profile.uid) ? 'Remove Favorite' : 'Add Favorite'}
-                </button>
-                <button
-                  onClick={() => handleReportSitter(entry.profile.uid)}
-                  className="mt-3 ml-2 px-3 py-1 text-sm border border-red-300 text-red-700 rounded hover:bg-red-50"
-                >
-                  Report
-                </button>
+                {entry.nextAvailableSlot ? (
+                  <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-sm font-medium text-blue-800">Next open time slot</p>
+                    <p className="text-sm text-blue-700">
+                      {formatAvailabilityWindow(
+                        entry.nextAvailableSlot.startAt,
+                        entry.nextAvailableSlot.endAt
+                      )}
+                    </p>
+                  </div>
+                ) : entry.hasDetailedAvailability ? (
+                  <p className="mt-3 text-sm text-[#6b7280]">
+                    This sitter is open for bookings, but their detailed time slots are private right now.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm text-[#6b7280]">
+                    This sitter has not shared a public time summary yet. You can still contact them directly.
+                  </p>
+                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={`/sitters/${entry.profile.uid}`}
+                    className="px-3 py-1 text-sm rounded bg-[#ff7a2d] text-white hover:bg-[#e66a1f]"
+                  >
+                    View Profile
+                  </Link>
+                  <button
+                    onClick={() => toggleFavorite(entry.profile.uid)}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    {favoriteSitterIds.includes(entry.profile.uid) ? 'Remove Favorite' : 'Add Favorite'}
+                  </button>
+                  <button
+                    onClick={() => handleReportSitter(entry.profile.uid)}
+                    className="px-3 py-1 text-sm border border-red-300 text-red-700 rounded hover:bg-red-50"
+                  >
+                    Report
+                  </button>
+                </div>
               </div>
             ))}
           </div>

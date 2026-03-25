@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -9,7 +10,6 @@ import {
   markMessagesAsRead,
   sendMessage,
   subscribeToMessages,
-  subscribeUnreadCount,
 } from '@/lib/messageService';
 import { Conversation, Message } from '@/types/message';
 
@@ -18,8 +18,10 @@ interface ConversationWithMeta extends Conversation {
   latestMessageAt?: Date;
 }
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedConversationId = searchParams.get('conversationId');
   const [conversations, setConversations] = useState<ConversationWithMeta[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,51 +30,8 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    loadConversations();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeUnreadCount(user.uid, setUnreadCount);
-    return () => unsubscribe();
-  }, [user]);
-
-  const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.conversationId === selectedConversationId),
-    [conversations, selectedConversationId]
-  );
-
-  useEffect(() => {
-    if (!user || !selectedConversation) {
-      setMessages([]);
-      return;
-    }
-
-    const unsubscribe = subscribeToMessages(
-      selectedConversation.ownerId,
-      selectedConversation.requestId,
-      selectedConversation.sitterId,
-      (nextMessages) => {
-        setMessages(nextMessages);
-      }
-    );
-
-    markMessagesAsRead(
-      selectedConversation.ownerId,
-      selectedConversation.requestId,
-      selectedConversation.sitterId,
-      user.uid
-    ).catch(() => {
-      // Non-blocking.
-    });
-
-    return () => unsubscribe();
-  }, [user, selectedConversation]);
-
-  async function loadConversations() {
+  const loadConversations = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -111,7 +70,57 @@ export default function MessagesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
+
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.conversationId === selectedConversationId),
+    [conversations, selectedConversationId]
+  );
+
+  useEffect(() => {
+    if (!user || !selectedConversation) {
+      setMessages([]);
+      return;
+    }
+
+    const unsubscribe = subscribeToMessages(
+      selectedConversation.ownerId,
+      selectedConversation.requestId,
+      selectedConversation.sitterId,
+      (nextMessages) => {
+        setMessages(nextMessages);
+      }
+    );
+
+    markMessagesAsRead(
+      selectedConversation.ownerId,
+      selectedConversation.requestId,
+      selectedConversation.sitterId,
+      user.uid
+    ).catch(() => {
+      // Non-blocking.
+    });
+
+    return () => unsubscribe();
+  }, [user, selectedConversation]);
+
+  useEffect(() => {
+    if (!requestedConversationId || conversations.length === 0) {
+      return;
+    }
+
+    const hasRequestedConversation = conversations.some(
+      (conversation) => conversation.conversationId === requestedConversationId
+    );
+
+    if (hasRequestedConversation) {
+      setSelectedConversationId(requestedConversationId);
+    }
+  }, [requestedConversationId, conversations]);
 
   async function handleSendMessage() {
     if (!user || !selectedConversation || !draft.trim()) return;
@@ -150,7 +159,6 @@ export default function MessagesPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-[#0f2640]">Messages</h1>
-          <p className="text-sm text-[#6b7280]">Unread: {unreadCount}</p>
         </div>
 
         {error && (
@@ -264,5 +272,19 @@ export default function MessagesPage() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-[#6b7280]">Loading messages...</div>
+        </div>
+      }
+    >
+      <MessagesPageContent />
+    </Suspense>
   );
 }

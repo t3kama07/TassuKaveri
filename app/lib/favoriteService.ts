@@ -1,8 +1,8 @@
 import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { FavoriteSitter } from '@/types/favorite';
-import { getProfile } from './profileService';
-import { UserProfile } from '@/types/profile';
+import { PublicUserProfile } from '@/types/profile';
+import { getPublicProfile } from './publicProfileService';
 
 function getFavoritesRef() {
   return collection(db, 'favorites');
@@ -60,8 +60,8 @@ export async function getFavoriteSitters(ownerId: string): Promise<FavoriteSitte
   return favorites;
 }
 
-export async function getFavoriteSitterProfiles(ownerId: string): Promise<UserProfile[]> {
+export async function getFavoriteSitterProfiles(ownerId: string): Promise<PublicUserProfile[]> {
   const favorites = await getFavoriteSitters(ownerId);
-  const profiles = await Promise.all(favorites.map((favorite) => getProfile(favorite.sitterId)));
-  return profiles.filter((profile): profile is UserProfile => profile !== null);
+  const profiles = await Promise.all(favorites.map((favorite) => getPublicProfile(favorite.sitterId)));
+  return profiles.filter((profile): profile is PublicUserProfile => profile !== null);
 }

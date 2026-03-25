@@ -25,14 +25,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const credential = await login(email, password);
-      if (!credential.user.emailVerified) {
-        router.push('/verify-email');
-      } else {
-        router.push('/dashboard');
-      }
-    } catch (err: any) {
-      setError('Failed to login: ' + (err.message || 'Unknown error'));
+      await login(email, password);
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('Failed to login: ' + message);
     } finally {
       setLoading(false);
     }
@@ -85,7 +82,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-4 text-center text-[#6b7280]">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <Link href="/signup" className="text-[#ff7a2d] hover:underline">
           Sign up
         </Link>

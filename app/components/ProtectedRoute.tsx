@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProfile } from '@/lib/profileService';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [checkingFreeze, setCheckingFreeze] = useState(true);
   const [isFrozen, setIsFrozen] = useState(false);
 
@@ -51,18 +50,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
-      return;
     }
-
-    if (!loading && user && !user.emailVerified && pathname !== '/verify-email') {
-      router.push('/verify-email');
-      return;
-    }
-
-    if (!loading && user && user.emailVerified && pathname === '/verify-email') {
-      router.push('/dashboard');
-    }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
 
   if (loading || checkingFreeze) {
     return (
@@ -73,10 +62,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   if (!user) {
-    return null;
-  }
-
-  if (!user.emailVerified && pathname !== '/verify-email') {
     return null;
   }
 

@@ -15,6 +15,7 @@ import {
   collectionGroup,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getAvailabilityMatch } from './availabilityService';
 import {
   Request,
   CreateRequestData,
@@ -115,32 +116,32 @@ function parseReview(raw: unknown): RequestReview | undefined {
   };
 }
 
-function mapRequest(id: string, data: Record<string, any>): Request {
+function mapRequest(id: string, data: Record<string, unknown>): Request {
   return {
     id,
-    ownerId: data.ownerId,
-    ownerName: data.ownerName,
-    petIds: data.petIds || [],
-    petNames: data.petNames || [],
-    careType: data.careType,
+    ownerId: (data.ownerId as string) || '',
+    ownerName: (data.ownerName as string) || '',
+    petIds: Array.isArray(data.petIds) ? (data.petIds as string[]) : [],
+    petNames: Array.isArray(data.petNames) ? (data.petNames as string[]) : [],
+    careType: (data.careType as Request['careType']) || 'daily-visit',
     startDate: toDateOrNow(data.startDate),
     endDate: toDateOrNow(data.endDate),
-    location: data.location,
+    location: (data.location as string) || '',
     locationLat: asNumber(data.locationLat),
     locationLng: asNumber(data.locationLng),
-    creditsOffered: data.creditsOffered,
-    status: data.status,
-    escrowStatus: data.escrowStatus || 'none',
-    sitterId: data.sitterId || undefined,
-    sitterName: data.sitterName || undefined,
+    creditsOffered: asNumber(data.creditsOffered) || 0,
+    status: (data.status as RequestStatus) || 'open',
+    escrowStatus: (data.escrowStatus as Request['escrowStatus']) || 'none',
+    sitterId: (data.sitterId as string) || undefined,
+    sitterName: (data.sitterName as string) || undefined,
     applications: parseApplications(data.applications),
     review: parseReview(data.review),
-    notes: data.notes,
-    feedingSchedule: data.feedingSchedule || '',
-    walkSchedule: data.walkSchedule || '',
-    medicationInstructions: data.medicationInstructions || '',
-    sleepInstructions: data.sleepInstructions || '',
-    specialWarnings: data.specialWarnings || '',
+    notes: (data.notes as string) || '',
+    feedingSchedule: (data.feedingSchedule as string) || '',
+    walkSchedule: (data.walkSchedule as string) || '',
+    medicationInstructions: (data.medicationInstructions as string) || '',
+    sleepInstructions: (data.sleepInstructions as string) || '',
+    specialWarnings: (data.specialWarnings as string) || '',
     createdAt: toDateOrNow(data.createdAt),
     updatedAt: toDateOrNow(data.updatedAt),
   };
@@ -399,7 +400,7 @@ export async function changeRequestStatus(
     throw new Error(`Cannot transition from ${currentStatus} to ${newStatus}`);
   }
 
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     status: newStatus,
     updatedAt: serverTimestamp(),
   };
@@ -551,20 +552,35 @@ export async function applyToRequest(
   }
 
   const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) {
+    throw new Error('Request not found');
+  }
+
+  const requestData = requestSnap.data();
+  const requestStartAt = toDateOrNow(requestData.startDate);
+  const requestEndAt = toDateOrNow(requestData.endDate);
+  const availabilityMatch = await getAvailabilityMatch(sitterId, requestStartAt, requestEndAt);
+  if (!availabilityMatch.available) {
+    if (availabilityMatch.hasConflict) {
+      throw new Error('You already have another confirmed booking during these dates');
+    }
+    throw new Error('Add an availability slot that fully covers these dates before applying');
+  }
 
   await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
+    const liveRequestSnap = await transaction.get(requestRef);
+    if (!liveRequestSnap.exists()) {
       throw new Error('Request not found');
     }
 
-    const requestData = requestSnap.data();
-    const status = requestData.status as RequestStatus;
+    const liveRequestData = liveRequestSnap.data();
+    const status = liveRequestData.status as RequestStatus;
     if (status !== 'open') {
       throw new Error('This request is no longer open');
     }
 
-    const applications = parseApplications(requestData.applications);
+    const applications = parseApplications(liveRequestData.applications);
     const alreadyApplied = applications.some((application) => application.sitterId === sitterId);
     if (alreadyApplied) {
       throw new Error('You have already applied to this request');
@@ -649,6 +665,22 @@ export async function acceptApplication(
   let selectedSitterName = 'Sitter';
   let ownerName = 'Owner';
   let offeredCredits = 0;
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) {
+    throw new Error('Request not found');
+  }
+  const requestData = requestSnap.data();
+  const availabilityMatch = await getAvailabilityMatch(
+    sitterId,
+    toDateOrNow(requestData.startDate),
+    toDateOrNow(requestData.endDate)
+  );
+  if (!availabilityMatch.available) {
+    if (availabilityMatch.hasConflict) {
+      throw new Error('This sitter already has another confirmed booking during these dates');
+    }
+    throw new Error('This sitter no longer has an availability slot covering these dates');
+  }
 
   await runTransaction(db, async (transaction) => {
     const requestSnap = await transaction.get(requestRef);
@@ -895,7 +927,11 @@ export async function confirmCompletion(
     relatedRequestId: requestId,
     message: 'Your completed request payout has been released.',
   });
-  await recalculateTrustScore(sitterId);
+  try {
+    await recalculateTrustScore(sitterId);
+  } catch (error) {
+    console.warn('Unable to refresh sitter trust score after completion:', error);
+  }
 }
 
 /**
@@ -1044,8 +1080,10 @@ export async function submitReview(
   }
 
   const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
+  const reviewComment = comment.trim();
 
   let reviewedSitterId = '';
+  let shouldRefreshTrustScore = false;
 
   await runTransaction(db, async (transaction) => {
     const requestSnap = await transaction.get(requestRef);
@@ -1068,22 +1106,23 @@ export async function submitReview(
       throw new Error('This request already has a review');
     }
 
-    const sitterProfileRef = doc(db, 'users', sitterId);
-    const sitterProfileSnap = await transaction.get(sitterProfileRef);
-    if (!sitterProfileSnap.exists()) {
-      throw new Error('Sitter profile not found');
+    const publicSitterProfileRef = doc(db, 'publicProfiles', sitterId);
+    const publicSitterProfileSnap = await transaction.get(publicSitterProfileRef);
+    if (!publicSitterProfileSnap.exists()) {
+      throw new Error('Sitter public profile not found');
     }
 
-    const sitterData = sitterProfileSnap.data();
+    const sitterData = publicSitterProfileSnap.data();
     const currentCount = asNumber(sitterData.ratingCount) || 0;
     const currentAverage = asNumber(sitterData.ratingAverage) || 0;
     const nextCount = currentCount + 1;
     const nextAverage = (currentAverage * currentCount + rating) / nextCount;
+    const privateSitterProfileRef = doc(db, 'users', sitterId);
 
     transaction.update(requestRef, {
       review: {
         rating,
-        comment: comment || '',
+        comment: reviewComment,
         reviewerId: ownerId,
         reviewerName: ownerName || 'Owner',
         reviewedAt: serverTimestamp(),
@@ -1091,13 +1130,22 @@ export async function submitReview(
       updatedAt: serverTimestamp(),
     });
 
-    transaction.update(sitterProfileRef, {
+    transaction.update(privateSitterProfileRef, {
+      ratingCount: nextCount,
+      ratingAverage: nextAverage,
+      lastReviewOwnerId: ownerId,
+      lastReviewRequestId: requestId,
+      updatedAt: serverTimestamp(),
+    });
+
+    transaction.update(publicSitterProfileRef, {
       ratingCount: nextCount,
       ratingAverage: nextAverage,
       updatedAt: serverTimestamp(),
     });
 
     reviewedSitterId = sitterId;
+    shouldRefreshTrustScore = true;
   });
 
   if (reviewedSitterId) {
@@ -1107,7 +1155,13 @@ export async function submitReview(
       relatedRequestId: requestId,
       message: 'You received a new review.',
     });
-    await recalculateTrustScore(reviewedSitterId);
+    if (shouldRefreshTrustScore) {
+      try {
+        await recalculateTrustScore(reviewedSitterId);
+      } catch (error) {
+        console.warn('Unable to refresh sitter trust score after review:', error);
+      }
+    }
   }
 }
 

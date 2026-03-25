@@ -46,9 +46,10 @@ export default function SignupPage() {
 
     try {
       await signup(email, password, { name, location });
-      router.push('/verify-email');
-    } catch (err: any) {
-      setError('Failed to create account: ' + (err.message || 'Unknown error'));
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('Failed to create account: ' + message);
     } finally {
       setLoading(false);
     }

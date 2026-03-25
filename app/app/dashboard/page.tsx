@@ -1,131 +1,303 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { getWallet, getRecentTransactions, getCreditSummary } from '@/lib/walletService';
-import { Wallet, Transaction, CreditSummary } from '@/types/wallet';
+import { getProfile } from '@/lib/profileService';
+import {
+  getAllOpenRequests,
+  getSitterRequests,
+  getUserRequests,
+} from '@/lib/requestService';
+import { getAvailableSitters, NearbySitter } from '@/lib/sitterService';
+import { getWallet } from '@/lib/walletService';
+import { UserProfile } from '@/types/profile';
+import { Request } from '@/types/request';
+import { Wallet } from '@/types/wallet';
+
+function formatDateLabel(date: Date): string {
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatDateRange(startDate: Date, endDate: Date): string {
+  return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
+}
+
+function getPreviewRequests(requests: Request[], profile: UserProfile | null): Request[] {
+  if (!profile?.location.trim()) {
+    return requests.slice(0, 3);
+  }
+
+  const normalizedLocation = profile.location.trim().toLowerCase();
+  const nearbyRequests = requests.filter((request) =>
+    request.location.toLowerCase().includes(normalizedLocation)
+  );
+
+  return (nearbyRequests.length > 0 ? nearbyRequests : requests).slice(0, 3);
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [summary, setSummary] = useState<CreditSummary | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [openItems, setOpenItems] = useState(0);
+  const [nearbySitters, setNearbySitters] = useState<NearbySitter[]>([]);
+  const [communityRequests, setCommunityRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadWalletData();
+    let active = true;
+
+    async function loadHomeData() {
+      if (!user) {
+        if (active) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        if (active) {
+          setLoading(true);
+          setError('');
+        }
+
+        const userProfile = await getProfile(user.uid);
+        const [userWallet, userRequests, userSits, sitters, openRequests] = await Promise.all([
+          getWallet(user.uid),
+          getUserRequests(user.uid),
+          getSitterRequests(user.uid),
+          getAvailableSitters({
+            excludeUserId: user.uid,
+            city: userProfile?.location || '',
+            latitude: userProfile?.latitude,
+            longitude: userProfile?.longitude,
+            maxDistanceKm: 15,
+          }),
+          getAllOpenRequests(user.uid),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const activeOwnerRequests = userRequests.filter((request) =>
+          ['open', 'accepted', 'awaiting_confirmation'].includes(request.status)
+        );
+        const activeSits = userSits.filter((request) =>
+          ['accepted', 'awaiting_confirmation'].includes(request.status)
+        );
+
+        setProfile(userProfile);
+        setWallet(
+          userWallet ?? {
+            balance: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        );
+        setOpenItems(activeOwnerRequests.length + activeSits.length);
+        setNearbySitters(sitters.slice(0, 3));
+        setCommunityRequests(getPreviewRequests(openRequests, userProfile));
+      } catch (err: unknown) {
+        if (!active) {
+          return;
+        }
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setError('Failed to load home: ' + message);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadHomeData();
+
+    return () => {
+      active = false;
+    };
   }, [user]);
 
-  async function loadWalletData() {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      const [walletData, txData, summaryData] = await Promise.all([
-        getWallet(user.uid),
-        getRecentTransactions(user.uid, 10),
-        getCreditSummary(user.uid),
-      ]);
-      setWallet(walletData);
-      setTransactions(txData);
-      setSummary(summaryData);
-    } catch (err: any) {
-      setError('Failed to load wallet: ' + (err.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const welcomeName = profile?.name.trim() || user?.email?.split('@')[0] || 'there';
 
   return (
     <ProtectedRoute>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-3xl font-bold text-[#0f2640] mb-6">Dashboard</h1>
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-[28px] border border-[#dbe5f0] bg-[linear-gradient(135deg,#fff7ef_0%,#ffffff_42%,#eef5ff_100%)] p-6 sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
+                Home
+              </p>
+              <h1 className="mt-3 text-3xl font-bold text-[#0f2640] sm:text-4xl">
+                Welcome back, {welcomeName}
+              </h1>
+              <p className="mt-3 max-w-2xl text-[#516173]">
+                Discover nearby sitters and current community requests in one clean place.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/exchange"
+                  className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+                >
+                  Open Exchange
+                </Link>
+                <Link
+                  href="/sitters"
+                  className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
+                >
+                  Find Sitters
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
+                <p className="text-sm text-[#6b7280]">Credits</p>
+                <p className="mt-2 text-3xl font-bold text-[#0f2640]">{wallet?.balance ?? 0}</p>
+                <p className="mt-1 text-sm text-[#6b7280]">Ready for your next exchange</p>
+              </div>
+              <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
+                <p className="text-sm text-[#6b7280]">Upcoming Sits</p>
+                <p className="mt-2 text-3xl font-bold text-[#0f2640]">{openItems}</p>
+                <p className="mt-1 text-sm text-[#6b7280]">Accepted or upcoming sitter jobs</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">Loading wallet...</p>
-          </div>
-        ) : !wallet ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-red-700">Wallet not found. Please contact support.</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <p className="text-[#6b7280]">Loading home...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Wallet Balance Card */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-[#0f2640] mb-2">Credit Balance</h2>
-                <p className="text-4xl font-bold text-[#ff7a2d] mb-4">{wallet.balance}</p>
-                <p className="text-sm text-[#6b7280]">
-                  Last updated: {wallet.updatedAt.toLocaleDateString()}
-                </p>
-                {summary && (
-                  <div className="mt-6 pt-6 border-t border-gray-200 space-y-2 text-sm">
-                    <p className="text-[#0f2640] font-medium">
-                      Credits Earned: <span className="text-green-600">{summary.earned}</span>
-                    </p>
-                    <p className="text-[#0f2640] font-medium">
-                      Credits Spent: <span className="text-red-600">{summary.spent}</span>
-                    </p>
-                    <p className="text-[#6b7280]">Transactions: {summary.transactionCount}</p>
-                  </div>
-                )}
+          <>
+            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Available Sitters</h2>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    A few sitters near {profile?.location || 'you'}.
+                  </p>
+                </div>
+                <Link
+                  href="/sitters"
+                  className="text-sm font-semibold text-[#ff7a2d] hover:underline"
+                >
+                  See all sitters
+                </Link>
               </div>
-            </div>
 
-            {/* Recent Transactions */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-[#0f2640] mb-4">Recent Transactions</h2>
-                {transactions.length === 0 ? (
-                  <p className="text-[#6b7280]">No transactions yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-[#0f2640]">{tx.reference}</p>
-                          <p className="text-sm text-[#6b7280]">
-                            {tx.timestamp.toLocaleDateString()} at{' '}
-                            {tx.timestamp.toLocaleTimeString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          {(() => {
-                            const isIncoming =
-                              tx.type === 'earn' ||
-                              tx.type === 'starter_bonus' ||
-                              tx.type === 'escrow-release' ||
-                              tx.type === 'escrow-refund';
-                            return (
-                              <p className={`font-bold ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
-                                {isIncoming ? '+' : '-'}
-                                {tx.amount}
-                              </p>
-                            );
-                          })()}
-                          <p className="text-sm text-[#6b7280]">
-                            Balance: {tx.balanceAfter}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                {nearbySitters.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-5 md:col-span-3">
+                    <p className="text-sm text-[#6b7280]">
+                      No sitters to preview right now. Open the sitters page to browse more.
+                    </p>
                   </div>
+                ) : (
+                  nearbySitters.map((entry) => (
+                    <Link
+                      key={entry.profile.uid}
+                      href={`/sitters/${entry.profile.uid}`}
+                      className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-[#0f2640]">{entry.profile.name}</h3>
+                          <p className="text-sm text-[#6b7280]">{entry.profile.location}</p>
+                        </div>
+                        {entry.distanceKm !== undefined && (
+                          <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-medium text-[#0f2640]">
+                            {entry.distanceKm.toFixed(1)} km
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-3 line-clamp-2 text-sm text-[#6b7280]">
+                        {entry.profile.bio || 'Friendly sitter profile available to view.'}
+                      </p>
+                      <p className="mt-4 text-sm font-medium text-[#0f2640]">
+                        {entry.nextAvailableSlot
+                          ? `Next slot: ${formatDateRange(
+                              entry.nextAvailableSlot.startAt,
+                              entry.nextAvailableSlot.endAt
+                            )}`
+                          : 'Open for bookings'}
+                      </p>
+                      <p className="mt-4 text-sm font-semibold text-[#ff7a2d]">View full profile</p>
+                    </Link>
+                  ))
                 )}
               </div>
-            </div>
-          </div>
+            </section>
+
+            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Community Requests</h2>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    Open requests you can help with.
+                  </p>
+                </div>
+                <Link
+                  href="/exchange?tab=community"
+                  className="text-sm font-semibold text-[#ff7a2d] hover:underline"
+                >
+                  See all requests
+                </Link>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                {communityRequests.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-5 md:col-span-3">
+                    <p className="text-sm text-[#6b7280]">
+                      No community requests to preview right now.
+                    </p>
+                  </div>
+                ) : (
+                  communityRequests.map((request) => (
+                    <div
+                      key={`${request.ownerId}-${request.id}`}
+                      className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-[#0f2640]">
+                            {request.ownerName || 'Pet owner'}
+                          </h3>
+                          <p className="text-sm text-[#6b7280]">
+                            {request.petNames.join(', ') || 'Pet care request'}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
+                          {request.creditsOffered} credits
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-[#0f2640]">
+                        {formatDateRange(request.startDate, request.endDate)}
+                      </p>
+                      <p className="mt-1 text-sm text-[#6b7280]">{request.location}</p>
+                      <p className="mt-4 text-sm font-medium text-[#0f2640]">
+                        {request.notes || 'Open request from the community'}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </>
         )}
       </div>
     </ProtectedRoute>

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import Image from 'next/image';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import AvailabilityPlanner from '@/components/AvailabilityPlanner';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -54,11 +56,7 @@ export default function ProfilePage() {
   const [phoneCode, setPhoneCode] = useState('');
   const [phoneProcessing, setPhoneProcessing] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, [user]);
-
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -90,7 +88,11 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -210,7 +212,7 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-[#0f2640] mb-6">Profile</h1>
 
         {error && (
@@ -234,69 +236,72 @@ export default function ProfilePage() {
             <p className="text-red-700">Profile not found. Please contact support.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span
-                className={`px-2 py-1 text-xs rounded ${
-                  user?.emailVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {user?.emailVerified ? 'Email Verified' : 'Email Not Verified'}
-              </span>
-              <span
-                className={`px-2 py-1 text-xs rounded ${
-                  profile.phoneVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {profile.phoneVerified ? 'Phone Verified' : 'Phone Not Verified'}
-              </span>
-              <span
-                className={`px-2 py-1 text-xs rounded ${
-                  profileComplete ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {profileComplete ? 'Profile Completed' : 'Profile Incomplete'}
-              </span>
-            </div>
-
-            <div className="mb-4 p-3 border border-gray-200 rounded-lg">
-              <p className="text-sm font-medium text-[#0f2640] mb-2">Phone Verification</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+358401234567"
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-                <button
-                  onClick={handleSendPhoneCode}
-                  disabled={phoneProcessing}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+          <>
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span
+                  className={`px-2 py-1 text-xs rounded ${
+                    profile.availability === 'available'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
                 >
-                  Send Code
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-                <input
-                  type="text"
-                  value={phoneCode}
-                  onChange={(e) => setPhoneCode(e.target.value)}
-                  placeholder="Enter code"
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-                <button
-                  onClick={handleVerifyPhoneCode}
-                  disabled={phoneProcessing}
-                  className="px-3 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] text-sm"
+                  {profile.availability === 'available' ? 'Open for bookings' : 'Bookings paused'}
+                </span>
+                <span
+                  className={`px-2 py-1 text-xs rounded ${
+                    profile.phoneVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}
                 >
-                  Verify Code
-                </button>
+                  {profile.phoneVerified ? 'Phone Verified' : 'Phone Not Verified'}
+                </span>
+                <span
+                  className={`px-2 py-1 text-xs rounded ${
+                    profileComplete ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {profileComplete ? 'Profile Completed' : 'Profile Incomplete'}
+                </span>
               </div>
-            </div>
 
-            {isEditing ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="mb-4 p-3 border border-gray-200 rounded-lg">
+                <p className="text-sm font-medium text-[#0f2640] mb-2">Phone Verification</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+358401234567"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={handleSendPhoneCode}
+                    disabled={phoneProcessing}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  >
+                    Send Code
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={phoneCode}
+                    onChange={(e) => setPhoneCode(e.target.value)}
+                    placeholder="Enter code"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={handleVerifyPhoneCode}
+                    disabled={phoneProcessing}
+                    className="px-3 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] text-sm"
+                  >
+                    Verify Code
+                  </button>
+                </div>
+              </div>
+
+              {isEditing ? (
+                <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">Name</label>
                   <input
@@ -485,57 +490,65 @@ export default function ProfilePage() {
                     Cancel
                   </button>
                 </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                {profile.photoURL && (
-                  <img
-                    src={profile.photoURL}
-                    alt={profile.name}
-                    className="w-20 h-20 rounded-full object-cover border border-gray-200"
-                  />
-                )}
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  {profile.photoURL && (
+                    <Image
+                      src={profile.photoURL}
+                      alt={profile.name}
+                      width={80}
+                      height={80}
+                      unoptimized
+                      className="w-20 h-20 rounded-full object-cover border border-gray-200"
+                    />
+                  )}
 
-                <div>
-                  <label className="block text-sm font-medium text-[#6b7280] mb-1">Name</label>
-                  <p className="text-[#0f2640] font-medium">{profile.name}</p>
+                  <div>
+                    <label className="block text-sm font-medium text-[#6b7280] mb-1">Name</label>
+                    <p className="text-[#0f2640] font-medium">{profile.name}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#6b7280] mb-1">Location</label>
+                    <p className="text-[#0f2640] font-medium">
+                      {profile.location}, {profile.country}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#6b7280] mb-1">Phone</label>
+                    <p className="text-[#0f2640] font-medium">{profile.phoneNumber || 'Not set'}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#6b7280] mb-1">Trust Score</label>
+                    <p className="text-[#0f2640] font-medium">{profile.trustScore}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#6b7280] mb-1">Average Rating</label>
+                    <p className="text-[#0f2640] font-medium">
+                      {profile.ratingCount > 0
+                        ? `${profile.ratingAverage.toFixed(1)} / 5 (${profile.ratingCount} review${profile.ratingCount > 1 ? 's' : ''})`
+                        : 'No ratings yet'}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
+                  >
+                    Edit Profile
+                  </button>
                 </div>
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-[#6b7280] mb-1">Location</label>
-                  <p className="text-[#0f2640] font-medium">
-                    {profile.location}, {profile.country}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#6b7280] mb-1">Phone</label>
-                  <p className="text-[#0f2640] font-medium">{profile.phoneNumber || 'Not set'}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#6b7280] mb-1">Trust Score</label>
-                  <p className="text-[#0f2640] font-medium">{profile.trustScore}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#6b7280] mb-1">Average Rating</label>
-                  <p className="text-[#0f2640] font-medium">
-                    {profile.ratingCount > 0
-                      ? `${profile.ratingAverage.toFixed(1)} / 5 (${profile.ratingCount} review${profile.ratingCount > 1 ? 's' : ''})`
-                      : 'No ratings yet'}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
-                >
-                  Edit Profile
-                </button>
-              </div>
-            )}
-          </div>
+            <AvailabilityPlanner
+              userId={profile.uid}
+            />
+          </>
         )}
       </div>
     </ProtectedRoute>

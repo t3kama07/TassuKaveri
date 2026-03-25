@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, CreateProfileData, UpdateProfileData } from '@/types/profile';
+import { syncPublicAvailabilitySummary, syncPublicProfile } from './publicProfileService';
 
 const USERS_COLLECTION = 'users';
 
@@ -33,7 +34,9 @@ function generateSixDigitCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export function isProfileCompleted(profile: UserProfile): boolean {
+export function isProfileCompleted(
+  profile: Pick<UserProfile, 'name' | 'location' | 'bio' | 'petExperience' | 'photoURL'>
+): boolean {
   return Boolean(
     profile.name.trim() &&
       profile.location.trim() &&
@@ -152,6 +155,8 @@ export async function createProfile(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  await syncPublicProfile(uid);
+  await syncPublicAvailabilitySummary(uid, []);
 }
 
 /**
@@ -217,6 +222,7 @@ export async function updateUserLocation(
       country,
       updatedAt: serverTimestamp(),
     });
+    await syncPublicProfile(uid);
     return null;
   }
 
@@ -227,6 +233,7 @@ export async function updateUserLocation(
     longitude: geocoded.longitude,
     updatedAt: serverTimestamp(),
   });
+  await syncPublicProfile(uid);
 
   return geocoded;
 }
@@ -268,6 +275,8 @@ export async function sendPhoneVerificationCode(uid: string, phoneNumber: string
     phoneVerificationExpires: expiry,
     updatedAt: serverTimestamp(),
   });
+
+  await syncPublicProfile(uid);
 
   return code;
 }
@@ -324,6 +333,8 @@ export async function recalculateTrustScore(uid: string): Promise<number> {
     trustScore,
     updatedAt: serverTimestamp(),
   });
+
+  await syncPublicProfile(uid);
 
   return trustScore;
 }

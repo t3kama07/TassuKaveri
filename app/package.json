@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "rotate:demo-passwords": "node scripts/rotate-demo-user-passwords.mjs"
   },
   "dependencies": {
     "firebase": "^12.7.0",

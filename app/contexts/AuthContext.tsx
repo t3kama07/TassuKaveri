@@ -8,10 +8,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   UserCredential,
-  sendEmailVerification,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { createProfile, setEmailVerifiedStatus } from '@/lib/profileService';
+import { createProfile, profileExists, setEmailVerifiedStatus } from '@/lib/profileService';
 import { initializeWallet } from '@/lib/walletService';
 import { CreateProfileData } from '@/types/profile';
 
@@ -20,8 +19,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<UserCredential>;
   signup: (email: string, password: string, profileData: CreateProfileData) => Promise<UserCredential>;
-  sendVerificationEmail: () => Promise<void>;
-  refreshUser: () => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
@@ -31,19 +28,67 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+function formatFallbackName(user: User): string {
+  const displayName = user.displayName?.trim();
+  if (displayName) {
+    return displayName;
+  }
+
+  const emailLocalPart = user.email?.split('@')[0]?.replace(/[._-]+/g, ' ').trim();
+  if (emailLocalPart) {
+    return emailLocalPart;
+  }
+
+  return 'PetBuddy User';
+}
+
+function getBootstrapProfileData(user: User): CreateProfileData {
+  return {
+    name: formatFallbackName(user),
+    location: 'Helsinki',
+    country: 'Finland',
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function ensureUserBootstrap(
+    authUser: User,
+    profileData?: CreateProfileData,
+    overwriteProfile: boolean = false
+  ): Promise<void> {
+    const email = authUser.email;
+    if (!email) {
+      throw new Error('Authenticated user is missing an email address');
+    }
+
+    // Warm the auth token before any protected Firestore reads/writes.
+    await authUser.getIdToken();
+
+    const hasProfile = await profileExists(authUser.uid);
+    if (overwriteProfile && profileData) {
+      await createProfile(authUser.uid, email, profileData);
+    } else if (!hasProfile) {
+      await createProfile(authUser.uid, email, profileData ?? getBootstrapProfileData(authUser));
+    }
+
+    await initializeWallet(authUser.uid);
+    await setEmailVerifiedStatus(authUser.uid, authUser.emailVerified);
+  }
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      if (nextUser) {
         try {
-          await setEmailVerifiedStatus(user.uid, user.emailVerified);
-        } catch {
-          // non-blocking sync
+          await ensureUserBootstrap(nextUser);
+        } catch (error) {
+          console.error('Failed to bootstrap signed-in user:', error);
         }
+        setUser(auth.currentUser ?? nextUser);
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
@@ -54,54 +99,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     await credential.user.reload();
-    setUser(auth.currentUser);
-    try {
-      await setEmailVerifiedStatus(credential.user.uid, credential.user.emailVerified);
-    } catch {
-      // non-blocking sync
-    }
+    const currentUser = auth.currentUser ?? credential.user;
+    await ensureUserBootstrap(currentUser);
+    setUser(currentUser);
     return credential;
   };
 
   const signup = async (email: string, password: string, profileData: CreateProfileData) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Auto-create profile document
-    await createProfile(userCredential.user.uid, email, profileData);
-    
-    // Auto-initialize wallet with starter credits
-    await initializeWallet(userCredential.user.uid);
 
-    // Email verification for launch trust baseline
-    await sendEmailVerification(userCredential.user);
-    try {
-      await setEmailVerifiedStatus(userCredential.user.uid, userCredential.user.emailVerified);
-    } catch {
-      // non-blocking sync
-    }
-    
+    await ensureUserBootstrap(userCredential.user, profileData, true);
+    setUser(auth.currentUser ?? userCredential.user);
+
     return userCredential;
-  };
-
-  const sendVerificationEmailFn = async () => {
-    if (!auth.currentUser) {
-      throw new Error('No authenticated user');
-    }
-    await sendEmailVerification(auth.currentUser);
-  };
-
-  const refreshUser = async () => {
-    if (!auth.currentUser) {
-      return false;
-    }
-    await auth.currentUser.reload();
-    setUser(auth.currentUser);
-    try {
-      await setEmailVerifiedStatus(auth.currentUser.uid, auth.currentUser.emailVerified);
-    } catch {
-      // non-blocking sync
-    }
-    return auth.currentUser.emailVerified;
   };
 
   const logout = () => {
@@ -113,8 +123,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     login,
     signup,
-    sendVerificationEmail: sendVerificationEmailFn,
-    refreshUser,
     logout,
   };
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata: Metadata = {
   title: "TassuKaveri - Pet Care Exchange",
@@ -14,11 +15,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fi">
+    <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          <Navbar />
-          <main>{children}</main>
+          <LanguageProvider>
+            <Navbar />
+            <main>{children}</main>
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

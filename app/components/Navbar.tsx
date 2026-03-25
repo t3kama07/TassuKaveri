@@ -1,167 +1,155 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { publicContent } from '@/lib/publicContent';
+import { getProfile } from '@/lib/profileService';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const router = useRouter();
-  const [showRequestsMenu, setShowRequestsMenu] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const publicNavCopy = publicContent[language].nav;
 
-  const handleLogout = async () => {
+  useEffect(() => {
+    let active = true;
+
+    async function loadRole() {
+      if (!user) {
+        if (active) {
+          setIsAdmin(false);
+        }
+        return;
+      }
+
+      try {
+        const profile = await getProfile(user.uid);
+        if (active) {
+          setIsAdmin(profile?.role === 'admin');
+        }
+      } catch (error) {
+        console.error('Failed to load navbar profile:', error);
+        if (active) {
+          setIsAdmin(false);
+        }
+      }
+    }
+
+    void loadRole();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  async function handleLogout() {
     try {
       await logout();
       router.push('/');
     } catch (error) {
       console.error('Failed to logout:', error);
     }
-  };
+  }
 
   return (
-    <nav className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <Image 
-              src="/logo.png" 
-              alt="TassuKaveri" 
-              width={120} 
-              height={40}
-              className="h-10 w-auto"
-            />
-          </Link>
+    <nav className="border-b border-[#e7ebf0] bg-white/95 backdrop-blur">
+      <div className="mx-auto flex min-h-[68px] w-full max-w-[1600px] items-center justify-between gap-8 px-6 sm:px-10 lg:px-14 2xl:px-20">
+        <Link href={user ? '/dashboard' : '/'} className="flex h-[68px] items-center gap-2">
+          <Image
+            src="/logo.png"
+            alt="TassuKaveri"
+            width={132}
+            height={44}
+            className="h-9 w-auto sm:h-10"
+          />
+        </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-6">
-            {user ? (
-              user.emailVerified ? (
-                <>
-                  <Link 
-                    href="/dashboard" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Dashboard
-                  </Link>
-                  <Link 
-                    href="/pets" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Pets
-                  </Link>
-                  
-                  {/* Requests Dropdown */}
-                  <div 
-                    className="relative"
-                    onMouseEnter={() => setShowRequestsMenu(true)}
-                    onMouseLeave={() => setShowRequestsMenu(false)}
-                  >
-                    <button className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium flex items-center gap-1 py-2">
-                      Requests
-                      <svg 
-                        className="w-4 h-4" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {showRequestsMenu && (
-                      <div className="absolute top-full left-0 pt-2 w-48 z-50">
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg py-2">
-                          <Link
-                            href="/requests"
-                            className="block px-4 py-2 text-[#0f2640] hover:bg-gray-50 hover:text-[#ff7a2d] transition-colors"
-                          >
-                            My Requests
-                          </Link>
-                          <Link
-                            href="/requests/browse"
-                            className="block px-4 py-2 text-[#0f2640] hover:bg-gray-50 hover:text-[#ff7a2d] transition-colors"
-                          >
-                            Browse Requests
-                          </Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Link 
-                    href="/sitters" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Sitters
-                  </Link>
-                  
-                  <Link 
-                    href="/messages" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Messages
-                  </Link>
-                  <Link 
-                    href="/notifications" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Notifications
-                  </Link>
-                  <Link 
-                    href="/profile" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Profile
-                  </Link>
-                  <Link 
-                    href="/admin" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Admin
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="bg-[#ff7a2d] text-white px-4 py-2 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    href="/verify-email" 
-                    className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                  >
-                    Verify Email
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="bg-[#ff7a2d] text-white px-4 py-2 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
-                  >
-                    Logout
-                  </button>
-                </>
-              )
-            ) : (
-              <>
-                <Link 
-                  href="/login" 
-                  className="text-[#0f2640] hover:text-[#ff7a2d] transition-colors font-medium"
-                >
-                  Login
+        <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-3 py-3 text-[0.98rem] sm:gap-x-6">
+          {user ? (
+            <>
+              <Link href="/dashboard" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Home
+              </Link>
+              <Link href="/exchange" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Exchange
+              </Link>
+              <Link href="/sitters" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Sitters
+              </Link>
+              <Link href="/pets" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Pets
+              </Link>
+              <Link href="/messages" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Messages
+              </Link>
+              <Link href="/notifications" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Alerts
+              </Link>
+              <Link href="/profile" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                Profile
+              </Link>
+              {isAdmin && (
+                <Link href="/admin" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                  Admin
                 </Link>
-                <Link 
-                  href="/signup" 
-                  className="bg-[#ff7a2d] text-white px-4 py-2 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
-          </div>
+              )}
+              <button
+                onClick={handleLogout}
+                className="rounded-2xl bg-[#ff7a2d] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/#how-it-works"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.howItWorks}
+              </Link>
+              <Link
+                href="/#trust-safety"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.safety}
+              </Link>
+              <div className="inline-flex items-center rounded-full border border-[#dbe2ea] bg-white p-1 text-[0.8rem] font-semibold text-[#0f2640] shadow-[0_1px_0_rgba(15,38,64,0.02)]">
+                {(['fi', 'en'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setLanguage(option)}
+                    className={`rounded-full px-3 py-1.5 transition-colors ${
+                      language === option
+                        ? 'bg-[#0f2640] text-white shadow-sm'
+                        : 'text-[#0f2640] hover:bg-[#f3f4f6]'
+                    }`}
+                    aria-pressed={language === option}
+                  >
+                    {option.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <Link
+                href="/login"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.logIn}
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-2xl bg-[#ff7a2d] px-6 py-3 font-semibold text-white shadow-[0_8px_20px_rgba(255,122,45,0.18)] transition-colors hover:bg-[#e66a1f]"
+              >
+                {publicNavCopy.signUp}
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>
