@@ -200,38 +200,38 @@ function HeroContent({
 
   return (
     <div className={`flex flex-col items-start gap-4 text-left ${className}`}>
-      <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[#ff7a2d] sm:text-[1.05rem] lg:text-[1.08rem]">
+      <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[#ff7a2d] lg:text-[1.08rem] max-sm:text-[0.82rem] max-sm:tracking-[0.16em] sm:text-[1.05rem]">
         {copy.hero.eyebrow}
       </p>
       <h1
-        className={`text-balance text-[3rem] font-extrabold tracking-tight text-[#0f2640] leading-[0.98] sm:text-[3.45rem] lg:text-[4rem] lg:leading-[0.97] ${titleClassName}`}
+        className={`text-balance text-[3rem] font-extrabold tracking-tight text-[#0f2640] leading-[0.98] sm:text-[3.45rem] lg:text-[4rem] lg:leading-[0.97] max-sm:max-w-[19rem] max-sm:text-[2.35rem] max-sm:leading-[0.94] ${titleClassName}`}
       >
         {copy.hero.titleStart}{' '}
         <span className="text-[#ff7a2d]">{copy.hero.titleAccent}</span>.
       </h1>
       <p
-        className={`text-[1.24rem] leading-9 text-[#4b5563] sm:text-[1.34rem] lg:text-[1.46rem] lg:leading-10 ${bodyClassName}`}
+        className={`text-[1.24rem] leading-9 text-[#4b5563] sm:text-[1.34rem] lg:text-[1.46rem] lg:leading-10 max-sm:max-w-[19rem] max-sm:text-[0.94rem] max-sm:leading-7 ${bodyClassName}`}
       >
         {copy.hero.body}
       </p>
 
-      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
         <Link
           href="/signup"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#ff7a2d] px-6 py-3 text-[1.08rem] font-semibold text-white shadow-[0_2px_6px_rgba(0,0,0,0.08)] transition-colors hover:bg-[#e66a1f]"
+          className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#ff7a2d] px-6 py-3 text-[1.08rem] font-semibold text-white shadow-[0_2px_6px_rgba(0,0,0,0.08)] transition-colors hover:bg-[#e66a1f] max-sm:min-h-11 max-sm:px-5 max-sm:text-[0.96rem]"
         >
           {copy.hero.primaryCta}
         </Link>
         <Link
           href="/signup"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#E5E7EB] bg-transparent px-6 py-3 text-[1.08rem] font-semibold text-[#0f2640] transition-colors hover:bg-[#f9fafb]"
+          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#E5E7EB] bg-transparent px-6 py-3 text-[1.08rem] font-semibold text-[#0f2640] transition-colors hover:bg-[#f9fafb] max-sm:min-h-11 max-sm:border-[#d9e2ea] max-sm:bg-white/72 max-sm:px-5 max-sm:text-[0.96rem] max-sm:backdrop-blur-[2px]"
         >
           {copy.hero.secondaryCta}
         </Link>
       </div>
 
       <ul
-        className={`flex flex-wrap items-center gap-x-6 gap-y-3 text-[1.02rem] font-medium text-[#1f2937] sm:text-[1.04rem] ${trustClassName}`}
+        className={`flex flex-wrap items-center gap-x-6 gap-y-3 text-[1.02rem] font-medium text-[#1f2937] sm:text-[1.04rem] max-sm:gap-x-4 max-sm:gap-y-2 max-sm:text-[0.86rem] ${trustClassName}`}
       >
         {copy.trustItems.map((item) => (
           <li key={item} className="flex items-center gap-2 whitespace-nowrap">
@@ -254,7 +254,7 @@ export default function LandingPage() {
 
   return (
     <div className="bg-white text-[#0f2640]">
-      <section className="relative flex min-h-[480px] items-center overflow-hidden lg:min-h-[600px]">
+      <section className="relative flex min-h-[480px] items-center overflow-hidden lg:min-h-[600px] max-sm:min-h-[640px]">
         <div className="absolute inset-0">
           <Image
             src="/images/heroimage.webp"
@@ -262,12 +262,20 @@ export default function LandingPage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center lg:object-[center_40%]"
+            className="object-cover object-center lg:object-[center_40%] max-sm:object-[72%_center]"
           />
         </div>
 
         <div
-          className="absolute inset-0 z-[1]"
+          className="absolute inset-0 z-[1] sm:hidden"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.84) 22%, rgba(255,255,255,0.56) 58%, rgba(255,255,255,0.16) 100%), linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.80) 48%, rgba(255,255,255,0.18) 100%)',
+          }}
+        />
+
+        <div
+          className="absolute inset-0 z-[1] hidden sm:block"
           style={{
             background:
               'linear-gradient(to right, rgba(255,255,255,0.96) 14%, rgba(255,255,255,0.78) 32%, rgba(255,255,255,0.34) 50%, rgba(255,255,255,0.02) 70%)',
@@ -275,7 +283,7 @@ export default function LandingPage() {
         />
 
         <HeroContent
-          className="relative z-[2] w-full px-8 py-16 sm:px-12 lg:px-20 xl:px-24 2xl:px-28"
+          className="relative z-[2] w-full px-8 py-16 sm:px-12 lg:px-20 xl:px-24 2xl:px-28 max-sm:py-14"
           titleClassName="max-w-[840px]"
           bodyClassName="max-w-[690px]"
           trustClassName="max-w-[980px] md:flex-nowrap"
