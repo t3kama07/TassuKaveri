@@ -1,6 +1,7 @@
 export type RequestStatus = 'open' | 'accepted' | 'awaiting_confirmation' | 'completed' | 'cancelled';
 export type CareType = 'daily-visit' | 'overnight' | 'boarding' | 'walking';
 export type EscrowStatus = 'none' | 'held' | 'released' | 'refunded';
+export type RequestAudience = 'community' | 'direct';
 
 export interface RequestApplication {
   sitterId: string;
@@ -31,11 +32,18 @@ export interface Request {
   locationLng?: number;
   creditsOffered: number;
   status: RequestStatus;
+  audience: RequestAudience;
   escrowStatus?: EscrowStatus;
   sitterId?: string;
   sitterName?: string;
+  requestedSitterId?: string;
+  requestedSitterName?: string;
   applications?: RequestApplication[];
   review?: RequestReview;
+  ownerReview?: RequestReview;
+  sitterReview?: RequestReview;
+  markedCompleteAt?: Date;
+  confirmedCompleteAt?: Date;
   notes?: string;
   feedingSchedule?: string;
   walkSchedule?: string;
@@ -55,6 +63,9 @@ export interface CreateRequestData {
   locationLat?: number;
   locationLng?: number;
   creditsOffered: number;
+  audience?: RequestAudience;
+  requestedSitterId?: string;
+  requestedSitterName?: string;
   notes?: string;
   feedingSchedule?: string;
   walkSchedule?: string;
@@ -72,6 +83,9 @@ export interface UpdateRequestData {
   locationLat?: number;
   locationLng?: number;
   creditsOffered?: number;
+  audience?: RequestAudience;
+  requestedSitterId?: string;
+  requestedSitterName?: string;
   notes?: string;
   feedingSchedule?: string;
   walkSchedule?: string;

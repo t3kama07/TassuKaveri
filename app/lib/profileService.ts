@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, CreateProfileData, UpdateProfileData } from '@/types/profile';
+import { getPilotLocationPayload } from './platformPolicy';
 import { syncPublicAvailabilitySummary, syncPublicProfile } from './publicProfileService';
 
 const USERS_COLLECTION = 'users';
@@ -81,43 +82,6 @@ async function getCompletedSitsCount(userId: string): Promise<number> {
   return completedCount;
 }
 
-async function geocodeCityCountry(
-  city: string,
-  country: string
-): Promise<{ latitude: number; longitude: number } | null> {
-  const cityValue = city.trim();
-  const countryValue = country.trim();
-  if (!cityValue) {
-    return null;
-  }
-
-  const searchParams = new URLSearchParams({
-    format: 'json',
-    limit: '1',
-    city: cityValue,
-    country: countryValue || 'Finland',
-  });
-
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${searchParams.toString()}`);
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as Array<{ lat: string; lon: string }>;
-  if (!Array.isArray(payload) || payload.length === 0) {
-    return null;
-  }
-
-  const latitude = Number(payload[0].lat);
-  const longitude = Number(payload[0].lon);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-}
-
 /**
  * Create a new user profile in Firestore
  */
@@ -127,12 +91,13 @@ export async function createProfile(
   data: CreateProfileData
 ): Promise<void> {
   const profileRef = doc(db, USERS_COLLECTION, uid);
+  const pilotLocation = getPilotLocationPayload();
   await setDoc(profileRef, {
     uid,
     email,
     name: data.name,
-    location: data.location,
-    country: data.country || 'Finland',
+    location: pilotLocation.location,
+    country: pilotLocation.country,
     photoURL: '',
     bio: '',
     petExperience: '',
@@ -147,6 +112,8 @@ export async function createProfile(
     experienceWithCats: false,
     experienceWithLargeDogs: false,
     experienceWithSeniorPets: false,
+    latitude: pilotLocation.latitude,
+    longitude: pilotLocation.longitude,
     ratingAverage: 0,
     ratingCount: 0,
     trustScore: 0,
@@ -210,32 +177,25 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
  */
 export async function updateUserLocation(
   uid: string,
-  city: string,
-  country: string
+  _city: string,
+  _country: string
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const geocoded = await geocodeCityCountry(city, country);
   const profileRef = doc(db, USERS_COLLECTION, uid);
-
-  if (!geocoded) {
-    await updateDoc(profileRef, {
-      location: city,
-      country,
-      updatedAt: serverTimestamp(),
-    });
-    await syncPublicProfile(uid);
-    return null;
-  }
+  const pilotLocation = getPilotLocationPayload();
 
   await updateDoc(profileRef, {
-    location: city,
-    country,
-    latitude: geocoded.latitude,
-    longitude: geocoded.longitude,
+    location: pilotLocation.location,
+    country: pilotLocation.country,
+    latitude: pilotLocation.latitude,
+    longitude: pilotLocation.longitude,
     updatedAt: serverTimestamp(),
   });
   await syncPublicProfile(uid);
 
-  return geocoded;
+  return {
+    latitude: pilotLocation.latitude,
+    longitude: pilotLocation.longitude,
+  };
 }
 
 /**
@@ -246,9 +206,14 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
+  const pilotLocation = getPilotLocationPayload();
 
   await updateDoc(profileRef, {
     ...filteredData,
+    location: pilotLocation.location,
+    country: pilotLocation.country,
+    latitude: pilotLocation.latitude,
+    longitude: pilotLocation.longitude,
     updatedAt: serverTimestamp(),
   });
 
@@ -358,4 +323,33 @@ export async function setEmailVerifiedStatus(uid: string, emailVerified: boolean
     updatedAt: serverTimestamp(),
   });
   await recalculateTrustScore(uid);
+}
+
+export async function ensurePilotLocation(uid: string): Promise<void> {
+  const profile = await getProfile(uid);
+  if (!profile) {
+    return;
+  }
+
+  const pilotLocation = getPilotLocationPayload();
+  const needsPilotLocation =
+    profile.location !== pilotLocation.location ||
+    profile.country !== pilotLocation.country ||
+    profile.latitude !== pilotLocation.latitude ||
+    profile.longitude !== pilotLocation.longitude;
+
+  if (!needsPilotLocation) {
+    return;
+  }
+
+  const profileRef = doc(db, USERS_COLLECTION, uid);
+  await updateDoc(profileRef, {
+    location: pilotLocation.location,
+    country: pilotLocation.country,
+    latitude: pilotLocation.latitude,
+    longitude: pilotLocation.longitude,
+    updatedAt: serverTimestamp(),
+  });
+
+  await syncPublicProfile(uid);
 }

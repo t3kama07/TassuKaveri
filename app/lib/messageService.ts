@@ -130,44 +130,32 @@ export async function ensureConversation(
 }
 
 export async function getUserConversations(userId: string): Promise<Conversation[]> {
-  const [ownedRequestsSnapshot, sitterRequestsSnapshot] = await Promise.all([
-    getDocs(collection(db, 'users', userId, 'requests')),
-    getDocs(query(collectionGroup(db, 'requests'), where('sitterId', '==', userId))),
-  ]);
-  const conversationSnapshots = await Promise.all(
-    [...ownedRequestsSnapshot.docs, ...sitterRequestsSnapshot.docs].map((requestDoc) => {
-      const requestData = requestDoc.data();
-      const ownerId = (requestData.ownerId as string) || '';
-
-      return getDocs(
-        query(
-          collection(db, 'users', ownerId, 'requests', requestDoc.id, 'conversations'),
-          where('participants', 'array-contains', userId)
-        )
-      );
-    })
-  );
   const conversationsWithTime: Array<{ conversation: Conversation; updatedAtTime: number }> = [];
+  const conversationsQuery = query(
+    collectionGroup(db, 'conversations'),
+    where('participants', 'array-contains', userId)
+  );
+  const conversationsSnapshot = await getDocs(conversationsQuery);
 
-  conversationSnapshots.forEach((snapshot) => {
-    snapshot.forEach((conversationDoc) => {
-      const data = conversationDoc.data();
-      const base = mapConversation(conversationDoc.id, data);
-      const ownerId = base.ownerId;
-      const sitterId = base.sitterId;
-      const isOwner = userId === ownerId;
+  conversationsSnapshot.forEach((conversationDoc) => {
+    const data = conversationDoc.data();
+    const base = mapConversation(conversationDoc.id, data);
+    const ownerId = base.ownerId;
+    const sitterId = base.sitterId;
+    const isOwner = userId === ownerId;
 
-      const updatedAt =
-        data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().getTime() : 0;
+    const updatedAt =
+      data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().getTime() : 0;
 
-      conversationsWithTime.push({
-        conversation: {
-          ...base,
-          otherUserId: isOwner ? sitterId : ownerId,
-          otherUserName: isOwner ? (data.sitterName as string) || 'Sitter' : (data.ownerName as string) || 'Owner',
-        },
-        updatedAtTime: updatedAt,
-      });
+    conversationsWithTime.push({
+      conversation: {
+        ...base,
+        otherUserId: isOwner ? sitterId : ownerId,
+        otherUserName: isOwner
+          ? (data.sitterName as string) || 'Sitter'
+          : (data.ownerName as string) || 'Owner',
+      },
+      updatedAtTime: updatedAt,
     });
   });
 

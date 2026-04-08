@@ -10,6 +10,8 @@ export interface Wallet {
   balance: number;
   lastRequestId?: string;
   lastRequestOwnerId?: string;
+  dailyEarnedDate?: string;
+  dailyEarnedCredits?: number;
   lastWalletAction?:
     | 'starter_bonus'
     | 'manual_earn'

@@ -12,6 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { REPEATED_PAIR_ACTIVITY_THRESHOLD } from './platformPolicy';
 import { ReportRecord } from '@/types/moderation';
 import { getProfile, recalculateTrustScore } from './profileService';
 
@@ -121,6 +122,38 @@ export async function viewSuspiciousActivity(adminId: string): Promise<ReportRec
   });
 
   return reports;
+}
+
+export async function logRepeatedPairActivity(
+  ownerId: string,
+  sitterId: string,
+  requestId: string
+): Promise<void> {
+  const q = query(collectionGroup(db, 'requests'), where('sitterId', '==', sitterId));
+  const snapshot = await getDocs(q);
+
+  let repeatedCount = 0;
+  snapshot.forEach((requestDoc) => {
+    const data = requestDoc.data();
+    if (data.ownerId === ownerId && data.status === 'completed') {
+      repeatedCount += 1;
+    }
+  });
+
+  if (repeatedCount < REPEATED_PAIR_ACTIVITY_THRESHOLD) {
+    return;
+  }
+
+  await addDoc(getReportsRef(), {
+    reporterId: ownerId,
+    type: 'suspicious',
+    targetUserId: sitterId,
+    targetOwnerId: ownerId,
+    targetRequestId: requestId,
+    reason: `Repeated completed exchanges detected between the same owner and sitter (${repeatedCount} total).`,
+    status: 'open',
+    createdAt: serverTimestamp(),
+  });
 }
 
 export async function freezeAccount(adminId: string, targetUserId: string, reason: string): Promise<void> {

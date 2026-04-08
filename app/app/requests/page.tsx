@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   getUserRequests,
   getSitterRequests,
+  getDirectRequestsForSitter,
   getAllOpenRequests,
   createRequest,
   updateRequest,
@@ -16,7 +17,9 @@ import {
   markAwaitingConfirmation,
   confirmCompletion,
   acceptApplication,
+  acceptRequest,
   applyToRequest,
+  calculateCreditsForRequestWindow,
   submitReview,
   withdrawApplication,
 } from '@/lib/requestService';
@@ -26,10 +29,12 @@ import { getProfile } from '@/lib/profileService';
 import { Request, CreateRequestData, CareType, RequestApplication } from '@/types/request';
 import { Pet } from '@/types/pet';
 
-type ExchangeTab = 'my-requests' | 'community' | 'my-sits';
+type ExchangeTab = 'my-requests' | 'direct-requests' | 'community' | 'my-sits';
 
 function resolveInitialTab(value: string | null): ExchangeTab {
   switch (value) {
+    case 'direct-requests':
+      return 'direct-requests';
     case 'community':
       return 'community';
     case 'my-sits':
@@ -52,6 +57,36 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): num
   return earthRadiusKm * c;
 }
 
+function parseFormDateTime(date: string, time: string): Date | null {
+  if (!date.trim() || !time.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(`${date}T${time}`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatRequestDuration(startAt: Date, endAt: Date): string {
+  const durationMs = endAt.getTime() - startAt.getTime();
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return '';
+  }
+
+  const totalMinutes = Math.ceil(durationMs / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${minutes} min`;
+}
+
 function RequestsPageContent() {
   const { user } = useAuth();
   const router = useRouter();
@@ -61,6 +96,7 @@ function RequestsPageContent() {
   const requestedSitterId = searchParams.get('sitterId');
   const requestedSitterName = searchParams.get('sitterName') || '';
   const [requests, setRequests] = useState<Request[]>([]);
+  const [directRequests, setDirectRequests] = useState<Request[]>([]);
   const [communityRequests, setCommunityRequests] = useState<Request[]>([]);
   const [sitterJobs, setSitterJobs] = useState<Request[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -89,7 +125,6 @@ function RequestsPageContent() {
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('18:00');
   const [location, setLocation] = useState('');
-  const [creditsOffered, setCreditsOffered] = useState(10);
   const [notes, setNotes] = useState('');
   const [feedingSchedule, setFeedingSchedule] = useState('');
   const [walkSchedule, setWalkSchedule] = useState('');
@@ -104,16 +139,18 @@ function RequestsPageContent() {
     try {
       setLoading(true);
       setError('');
-      const [userRequests, userPets, sitterRequests, openRequests, profile] = await Promise.all([
+      const [userRequests, userPets, sitterRequests, directSitterRequests, openRequests, profile] = await Promise.all([
         getUserRequests(user.uid),
         getUserPets(user.uid),
         getSitterRequests(user.uid),
+        getDirectRequestsForSitter(user.uid),
         getAllOpenRequests(user.uid),
         getProfile(user.uid),
       ]);
       setRequests(userRequests);
       setPets(userPets);
       setSitterJobs(sitterRequests);
+      setDirectRequests(directSitterRequests);
       setCommunityRequests(openRequests);
       if (profile) {
         setCityFilter(profile.location || '');
@@ -162,7 +199,6 @@ function RequestsPageContent() {
     setEndDate('');
     setEndTime('18:00');
     setLocation('');
-    setCreditsOffered(10);
     setNotes('');
     setFeedingSchedule('');
     setWalkSchedule('');
@@ -189,7 +225,6 @@ function RequestsPageContent() {
     setEndDate(request.endDate.toISOString().split('T')[0]);
     setEndTime(request.endDate.toTimeString().slice(0, 5));
     setLocation(request.location);
-    setCreditsOffered(request.creditsOffered);
     setNotes(request.notes || '');
     setFeedingSchedule(request.feedingSchedule || '');
     setWalkSchedule(request.walkSchedule || '');
@@ -217,13 +252,25 @@ function RequestsPageContent() {
     setSaving(true);
 
     try {
+      const parsedStartDate = parseFormDateTime(startDate, startTime);
+      const parsedEndDate = parseFormDateTime(endDate, endTime);
+
+      if (!parsedStartDate || !parsedEndDate) {
+        throw new Error('Choose valid start and end dates with times.');
+      }
+
+      const autoCalculatedCredits = calculateCreditsForRequestWindow(parsedStartDate, parsedEndDate);
+
       const requestData: CreateRequestData = {
         petIds: selectedPetIds,
         careType,
-        startDate: new Date(`${startDate}T${startTime}`),
-        endDate: new Date(`${endDate}T${endTime}`),
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
         location,
-        creditsOffered,
+        creditsOffered: autoCalculatedCredits,
+        audience: !editingRequest && requestedSitterId ? 'direct' : 'community',
+        requestedSitterId: !editingRequest ? requestedSitterId || undefined : undefined,
+        requestedSitterName: !editingRequest ? requestedSitterName || undefined : undefined,
         notes,
         feedingSchedule,
         walkSchedule,
@@ -425,6 +472,28 @@ function RequestsPageContent() {
     }
   }
 
+  async function handleAcceptDirectRequest(request: Request) {
+    if (!user) return;
+    if (!confirm(`Accept this direct request for ${request.petNames.join(', ')}?`)) {
+      return;
+    }
+
+    setProcessingCommunityRequestId(request.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await acceptRequest(request.ownerId, request.id, user.uid);
+      setSuccess(`Direct request accepted for ${request.petNames.join(', ')}.`);
+      await loadData();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('Failed to accept direct request: ' + message);
+    } finally {
+      setProcessingCommunityRequestId(null);
+    }
+  }
+
   async function handleWithdraw(request: Request) {
     if (!user) return;
     if (!confirm('Withdraw your application?')) {
@@ -540,6 +609,19 @@ function RequestsPageContent() {
     );
   });
 
+  const formStartAt = parseFormDateTime(startDate, startTime);
+  const formEndAt = parseFormDateTime(endDate, endTime);
+  const hasValidRequestWindow =
+    Boolean(formStartAt) &&
+    Boolean(formEndAt) &&
+    formEndAt!.getTime() > formStartAt!.getTime();
+  const autoCalculatedCredits = hasValidRequestWindow
+    ? calculateCreditsForRequestWindow(formStartAt!, formEndAt!)
+    : 0;
+  const requestDurationLabel = hasValidRequestWindow
+    ? formatRequestDuration(formStartAt!, formEndAt!)
+    : '';
+
   return (
     <ProtectedRoute>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -567,10 +649,14 @@ function RequestsPageContent() {
             )}
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
               <p className="text-sm text-[#6b7280]">My Requests</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{requests.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
+              <p className="text-sm text-[#6b7280]">Direct Requests</p>
+              <p className="mt-2 text-3xl font-bold text-[#0f2640]">{directRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
               <p className="text-sm text-[#6b7280]">Community Requests</p>
@@ -597,6 +683,16 @@ function RequestsPageContent() {
             }`}
           >
             My Requests
+          </button>
+          <button
+            onClick={() => selectTab('direct-requests')}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              activeTab === 'direct-requests'
+                ? 'bg-[#0f2640] text-white'
+                : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
+            }`}
+          >
+            Direct Requests
           </button>
           <button
             onClick={() => selectTab('community')}
@@ -782,18 +878,25 @@ function RequestsPageContent() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Credits Offered
-                </label>
-                <input
-                  type="number"
-                  value={creditsOffered}
-                  onChange={(e) => setCreditsOffered(Number(e.target.value))}
-                  required
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                />
+              <div className="rounded-2xl border border-[#ffd7be] bg-[#fff8f2] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-[#0f2640]">Credits</p>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      Filled automatically using the rule: 1 hour = 1 credit.
+                    </p>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-3xl font-bold text-[#ff7a2d]">
+                      {hasValidRequestWindow ? autoCalculatedCredits : '--'}
+                    </p>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      {hasValidRequestWindow
+                        ? `${requestDurationLabel} total`
+                        : 'Select valid start and end times'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1016,7 +1119,17 @@ function RequestsPageContent() {
                         </div>
                       )}
 
-                      {request.status === 'open' && (
+                      {request.audience === 'direct' && request.requestedSitterName && request.status === 'open' && (
+                        <div className="mb-4 p-3 bg-[#fff7ef] border border-[#ffd7bf] rounded-lg">
+                          <p className="text-sm text-[#6b7280]">Direct request sent to:</p>
+                          <p className="text-sm text-[#0f2640] font-medium">{request.requestedSitterName}</p>
+                          <p className="mt-1 text-sm text-[#516173]">
+                            This request is waiting for that sitter to review it from their direct requests tab.
+                          </p>
+                        </div>
+                      )}
+
+                      {request.status === 'open' && request.audience !== 'direct' && (
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg">
                           <p className="text-sm text-[#6b7280] mb-2">
                             Applicants: {request.applications?.length || 0}
@@ -1165,6 +1278,80 @@ function RequestsPageContent() {
                   ))}
                 </div>
               )}
+              </div>
+            )}
+
+            {activeTab === 'direct-requests' && (
+              <div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct Requests</h2>
+                  <p className="mt-2 text-sm text-[#6b7280]">
+                    These requests were sent directly to you from your sitter profile, so they stay separate from the public community queue.
+                  </p>
+                </div>
+
+                {directRequests.length === 0 ? (
+                  <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+                    <p className="text-[#6b7280]">No direct requests right now.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {directRequests.map((request) => (
+                      <div
+                        key={`${request.ownerId}-${request.id}`}
+                        className="bg-white rounded-2xl border border-[#ffd7bf] p-6 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div>
+                            <h3 className="text-lg font-bold text-[#0f2640]">{request.petNames.join(', ')}</h3>
+                            <p className="text-sm text-[#6b7280]">Owner: {request.ownerName}</p>
+                          </div>
+                          <span className="rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
+                            Direct request
+                          </span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="inline-block rounded-full bg-[#eef5ff] px-3 py-1 text-sm font-medium text-[#0f2640]">
+                            {getCareTypeLabel(request.careType)}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                          <div>
+                            <p className="text-[#6b7280]">Dates</p>
+                            <p className="font-medium text-[#0f2640]">
+                              {request.startDate.toLocaleDateString()} - {request.endDate.toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[#6b7280]">Credits</p>
+                            <p className="font-medium text-[#ff7a2d]">{request.creditsOffered}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-[#6b7280]">Location</p>
+                            <p className="font-medium text-[#0f2640]">{request.location}</p>
+                          </div>
+                        </div>
+
+                        {request.notes && (
+                          <div className="mb-4 rounded-xl bg-gray-50 p-3">
+                            <p className="text-sm text-[#6b7280] mb-1">Notes</p>
+                            <p className="text-sm text-[#0f2640]">{request.notes}</p>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => handleAcceptDirectRequest(request)}
+                          disabled={processingCommunityRequestId === request.id}
+                          className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
+                        >
+                          {processingCommunityRequestId === request.id ? 'Processing...' : 'Accept Direct Request'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1356,7 +1543,7 @@ function RequestsPageContent() {
                 {sitterJobs.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <p className="text-[#6b7280]">
-                      You are not assigned to any sits yet. Browse the community requests tab to apply.
+                      You are not assigned to any sits yet. Check Direct Requests for personal invites or browse the Community Requests tab to apply.
                     </p>
                   </div>
                 ) : (

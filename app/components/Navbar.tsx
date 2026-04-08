@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -6,45 +6,25 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { subscribeUnreadNotificationCount } from '@/lib/notificationService';
 import { publicContent } from '@/lib/publicContent';
-import { getProfile } from '@/lib/profileService';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { language, setLanguage } = useLanguage();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const publicNavCopy = publicContent[language].nav;
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
-    let active = true;
-
-    async function loadRole() {
-      if (!user) {
-        if (active) {
-          setIsAdmin(false);
-        }
-        return;
-      }
-
-      try {
-        const profile = await getProfile(user.uid);
-        if (active) {
-          setIsAdmin(profile?.role === 'admin');
-        }
-      } catch (error) {
-        console.error('Failed to load navbar profile:', error);
-        if (active) {
-          setIsAdmin(false);
-        }
-      }
+    if (!user) {
+      setUnreadNotifications(0);
+      return;
     }
 
-    void loadRole();
-
-    return () => {
-      active = false;
-    };
+    const unsubscribe = subscribeUnreadNotificationCount(user.uid, setUnreadNotifications);
+    return () => unsubscribe();
   }, [user]);
 
   async function handleLogout() {
@@ -87,8 +67,13 @@ export default function Navbar() {
               <Link href="/messages" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
                 Messages
               </Link>
-              <Link href="/notifications" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
-                Alerts
+              <Link href="/notifications" className="inline-flex items-center gap-2 font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
+                <span>Alerts</span>
+                {unreadNotifications > 0 && (
+                  <span className="inline-flex min-w-[1.45rem] items-center justify-center rounded-full bg-[#ff7a2d] px-2 py-0.5 text-xs font-semibold text-white">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
               </Link>
               <Link href="/profile" className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]">
                 Profile
@@ -127,8 +112,8 @@ export default function Navbar() {
                     onClick={() => setLanguage(option)}
                     className={`rounded-full px-3 py-1.5 transition-colors ${
                       language === option
-                        ? 'bg-[#0f2640] text-white shadow-sm'
-                        : 'text-[#0f2640] hover:bg-[#f3f4f6]'
+                        ? 'bg-[#ff7a2d] text-white shadow-[0_6px_14px_rgba(255,122,45,0.22)]'
+                        : 'text-[#0f2640] hover:bg-[#fff2e9] hover:text-[#ff7a2d]'
                     }`}
                     aria-pressed={language === option}
                   >

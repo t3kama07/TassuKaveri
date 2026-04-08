@@ -1,4 +1,4 @@
-export type ReportType = 'user' | 'request';
+export type ReportType = 'user' | 'request' | 'suspicious';
 export type ReportStatus = 'open' | 'resolved' | 'dismissed';
 
 export interface ReportRecord {

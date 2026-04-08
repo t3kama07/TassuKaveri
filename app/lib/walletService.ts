@@ -10,6 +10,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getTodayKey } from './platformPolicy';
 import { Wallet, Transaction, CreditSummary } from '@/types/wallet';
 
 const WALLET_DOC = 'main';
@@ -41,13 +42,15 @@ export async function initializeWallet(userId: string): Promise<void> {
       return;
     }
 
-    const starterBalance = 3;
+    const starterBalance = 5;
     const starterTxRef = doc(getTransactionsRef(userId));
 
     transaction.set(walletRef, {
       balance: starterBalance,
       lastRequestId: '',
       lastRequestOwnerId: '',
+      dailyEarnedDate: getTodayKey(),
+      dailyEarnedCredits: 0,
       lastWalletAction: 'starter_bonus',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -79,6 +82,9 @@ export async function getWallet(userId: string): Promise<Wallet | null> {
     balance: data.balance,
     lastRequestId: data.lastRequestId || undefined,
     lastRequestOwnerId: data.lastRequestOwnerId || undefined,
+    dailyEarnedDate: data.dailyEarnedDate || undefined,
+    dailyEarnedCredits:
+      typeof data.dailyEarnedCredits === 'number' ? data.dailyEarnedCredits : undefined,
     lastWalletAction: data.lastWalletAction || undefined,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),

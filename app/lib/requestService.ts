@@ -13,11 +13,13 @@ import {
   Timestamp,
   runTransaction,
   collectionGroup,
+  documentId,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAvailabilityMatch } from './availabilityService';
 import {
   Request,
+  RequestAudience,
   CreateRequestData,
   UpdateRequestData,
   RequestStatus,
@@ -26,8 +28,17 @@ import {
 } from '@/types/request';
 import { getUserPets } from './petService';
 import { getProfile, recalculateTrustScore } from './profileService';
+import { logRepeatedPairActivity } from './moderationService';
 import { createNotification } from './notificationService';
 import { ensureConversation } from './messageService';
+import {
+  assertNoMoneyLanguage,
+  DEFAULT_RADIUS_KM,
+  getPilotLocationPayload,
+  getTodayKey,
+  MAX_EARNED_CREDITS_PER_DAY,
+  PILOT_CITY,
+} from './platformPolicy';
 
 /**
  * Get requests collection reference for a user
@@ -56,8 +67,56 @@ function toDateOrNow(value: unknown): Date {
   return new Date();
 }
 
+function toOptionalDate(value: unknown): Date | undefined {
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  return undefined;
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeCity(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+
+function resolveAudience(data: Record<string, unknown>): RequestAudience {
+  return data.audience === 'direct' ? 'direct' : 'community';
+}
+
+export function calculateCreditsForRequestWindow(startDate: Date, endDate: Date): number {
+  const durationMs = endDate.getTime() - startDate.getTime();
+
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new Error('End date must be after start date');
+  }
+
+  return Math.max(1, Math.ceil(durationMs / MILLISECONDS_PER_HOUR));
+}
+
+function validateRequestTextFields(data: {
+  notes?: string;
+  feedingSchedule?: string;
+  walkSchedule?: string;
+  medicationInstructions?: string;
+  sleepInstructions?: string;
+  specialWarnings?: string;
+}) {
+  assertNoMoneyLanguage(
+    data.notes,
+    data.feedingSchedule,
+    data.walkSchedule,
+    data.medicationInstructions,
+    data.sleepInstructions,
+    data.specialWarnings
+  );
 }
 
 function parseApplications(raw: unknown): RequestApplication[] {
@@ -117,6 +176,9 @@ function parseReview(raw: unknown): RequestReview | undefined {
 }
 
 function mapRequest(id: string, data: Record<string, unknown>): Request {
+  const ownerReview = parseReview(data.ownerReview ?? data.review);
+  const sitterReview = parseReview(data.sitterReview);
+
   return {
     id,
     ownerId: (data.ownerId as string) || '',
@@ -131,11 +193,18 @@ function mapRequest(id: string, data: Record<string, unknown>): Request {
     locationLng: asNumber(data.locationLng),
     creditsOffered: asNumber(data.creditsOffered) || 0,
     status: (data.status as RequestStatus) || 'open',
+    audience: resolveAudience(data),
     escrowStatus: (data.escrowStatus as Request['escrowStatus']) || 'none',
     sitterId: (data.sitterId as string) || undefined,
     sitterName: (data.sitterName as string) || undefined,
+    requestedSitterId: (data.requestedSitterId as string) || undefined,
+    requestedSitterName: (data.requestedSitterName as string) || undefined,
     applications: parseApplications(data.applications),
-    review: parseReview(data.review),
+    review: ownerReview,
+    ownerReview,
+    sitterReview,
+    markedCompleteAt: toOptionalDate(data.markedCompleteAt),
+    confirmedCompleteAt: toOptionalDate(data.confirmedCompleteAt),
     notes: (data.notes as string) || '',
     feedingSchedule: (data.feedingSchedule as string) || '',
     walkSchedule: (data.walkSchedule as string) || '',
@@ -186,6 +255,8 @@ export async function createRequest(
   ownerId: string,
   data: CreateRequestData
 ): Promise<string> {
+  validateRequestTextFields(data);
+
   // Validate pets belong to owner
   const userPets = await getUserPets(ownerId);
   const validPetIds = userPets.map((p) => p.id);
@@ -199,13 +270,7 @@ export async function createRequest(
     throw new Error('At least one pet must be selected');
   }
 
-  if (data.creditsOffered <= 0) {
-    throw new Error('Credits offered must be positive');
-  }
-
-  if (data.endDate <= data.startDate) {
-    throw new Error('End date must be after start date');
-  }
+  const creditsOffered = calculateCreditsForRequestWindow(data.startDate, data.endDate);
 
   // Get owner profile for name
   const ownerProfile = await getProfile(ownerId);
@@ -216,6 +281,27 @@ export async function createRequest(
   // Get pet names
   const selectedPets = userPets.filter((p) => data.petIds.includes(p.id));
   const petNames = selectedPets.map((p) => p.name);
+  const pilotLocation = getPilotLocationPayload();
+  const audience: RequestAudience = data.audience === 'direct' ? 'direct' : 'community';
+  let requestedSitterId = '';
+  let requestedSitterName = '';
+
+  if (audience === 'direct') {
+    requestedSitterId = data.requestedSitterId?.trim() || '';
+    if (!requestedSitterId) {
+      throw new Error('A direct request must include a sitter.');
+    }
+    if (requestedSitterId === ownerId) {
+      throw new Error('You cannot send a direct request to yourself.');
+    }
+
+    const requestedSitterProfile = await getProfile(requestedSitterId);
+    if (!requestedSitterProfile) {
+      throw new Error('Requested sitter profile not found.');
+    }
+
+    requestedSitterName = requestedSitterProfile.name;
+  }
 
   const requestsRef = getUserRequestsRef(ownerId);
   const docRef = await addDoc(requestsRef, {
@@ -226,12 +312,15 @@ export async function createRequest(
     careType: data.careType,
     startDate: Timestamp.fromDate(data.startDate),
     endDate: Timestamp.fromDate(data.endDate),
-    location: data.location,
-    locationLat: data.locationLat ?? ownerProfile.latitude ?? null,
-    locationLng: data.locationLng ?? ownerProfile.longitude ?? null,
-    creditsOffered: data.creditsOffered,
+    location: pilotLocation.location,
+    locationLat: pilotLocation.latitude,
+    locationLng: pilotLocation.longitude,
+    creditsOffered,
     status: 'open',
+    audience,
     escrowStatus: 'none',
+    requestedSitterId: requestedSitterId || null,
+    requestedSitterName: requestedSitterName || null,
     applications: [],
     notes: data.notes || '',
     feedingSchedule: data.feedingSchedule || '',
@@ -242,6 +331,15 @@ export async function createRequest(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  if (audience === 'direct' && requestedSitterId) {
+    await createNotification({
+      userId: requestedSitterId,
+      type: 'direct_request_received',
+      relatedRequestId: docRef.id,
+      message: `${ownerProfile.name} sent you a direct request for ${petNames.join(', ')}.`,
+    });
+  }
 
   return docRef.id;
 }
@@ -259,6 +357,22 @@ export async function getRequest(ownerId: string, requestId: string): Promise<Re
 
   const data = requestSnap.data();
   return mapRequest(requestSnap.id, data);
+}
+
+export async function getRequestById(requestId: string, ownerId?: string): Promise<Request | null> {
+  if (ownerId) {
+    return getRequest(ownerId, requestId);
+  }
+
+  const q = query(collectionGroup(db, 'requests'), where(documentId(), '==', requestId));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const requestDoc = snapshot.docs[0];
+  return mapRequest(requestDoc.id, requestDoc.data());
 }
 
 /**
@@ -285,6 +399,8 @@ export async function updateRequest(
   requestId: string,
   data: UpdateRequestData
 ): Promise<void> {
+  validateRequestTextFields(data);
+
   const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
   const requestSnap = await getDoc(requestRef);
 
@@ -298,6 +414,7 @@ export async function updateRequest(
   }
 
   const updatePayload: Record<string, unknown> = {};
+  const pilotLocation = getPilotLocationPayload();
 
   // If updating pets, validate ownership
   if (data.petIds) {
@@ -323,9 +440,7 @@ export async function updateRequest(
 
   const effectiveStartDate = data.startDate ?? toDateOrNow(currentData.startDate);
   const effectiveEndDate = data.endDate ?? toDateOrNow(currentData.endDate);
-  if (effectiveEndDate <= effectiveStartDate) {
-    throw new Error('End date must be after start date');
-  }
+  const creditsOffered = calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate);
 
   if (data.startDate) {
     updatePayload.startDate = Timestamp.fromDate(data.startDate);
@@ -336,21 +451,10 @@ export async function updateRequest(
   if (data.careType) {
     updatePayload.careType = data.careType;
   }
-  if (data.location !== undefined) {
-    updatePayload.location = data.location;
-  }
-  if (data.locationLat !== undefined) {
-    updatePayload.locationLat = data.locationLat;
-  }
-  if (data.locationLng !== undefined) {
-    updatePayload.locationLng = data.locationLng;
-  }
-  if (data.creditsOffered !== undefined) {
-    if (data.creditsOffered <= 0) {
-      throw new Error('Credits offered must be positive');
-    }
-    updatePayload.creditsOffered = data.creditsOffered;
-  }
+  updatePayload.location = pilotLocation.location;
+  updatePayload.locationLat = pilotLocation.latitude;
+  updatePayload.locationLng = pilotLocation.longitude;
+  updatePayload.creditsOffered = creditsOffered;
   if (data.notes !== undefined) {
     updatePayload.notes = data.notes;
   }
@@ -485,6 +589,14 @@ export async function getAllOpenRequests(excludeUserId?: string): Promise<Reques
         return;
       }
 
+       if (resolveAudience(data) === 'direct') {
+        return;
+      }
+
+      if (normalizeCity((data.location as string) || '') !== normalizeCity(PILOT_CITY)) {
+        return;
+      }
+
       requests.push(mapRequest(requestDoc.id, data));
     });
 
@@ -496,6 +608,41 @@ export async function getAllOpenRequests(excludeUserId?: string): Promise<Reques
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching open requests:', error);
     throw new Error('Failed to fetch open requests: ' + message);
+  }
+}
+
+export async function getDirectRequestsForSitter(sitterId: string): Promise<Request[]> {
+  try {
+    const requestsQuery = query(
+      collectionGroup(db, 'requests'),
+      where('requestedSitterId', '==', sitterId)
+    );
+
+    const querySnapshot = await getDocs(requestsQuery);
+    const requests: Request[] = [];
+
+    querySnapshot.forEach((requestDoc) => {
+      const data = requestDoc.data();
+      const mappedRequest = mapRequest(requestDoc.id, data);
+
+      if (mappedRequest.status !== 'open') {
+        return;
+      }
+
+      if (mappedRequest.audience !== 'direct') {
+        return;
+      }
+
+      requests.push(mappedRequest);
+    });
+
+    requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return requests;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching direct requests:', error);
+    throw new Error('Failed to fetch direct requests: ' + message);
   }
 }
 
@@ -539,6 +686,8 @@ export async function applyToRequest(
   sitterId: string,
   message: string = ''
 ): Promise<void> {
+  assertNoMoneyLanguage(message);
+
   if (ownerId === sitterId) {
     throw new Error('You cannot apply to your own request');
   }
@@ -558,6 +707,13 @@ export async function applyToRequest(
   }
 
   const requestData = requestSnap.data();
+  const requestAudience = resolveAudience(requestData);
+  const requestedSitterId = (requestData.requestedSitterId as string) || '';
+
+  if (requestAudience === 'direct' && requestedSitterId && requestedSitterId !== sitterId) {
+    throw new Error('This direct request was sent to another sitter.');
+  }
+
   const requestStartAt = toDateOrNow(requestData.startDate);
   const requestEndAt = toDateOrNow(requestData.endDate);
   const availabilityMatch = await getAvailabilityMatch(sitterId, requestStartAt, requestEndAt);
@@ -831,8 +987,16 @@ export async function markAwaitingConfirmation(
     // Update request to awaiting_confirmation
     transaction.update(requestRef, {
       status: 'awaiting_confirmation',
+      markedCompleteAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+  });
+
+  await createNotification({
+    userId: ownerId,
+    type: 'request_completed',
+    relatedRequestId: requestId,
+    message: 'The sitter marked this task as complete. Please confirm to release credits.',
   });
 }
 
@@ -846,8 +1010,13 @@ export async function markAwaitingConfirmation(
  */
 export async function confirmCompletion(
   ownerId: string,
-  requestId: string
+  requestId: string,
+  confirmedBy?: string
 ): Promise<void> {
+  if (confirmedBy && confirmedBy !== ownerId) {
+    throw new Error('Only the request owner can confirm completion');
+  }
+
   const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
   let sitterId = '';
 
@@ -884,12 +1053,30 @@ export async function confirmCompletion(
     }
 
     const currentSitterBalance = asNumber(sitterWalletSnap.data().balance) || 0;
+    const currentDailyEarnedDate =
+      typeof sitterWalletSnap.data().dailyEarnedDate === 'string'
+        ? (sitterWalletSnap.data().dailyEarnedDate as string)
+        : '';
+    const currentDailyEarnedCredits =
+      currentDailyEarnedDate === getTodayKey()
+        ? asNumber(sitterWalletSnap.data().dailyEarnedCredits) || 0
+        : 0;
+
+    if (currentDailyEarnedCredits + creditsOffered > MAX_EARNED_CREDITS_PER_DAY) {
+      throw new Error(
+        `Daily credit limit reached. A sitter can earn up to ${MAX_EARNED_CREDITS_PER_DAY} credits per day.`
+      );
+    }
+
     const newSitterBalance = currentSitterBalance + creditsOffered;
+    const newDailyEarnedCredits = currentDailyEarnedCredits + creditsOffered;
 
     transaction.update(sitterWalletRef, {
       balance: newSitterBalance,
       lastRequestId: requestId,
       lastRequestOwnerId: ownerId,
+      dailyEarnedDate: getTodayKey(),
+      dailyEarnedCredits: newDailyEarnedCredits,
       lastWalletAction: 'escrow_release',
       updatedAt: serverTimestamp(),
     });
@@ -900,7 +1087,7 @@ export async function confirmCompletion(
       createWalletTransactionPayload(
         'escrow-release',
         creditsOffered,
-        `Payment for completed request ${requestId}`,
+        `Credits released for completed request ${requestId}`,
         requestId,
         newSitterBalance
       )
@@ -909,6 +1096,7 @@ export async function confirmCompletion(
     transaction.update(requestRef, {
       status: 'completed',
       escrowStatus: 'released',
+      confirmedCompleteAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
@@ -925,62 +1113,15 @@ export async function confirmCompletion(
     userId: sitterId,
     type: 'request_completed',
     relatedRequestId: requestId,
-    message: 'Your completed request payout has been released.',
+    message: 'Reward completed. Credits have been released.',
   });
   try {
     await recalculateTrustScore(sitterId);
   } catch (error) {
     console.warn('Unable to refresh sitter trust score after completion:', error);
   }
-}
 
-/**
- * Complete an accepted request (DEPRECATED - use markAwaitingConfirmation and confirmCompletion)
- * Kept for backward compatibility
- */
-export async function completeRequest(
-  ownerId: string,
-  requestId: string,
-  completedBy: string
-): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const requestData = requestSnap.data();
-  const currentStatus = requestData.status as RequestStatus;
-  const sitterId = requestData.sitterId as string | undefined;
-
-  if (!sitterId) {
-    throw new Error('No sitter assigned to this request');
-  }
-  if (completedBy !== ownerId && completedBy !== sitterId) {
-    throw new Error('Only owner or assigned sitter can complete the request');
-  }
-
-  if (currentStatus === 'accepted') {
-    await runTransaction(db, async (transaction) => {
-      const snap = await transaction.get(requestRef);
-      if (!snap.exists()) {
-        throw new Error('Request not found');
-      }
-      const data = snap.data();
-      if (data.status !== 'accepted') {
-        throw new Error(`Cannot complete request with status: ${data.status}`);
-      }
-      transaction.update(requestRef, {
-        status: 'awaiting_confirmation',
-        updatedAt: serverTimestamp(),
-      });
-    });
-  } else if (currentStatus !== 'awaiting_confirmation') {
-    throw new Error(`Cannot complete request with status: ${currentStatus}`);
-  }
-
-  await confirmCompletion(ownerId, requestId);
+  await logRepeatedPairActivity(ownerId, sitterId, requestId);
 }
 
 /**

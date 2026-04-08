@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -56,4 +57,23 @@ export async function getUserNotifications(userId: string): Promise<AppNotificat
 export async function markNotificationRead(notificationId: string): Promise<void> {
   const notificationRef = doc(db, 'notifications', notificationId);
   await updateDoc(notificationRef, { read: true });
+}
+
+export function subscribeUnreadNotificationCount(
+  userId: string,
+  onCount: (count: number) => void
+) {
+  const q = query(getNotificationsRef(), where('userId', '==', userId));
+
+  return onSnapshot(q, (snapshot) => {
+    let unreadCount = 0;
+
+    snapshot.forEach((notificationDoc) => {
+      if (notificationDoc.data().read !== true) {
+        unreadCount += 1;
+      }
+    });
+
+    onCount(unreadCount);
+  });
 }

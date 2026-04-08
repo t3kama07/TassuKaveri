@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -61,10 +61,7 @@ export default function SitterProfilePage() {
         setLoading(true);
         setError('');
 
-        const [publicProfile, conversations] = await Promise.all([
-          getPublicProfile(sitterId),
-          getUserConversations(user.uid),
-        ]);
+        const publicProfile = await getPublicProfile(sitterId);
 
         if (!active) {
           return;
@@ -77,11 +74,24 @@ export default function SitterProfilePage() {
           return;
         }
 
-        const existingConversation =
-          conversations.find((item) => item.otherUserId === sitterId) ?? null;
-
         setProfile(publicProfile);
-        setConversation(existingConversation);
+
+        try {
+          const conversations = await getUserConversations(user.uid);
+          if (!active) {
+            return;
+          }
+
+          const existingConversation =
+            conversations.find((item) => item.otherUserId === sitterId) ?? null;
+
+          setConversation(existingConversation);
+        } catch (conversationError) {
+          console.warn('Unable to load conversations for sitter profile:', conversationError);
+          if (active) {
+            setConversation(null);
+          }
+        }
       } catch (err: unknown) {
         if (!active) {
           return;
@@ -305,3 +315,4 @@ export default function SitterProfilePage() {
     </ProtectedRoute>
   );
 }
+

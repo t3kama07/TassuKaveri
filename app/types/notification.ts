@@ -1,4 +1,5 @@
 export type NotificationType =
+  | 'direct_request_received'
   | 'application_received'
   | 'application_accepted'
   | 'message_received'
