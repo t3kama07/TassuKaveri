@@ -3,6 +3,9 @@ export const publicContent = {
     nav: {
       howItWorks: 'How it works',
       safety: 'Safety',
+      about: 'About',
+      faq: 'FAQ',
+      blog: 'Blog',
       logIn: 'Log in',
       signUp: 'Sign up',
     },
@@ -101,7 +104,7 @@ export const publicContent = {
               { label: 'Trust & safety', href: '/#trust-safety' },
               {
                 label: 'FAQ',
-                href: 'mailto:info@tassukaveri.fi?subject=TassuKaveri%20FAQ',
+                href: '/faq.html',
               },
               { label: 'Contact', href: 'mailto:info@tassukaveri.fi' },
             ],
@@ -109,9 +112,10 @@ export const publicContent = {
           {
             title: 'Company',
             items: [
-              { label: 'About us' },
-              { label: 'Community values' },
-              { label: 'Finnish service' },
+              { label: 'About us', href: '/about.html' },
+              { label: 'Blog', href: '/blog.html' },
+              { label: 'Community values', href: '/about.html#values' },
+              { label: 'Finnish service', href: '/about.html#finland' },
             ],
           },
           {
@@ -130,6 +134,9 @@ export const publicContent = {
     nav: {
       howItWorks: 'Miten se toimii',
       safety: 'Turvallisuus',
+      about: 'Meistä',
+      faq: 'UKK',
+      blog: 'Blogi',
       logIn: 'Kirjaudu',
       signUp: 'Rekisteröidy',
     },
@@ -230,7 +237,7 @@ export const publicContent = {
               { label: 'Turvallisuus', href: '/#trust-safety' },
               {
                 label: 'UKK',
-                href: 'mailto:info@tassukaveri.fi?subject=TassuKaveri%20FAQ',
+                href: '/faq.html',
               },
               { label: 'Yhteystiedot', href: 'mailto:info@tassukaveri.fi' },
             ],
@@ -238,9 +245,10 @@ export const publicContent = {
           {
             title: 'Yritys',
             items: [
-              { label: 'Meistä' },
-              { label: 'Yhteisön arvot' },
-              { label: 'Suomalainen palvelu' },
+              { label: 'Meistä', href: '/about.html' },
+              { label: 'Blogi', href: '/blog.html' },
+              { label: 'Yhteisön arvot', href: '/about.html#values' },
+              { label: 'Suomalainen palvelu', href: '/about.html#finland' },
             ],
           },
           {

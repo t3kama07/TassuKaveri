@@ -107,9 +107,16 @@ export async function ensureConversation(
 
   const requestData = requestSnap.data();
   const conversationRef = getConversationRef(ownerId, requestId, sitterId);
-  const conversationSnap = await getDoc(conversationRef);
-  if (conversationSnap.exists()) {
-    return;
+  try {
+    const conversationSnap = await getDoc(conversationRef);
+    if (conversationSnap.exists()) {
+      return;
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (!message.includes('Missing or insufficient permissions')) {
+      throw error;
+    }
   }
 
   await setDoc(conversationRef, {
@@ -130,24 +137,37 @@ export async function ensureConversation(
 }
 
 export async function getUserConversations(userId: string): Promise<Conversation[]> {
-  const conversationsWithTime: Array<{ conversation: Conversation; updatedAtTime: number }> = [];
-  const conversationsQuery = query(
-    collectionGroup(db, 'conversations'),
-    where('participants', 'array-contains', userId)
-  );
-  const conversationsSnapshot = await getDocs(conversationsQuery);
+  const conversationsById = new Map<
+    string,
+    { conversation: Conversation; updatedAtTime: number }
+  >();
 
-  conversationsSnapshot.forEach((conversationDoc) => {
-    const data = conversationDoc.data();
-    const base = mapConversation(conversationDoc.id, data);
-    const ownerId = base.ownerId;
-    const sitterId = base.sitterId;
+  async function collectConversation(ownerId: string, requestId: string, sitterId: string) {
+    if (!sitterId) {
+      return;
+    }
+
+    let conversationSnap;
+    try {
+      conversationSnap = await getDoc(getConversationRef(ownerId, requestId, sitterId));
+      if (!conversationSnap.exists()) {
+        return;
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      if (message.includes('Missing or insufficient permissions')) {
+        return;
+      }
+      throw error;
+    }
+
+    const data = conversationSnap.data();
+    const base = mapConversation(conversationSnap.id, data);
     const isOwner = userId === ownerId;
-
     const updatedAt =
       data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().getTime() : 0;
 
-    conversationsWithTime.push({
+    conversationsById.set(conversationSnap.id, {
       conversation: {
         ...base,
         otherUserId: isOwner ? sitterId : ownerId,
@@ -157,13 +177,34 @@ export async function getUserConversations(userId: string): Promise<Conversation
       },
       updatedAtTime: updatedAt,
     });
-  });
+  }
 
-  conversationsWithTime.sort((a, b) => {
-    return b.updatedAtTime - a.updatedAtTime;
-  });
+  const ownerRequestsSnapshot = await getDocs(collection(db, 'users', userId, 'requests'));
+  await Promise.all(
+    ownerRequestsSnapshot.docs.map(async (requestDoc) => {
+      const sitterId = (requestDoc.data().sitterId as string) || '';
+      await collectConversation(userId, requestDoc.id, sitterId);
+    })
+  );
 
-  return conversationsWithTime.map((item) => item.conversation);
+  const sitterRequestsSnapshot = await getDocs(
+    query(collectionGroup(db, 'requests'), where('sitterId', '==', userId))
+  );
+
+  await Promise.all(
+    sitterRequestsSnapshot.docs.map(async (requestDoc) => {
+      const ownerId = requestDoc.ref.parent.parent?.id;
+      if (!ownerId || ownerId === userId) {
+        return;
+      }
+
+      await collectConversation(ownerId, requestDoc.id, userId);
+    })
+  );
+
+  return [...conversationsById.values()]
+    .sort((left, right) => right.updatedAtTime - left.updatedAtTime)
+    .map((item) => item.conversation);
 }
 
 /**
@@ -287,16 +328,24 @@ export async function getLatestMessage(
   requestId: string,
   sitterId: string
 ): Promise<Message | null> {
-  const q = query(
-    getConversationMessagesRef(ownerId, requestId, sitterId),
-    orderBy('createdAt', 'desc'),
-    limit(1)
-  );
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) {
-    return null;
-  }
+  try {
+    const q = query(
+      getConversationMessagesRef(ownerId, requestId, sitterId),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      return null;
+    }
 
-  const latestDoc = snapshot.docs[0];
-  return mapMessage(ownerId, requestId, sitterId, latestDoc.id, latestDoc.data());
+    const latestDoc = snapshot.docs[0];
+    return mapMessage(ownerId, requestId, sitterId, latestDoc.id, latestDoc.data());
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (message.includes('Missing or insufficient permissions')) {
+      return null;
+    }
+    throw error;
+  }
 }

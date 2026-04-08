@@ -266,13 +266,55 @@ service cloud.firestore {
             && request.resource.data.balance == resource.data.balance + requestDoc.creditsOffered;
         }
 
+        function escrowHoldWalletUpdateAllowed() {
+          let action = request.resource.data.lastWalletAction;
+          let requestId = request.resource.data.lastRequestId;
+          let ownerId = request.resource.data.lastRequestOwnerId;
+          let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+          return signedIn()
+            && actorNotFrozen()
+            && action == 'escrow_hold'
+            && userId == ownerId
+            && request.auth.uid == requestDoc.requestedSitterId
+            && requestDoc.ownerId == ownerId
+            && requestDoc.audience == 'direct'
+            && requestDoc.requestedSitterId == request.auth.uid
+            && requestDoc.sitterId == request.auth.uid
+            && requestDoc.status == 'accepted'
+            && requestDoc.escrowStatus == 'held'
+            && request.resource.data.balance == resource.data.balance - requestDoc.creditsOffered;
+        }
+
         allow read, create: if ownerOrAdmin(userId) && actorNotFrozen();
         allow update: if (ownerOrAdmin(userId) && actorNotFrozen())
+          || escrowHoldWalletUpdateAllowed()
           || escrowReleaseWalletUpdateAllowed()
           || escrowRefundWalletUpdateAllowed();
         allow delete: if false;
 
         match /transactions/{txId} {
+          function escrowHoldTransactionAllowed() {
+            let walletAfter = getAfter(walletDocPath()).data;
+            let ownerId = walletAfter.lastRequestOwnerId;
+            let requestId = walletAfter.lastRequestId;
+            let requestDoc = getAfter(/databases/$(database)/documents/users/$(ownerId)/requests/$(requestId)).data;
+            return signedIn()
+              && actorNotFrozen()
+              && request.resource.data.type == 'escrow'
+              && request.resource.data.requestId == requestId
+              && walletAfter.lastWalletAction == 'escrow_hold'
+              && userId == ownerId
+              && request.auth.uid == requestDoc.requestedSitterId
+              && requestDoc.ownerId == ownerId
+              && requestDoc.audience == 'direct'
+              && requestDoc.requestedSitterId == request.auth.uid
+              && requestDoc.sitterId == request.auth.uid
+              && requestDoc.status == 'accepted'
+              && requestDoc.escrowStatus == 'held'
+              && request.resource.data.amount == requestDoc.creditsOffered
+              && request.resource.data.balanceAfter == walletAfter.balance;
+          }
+
           function escrowReleaseTransactionAllowed() {
             let walletAfter = getAfter(walletDocPath()).data;
             let ownerId = walletAfter.lastRequestOwnerId;
@@ -311,6 +353,7 @@ service cloud.firestore {
 
           allow read: if ownerOrAdmin(userId);
           allow create: if (ownerOrAdmin(userId) && actorNotFrozen())
+            || escrowHoldTransactionAllowed()
             || escrowReleaseTransactionAllowed()
             || escrowRefundTransactionAllowed();
           allow update, delete: if false;
@@ -335,16 +378,38 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applications', 'updatedAt']);
         }
 
+        function directRequestAcceptanceAllowed() {
+          return signedIn()
+            && actorNotFrozen()
+            && !isRequestOwner()
+            && resource.data.status == 'open'
+            && resource.data.audience == 'direct'
+            && resource.data.requestedSitterId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'applications',
+              'escrowStatus',
+              'sitterId',
+              'sitterName',
+              'status',
+              'updatedAt'
+            ])
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.escrowStatus == 'held'
+            && request.resource.data.sitterId == request.auth.uid
+            && request.resource.data.sitterName is string;
+        }
+
         // Sitter flow support:
         // accepted -> awaiting_confirmation, or accepted/awaiting_confirmation -> cancelled.
         function assignedSitterStatusUpdateAllowed() {
           return signedIn()
             && actorNotFrozen()
             && isAssignedSitter()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'escrowStatus'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'escrowStatus', 'markedCompleteAt'])
             && (
               (resource.data.status == 'accepted'
                 && request.resource.data.status == 'awaiting_confirmation'
+                && request.resource.data.markedCompleteAt is timestamp
                 && request.resource.data.escrowStatus == resource.data.escrowStatus)
               || (
                 (resource.data.status == 'accepted' || resource.data.status == 'awaiting_confirmation')
@@ -363,6 +428,7 @@ service cloud.firestore {
         allow create: if isRequestOwner() && actorNotFrozen();
         allow update, delete: if (isRequestOwner() && actorNotFrozen())
           || applicantApplicationUpdateAllowed()
+          || directRequestAcceptanceAllowed()
           || assignedSitterStatusUpdateAllowed()
           || isAdmin();
 

@@ -14,6 +14,8 @@ import {
   runTransaction,
   collectionGroup,
   documentId,
+  writeBatch,
+  increment,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAvailabilityMatch } from './availabilityService';
@@ -28,6 +30,7 @@ import {
 } from '@/types/request';
 import { getUserPets } from './petService';
 import { getProfile, recalculateTrustScore } from './profileService';
+import { getPublicProfile } from './publicProfileService';
 import { logRepeatedPairActivity } from './moderationService';
 import { createNotification } from './notificationService';
 import { ensureConversation } from './messageService';
@@ -36,7 +39,6 @@ import {
   DEFAULT_RADIUS_KM,
   getPilotLocationPayload,
   getTodayKey,
-  MAX_EARNED_CREDITS_PER_DAY,
   PILOT_CITY,
 } from './platformPolicy';
 
@@ -295,12 +297,12 @@ export async function createRequest(
       throw new Error('You cannot send a direct request to yourself.');
     }
 
-    const requestedSitterProfile = await getProfile(requestedSitterId);
-    if (!requestedSitterProfile) {
+    const requestedSitterPublicProfile = await getPublicProfile(requestedSitterId);
+    if (!requestedSitterPublicProfile) {
       throw new Error('Requested sitter profile not found.');
     }
 
-    requestedSitterName = requestedSitterProfile.name;
+    requestedSitterName = requestedSitterPublicProfile.name;
   }
 
   const requestsRef = getUserRequestsRef(ownerId);
@@ -615,7 +617,7 @@ export async function getDirectRequestsForSitter(sitterId: string): Promise<Requ
   try {
     const requestsQuery = query(
       collectionGroup(db, 'requests'),
-      where('requestedSitterId', '==', sitterId)
+      where('status', '==', 'open')
     );
 
     const querySnapshot = await getDocs(requestsQuery);
@@ -630,6 +632,10 @@ export async function getDirectRequestsForSitter(sitterId: string): Promise<Requ
       }
 
       if (mappedRequest.audience !== 'direct') {
+        return;
+      }
+
+      if (mappedRequest.requestedSitterId !== sitterId) {
         return;
       }
 
@@ -932,16 +938,67 @@ export async function acceptRequest(
     throw new Error('You cannot accept your own request');
   }
 
-  try {
-    await applyToRequest(ownerId, requestId, sitterId, 'Auto-applied during direct acceptance');
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    if (!message.includes('already applied')) {
-      throw error;
-    }
+  const sitterProfile = await getProfile(sitterId);
+  if (!sitterProfile) {
+    throw new Error('Sitter profile not found');
+  }
+  if (sitterProfile.availability !== 'available') {
+    throw new Error('Set your availability to Available before accepting requests');
   }
 
-  await acceptApplication(ownerId, requestId, sitterId);
+  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) {
+    throw new Error('Request not found');
+  }
+
+  const requestData = requestSnap.data();
+  const requestAudience = resolveAudience(requestData);
+  const requestedSitterId = (requestData.requestedSitterId as string) || '';
+  const requestStartAt = toDateOrNow(requestData.startDate);
+  const requestEndAt = toDateOrNow(requestData.endDate);
+  const offeredCredits = asNumber(requestData.creditsOffered) || 0;
+
+  if (requestAudience !== 'direct' || requestedSitterId !== sitterId) {
+    throw new Error('This direct request was sent to another sitter.');
+  }
+  if ((requestData.status as RequestStatus) !== 'open') {
+    throw new Error('Request is no longer open');
+  }
+  if (offeredCredits <= 0) {
+    throw new Error('Invalid credits offered');
+  }
+
+  const availabilityMatch = await getAvailabilityMatch(sitterId, requestStartAt, requestEndAt);
+  if (!availabilityMatch.available) {
+    if (availabilityMatch.hasConflict) {
+      throw new Error('You already have another confirmed booking during these dates');
+    }
+    throw new Error('You do not have an availability slot covering these dates');
+  }
+
+  const ownerWalletRef = getWalletRef(ownerId);
+  const batch = writeBatch(db);
+
+  batch.update(requestRef, {
+    status: 'accepted',
+    escrowStatus: 'held',
+    sitterId,
+    sitterName: sitterProfile.name,
+    applications: [],
+    updatedAt: serverTimestamp(),
+  });
+
+  batch.update(ownerWalletRef, {
+    balance: increment(-offeredCredits),
+    lastRequestId: requestId,
+    lastRequestOwnerId: ownerId,
+    lastWalletAction: 'escrow_hold',
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+  await ensureConversation(ownerId, requestId, sitterId, sitterProfile.name);
 }
 
 /**
@@ -1019,89 +1076,52 @@ export async function confirmCompletion(
 
   const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
   let sitterId = '';
+  const requestSnap = await getDoc(requestRef);
+  if (!requestSnap.exists()) {
+    throw new Error('Request not found');
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
+  const requestData = requestSnap.data();
+  const currentStatus = requestData.status as RequestStatus;
+  const assignedSitterId = requestData.sitterId as string | undefined;
+  const creditsOffered = asNumber(requestData.creditsOffered) || 0;
+  const escrowStatus = requestData.escrowStatus || 'none';
 
-    const requestData = requestSnap.data();
-    const currentStatus = requestData.status as RequestStatus;
-    const assignedSitterId = requestData.sitterId as string | undefined;
-    const creditsOffered = asNumber(requestData.creditsOffered) || 0;
-    const escrowStatus = requestData.escrowStatus || 'none';
+  if (currentStatus !== 'awaiting_confirmation') {
+    throw new Error(`Cannot confirm completion for request with status: ${currentStatus}`);
+  }
+  if (escrowStatus !== 'held') {
+    throw new Error('Escrow status mismatch: expected held before completion');
+  }
+  if (!assignedSitterId) {
+    throw new Error('No sitter assigned to this request');
+  }
+  if (creditsOffered <= 0) {
+    throw new Error('Invalid credits offered');
+  }
 
-    if (currentStatus !== 'awaiting_confirmation') {
-      throw new Error(`Cannot confirm completion for request with status: ${currentStatus}`);
-    }
-    if (escrowStatus !== 'held') {
-      throw new Error('Escrow status mismatch: expected held before completion');
-    }
-    if (!assignedSitterId) {
-      throw new Error('No sitter assigned to this request');
-    }
-    if (creditsOffered <= 0) {
-      throw new Error('Invalid credits offered');
-    }
+  const sitterWalletRef = getWalletRef(assignedSitterId);
+  const batch = writeBatch(db);
 
-    const sitterWalletRef = getWalletRef(assignedSitterId);
-    const sitterWalletTransactionsRef = getWalletTransactionsRef(assignedSitterId);
-    const sitterWalletSnap = await transaction.get(sitterWalletRef);
-    if (!sitterWalletSnap.exists()) {
-      throw new Error('Sitter wallet not found');
-    }
-
-    const currentSitterBalance = asNumber(sitterWalletSnap.data().balance) || 0;
-    const currentDailyEarnedDate =
-      typeof sitterWalletSnap.data().dailyEarnedDate === 'string'
-        ? (sitterWalletSnap.data().dailyEarnedDate as string)
-        : '';
-    const currentDailyEarnedCredits =
-      currentDailyEarnedDate === getTodayKey()
-        ? asNumber(sitterWalletSnap.data().dailyEarnedCredits) || 0
-        : 0;
-
-    if (currentDailyEarnedCredits + creditsOffered > MAX_EARNED_CREDITS_PER_DAY) {
-      throw new Error(
-        `Daily credit limit reached. A sitter can earn up to ${MAX_EARNED_CREDITS_PER_DAY} credits per day.`
-      );
-    }
-
-    const newSitterBalance = currentSitterBalance + creditsOffered;
-    const newDailyEarnedCredits = currentDailyEarnedCredits + creditsOffered;
-
-    transaction.update(sitterWalletRef, {
-      balance: newSitterBalance,
-      lastRequestId: requestId,
-      lastRequestOwnerId: ownerId,
-      dailyEarnedDate: getTodayKey(),
-      dailyEarnedCredits: newDailyEarnedCredits,
-      lastWalletAction: 'escrow_release',
-      updatedAt: serverTimestamp(),
-    });
-
-    const txRef = doc(sitterWalletTransactionsRef);
-    transaction.set(
-      txRef,
-      createWalletTransactionPayload(
-        'escrow-release',
-        creditsOffered,
-        `Credits released for completed request ${requestId}`,
-        requestId,
-        newSitterBalance
-      )
-    );
-
-    transaction.update(requestRef, {
-      status: 'completed',
-      escrowStatus: 'released',
-      confirmedCompleteAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    sitterId = assignedSitterId;
+  batch.update(sitterWalletRef, {
+    balance: increment(creditsOffered),
+    dailyEarnedDate: getTodayKey(),
+    dailyEarnedCredits: increment(creditsOffered),
+    lastRequestId: requestId,
+    lastRequestOwnerId: ownerId,
+    lastWalletAction: 'escrow_release',
+    updatedAt: serverTimestamp(),
   });
+
+  batch.update(requestRef, {
+    status: 'completed',
+    escrowStatus: 'released',
+    confirmedCompleteAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+  sitterId = assignedSitterId;
 
   await createNotification({
     userId: ownerId,

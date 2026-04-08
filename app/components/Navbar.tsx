@@ -104,6 +104,24 @@ export default function Navbar() {
               >
                 {publicNavCopy.safety}
               </Link>
+              <Link
+                href="/about.html"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.about}
+              </Link>
+              <Link
+                href="/faq.html"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.faq}
+              </Link>
+              <Link
+                href="/blog.html"
+                className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                {publicNavCopy.blog}
+              </Link>
               <div className="inline-flex items-center rounded-full border border-[#dbe2ea] bg-white p-1 text-[0.8rem] font-semibold text-[#0f2640] shadow-[0_1px_0_rgba(15,38,64,0.02)]">
                 {(['fi', 'en'] as const).map((option) => (
                   <button

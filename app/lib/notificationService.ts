@@ -4,7 +4,6 @@ import {
   doc,
   getDocs,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -29,11 +28,7 @@ export async function createNotification(data: CreateNotificationData): Promise<
 }
 
 export async function getUserNotifications(userId: string): Promise<AppNotification[]> {
-  const q = query(
-    getNotificationsRef(),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
+  const q = query(getNotificationsRef(), where('userId', '==', userId));
 
   const snapshot = await getDocs(q);
   const notifications: AppNotification[] = [];
@@ -50,6 +45,8 @@ export async function getUserNotifications(userId: string): Promise<AppNotificat
       createdAt: data.createdAt?.toDate() || new Date(),
     });
   });
+
+  notifications.sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
 
   return notifications;
 }

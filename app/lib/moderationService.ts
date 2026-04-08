@@ -129,13 +129,15 @@ export async function logRepeatedPairActivity(
   sitterId: string,
   requestId: string
 ): Promise<void> {
-  const q = query(collectionGroup(db, 'requests'), where('sitterId', '==', sitterId));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(collection(db, 'users', ownerId, 'requests'));
 
   let repeatedCount = 0;
   snapshot.forEach((requestDoc) => {
     const data = requestDoc.data();
     if (data.ownerId === ownerId && data.status === 'completed') {
+      if (data.sitterId !== sitterId) {
+        return;
+      }
       repeatedCount += 1;
     }
   });
