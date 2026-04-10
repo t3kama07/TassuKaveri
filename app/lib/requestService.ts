@@ -1,93 +1,71 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  Timestamp,
-  runTransaction,
-  collectionGroup,
-  documentId,
-  writeBatch,
-  increment,
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { getAvailabilityMatch } from './availabilityService';
 import {
-  Request,
-  RequestAudience,
   CreateRequestData,
-  UpdateRequestData,
-  RequestStatus,
+  Request,
   RequestApplication,
+  RequestAudience,
   RequestReview,
+  RequestStatus,
+  UpdateRequestData,
 } from '@/types/request';
 import { getUserPets } from './petService';
-import { getProfile, recalculateTrustScore } from './profileService';
+import { getProfile } from './profileService';
 import { getPublicProfile } from './publicProfileService';
 import { logRepeatedPairActivity } from './moderationService';
 import { createNotification } from './notificationService';
 import { ensureConversation } from './messageService';
 import {
-  assertNoMoneyLanguage,
-  DEFAULT_RADIUS_KM,
-  getPilotLocationPayload,
-  getTodayKey,
-  PILOT_CITY,
-} from './platformPolicy';
+  deleteRequestFromSupabase,
+  mirrorRequestToSupabase,
+  syncProfileMetricsToSupabase,
+} from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
+import { getCurrentAuthUser } from './supabaseAuthClient';
+import { escrowCredits, refundEscrow, releaseEscrow } from './walletService';
+import { assertNoMoneyLanguage, getPilotLocationPayload } from './platformPolicy';
 
-/**
- * Get requests collection reference for a user
- */
-function getUserRequestsRef(userId: string) {
-  return collection(db, 'users', userId, 'requests');
-}
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
-const WALLET_DOC = 'main';
+function generateRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
 
-function getWalletRef(userId: string) {
-  return doc(db, 'users', userId, 'wallet', WALLET_DOC);
-}
-
-function getWalletTransactionsRef(userId: string) {
-  return collection(db, 'users', userId, 'wallet', WALLET_DOC, 'transactions');
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function toDateOrNow(value: unknown): Date {
-  if (value instanceof Timestamp) {
-    return value.toDate();
-  }
   if (value instanceof Date) {
     return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toDate' in value &&
+    typeof value.toDate === 'function'
+  ) {
+    return value.toDate();
   }
   return new Date();
 }
 
 function toOptionalDate(value: unknown): Date | undefined {
-  if (value instanceof Timestamp) {
-    return value.toDate();
+  if (value === null || value === undefined) {
+    return undefined;
   }
-  if (value instanceof Date) {
-    return value;
-  }
-  return undefined;
+
+  return toDateOrNow(value);
 }
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
-
-function normalizeCity(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
 function resolveAudience(data: Record<string, unknown>): RequestAudience {
   return data.audience === 'direct' ? 'direct' : 'community';
@@ -218,27 +196,7 @@ function mapRequest(id: string, data: Record<string, unknown>): Request {
   };
 }
 
-function createWalletTransactionPayload(
-  type: string,
-  amount: number,
-  reference: string,
-  requestId: string,
-  balanceAfter: number
-) {
-  return {
-    type,
-    amount,
-    reference,
-    requestId,
-    timestamp: serverTimestamp(),
-    balanceAfter,
-  };
-}
-
-/**
- * Validate status transition
- */
-function isValidStatusTransition(currentStatus: RequestStatus, newStatus: RequestStatus): boolean {
+function isValidStatusTransition(currentStatus: RequestStatus, nextStatus: RequestStatus): boolean {
   const validTransitions: Record<RequestStatus, RequestStatus[]> = {
     open: ['accepted', 'cancelled'],
     accepted: ['awaiting_confirmation', 'cancelled'],
@@ -247,82 +205,116 @@ function isValidStatusTransition(currentStatus: RequestStatus, newStatus: Reques
     cancelled: [],
   };
 
-  return validTransitions[currentStatus]?.includes(newStatus) ?? false;
+  return validTransitions[currentStatus]?.includes(nextStatus) ?? false;
 }
 
-/**
- * Create a new pet-sitting request
- */
+async function fetchRequestRecord(
+  ownerId: string,
+  requestId: string
+): Promise<Record<string, unknown> | null> {
+  const payload = await fetchSupabaseReadJson<{ request: Record<string, unknown> | null }>(
+    `/api/supabase-read/request?scope=request&ownerId=${encodeURIComponent(ownerId)}&requestId=${encodeURIComponent(requestId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.request;
+}
+
+async function requireRequest(ownerId: string, requestId: string): Promise<Request> {
+  const request = await getRequest(ownerId, requestId);
+  if (!request) {
+    throw new Error('Request not found');
+  }
+
+  return request;
+}
+
+async function saveRequest(request: Request, actorId: string): Promise<void> {
+  await mirrorRequestToSupabase(request, actorId);
+}
+
+async function rollbackRequest(request: Request, actorId: string): Promise<void> {
+  await saveRequest(request, actorId).catch(() => undefined);
+}
+
+async function resolveRequestedSitter(params: {
+  ownerId: string;
+  audience: RequestAudience;
+  requestedSitterId?: string;
+}): Promise<{ requestedSitterId?: string; requestedSitterName?: string }> {
+  if (params.audience !== 'direct') {
+    return {};
+  }
+
+  const requestedSitterId = params.requestedSitterId?.trim() || '';
+  if (!requestedSitterId) {
+    throw new Error('A direct request must include a sitter.');
+  }
+  if (requestedSitterId === params.ownerId) {
+    throw new Error('You cannot send a direct request to yourself.');
+  }
+
+  const requestedSitterProfile = await getPublicProfile(requestedSitterId);
+  if (!requestedSitterProfile) {
+    throw new Error('Requested sitter profile not found.');
+  }
+
+  return {
+    requestedSitterId,
+    requestedSitterName: requestedSitterProfile.name,
+  };
+}
+
 export async function createRequest(
   ownerId: string,
   data: CreateRequestData
 ): Promise<string> {
   validateRequestTextFields(data);
 
-  // Validate pets belong to owner
   const userPets = await getUserPets(ownerId);
-  const validPetIds = userPets.map((p) => p.id);
-  const invalidPets = data.petIds.filter((id) => !validPetIds.includes(id));
-  
+  const validPetIds = userPets.map((pet) => pet.id);
+  const invalidPets = data.petIds.filter((petId) => !validPetIds.includes(petId));
+
   if (invalidPets.length > 0) {
     throw new Error('You can only create requests for your own pets');
   }
-
   if (data.petIds.length === 0) {
     throw new Error('At least one pet must be selected');
   }
 
-  const creditsOffered = calculateCreditsForRequestWindow(data.startDate, data.endDate);
-
-  // Get owner profile for name
   const ownerProfile = await getProfile(ownerId);
   if (!ownerProfile) {
     throw new Error('Owner profile not found');
   }
 
-  // Get pet names
-  const selectedPets = userPets.filter((p) => data.petIds.includes(p.id));
-  const petNames = selectedPets.map((p) => p.name);
-  const pilotLocation = getPilotLocationPayload();
+  const selectedPets = userPets.filter((pet) => data.petIds.includes(pet.id));
   const audience: RequestAudience = data.audience === 'direct' ? 'direct' : 'community';
-  let requestedSitterId = '';
-  let requestedSitterName = '';
-
-  if (audience === 'direct') {
-    requestedSitterId = data.requestedSitterId?.trim() || '';
-    if (!requestedSitterId) {
-      throw new Error('A direct request must include a sitter.');
-    }
-    if (requestedSitterId === ownerId) {
-      throw new Error('You cannot send a direct request to yourself.');
-    }
-
-    const requestedSitterPublicProfile = await getPublicProfile(requestedSitterId);
-    if (!requestedSitterPublicProfile) {
-      throw new Error('Requested sitter profile not found.');
-    }
-
-    requestedSitterName = requestedSitterPublicProfile.name;
-  }
-
-  const requestsRef = getUserRequestsRef(ownerId);
-  const docRef = await addDoc(requestsRef, {
+  const requestedSitter = await resolveRequestedSitter({
+    ownerId,
+    audience,
+    requestedSitterId: data.requestedSitterId,
+  });
+  const pilotLocation = getPilotLocationPayload();
+  const requestId = generateRequestId();
+  const now = new Date();
+  const request: Request = {
+    id: requestId,
     ownerId,
     ownerName: ownerProfile.name,
     petIds: data.petIds,
-    petNames,
+    petNames: selectedPets.map((pet) => pet.name),
     careType: data.careType,
-    startDate: Timestamp.fromDate(data.startDate),
-    endDate: Timestamp.fromDate(data.endDate),
+    startDate: data.startDate,
+    endDate: data.endDate,
     location: pilotLocation.location,
     locationLat: pilotLocation.latitude,
     locationLng: pilotLocation.longitude,
-    creditsOffered,
+    creditsOffered: calculateCreditsForRequestWindow(data.startDate, data.endDate),
     status: 'open',
     audience,
     escrowStatus: 'none',
-    requestedSitterId: requestedSitterId || null,
-    requestedSitterName: requestedSitterName || null,
+    requestedSitterId: requestedSitter.requestedSitterId,
+    requestedSitterName: requestedSitter.requestedSitterName,
     applications: [],
     notes: data.notes || '',
     feedingSchedule: data.feedingSchedule || '',
@@ -330,35 +322,27 @@ export async function createRequest(
     medicationInstructions: data.medicationInstructions || '',
     sleepInstructions: data.sleepInstructions || '',
     specialWarnings: data.specialWarnings || '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    createdAt: now,
+    updatedAt: now,
+  };
 
-  if (audience === 'direct' && requestedSitterId) {
+  await saveRequest(request, ownerId);
+
+  if (audience === 'direct' && requestedSitter.requestedSitterId) {
     await createNotification({
-      userId: requestedSitterId,
+      userId: requestedSitter.requestedSitterId,
       type: 'direct_request_received',
-      relatedRequestId: docRef.id,
-      message: `${ownerProfile.name} sent you a direct request for ${petNames.join(', ')}.`,
+      relatedRequestId: requestId,
+      message: `${ownerProfile.name} sent you a direct request for ${request.petNames.join(', ')}.`,
     });
   }
 
-  return docRef.id;
+  return requestId;
 }
 
-/**
- * Get a single request
- */
 export async function getRequest(ownerId: string, requestId: string): Promise<Request | null> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-
-  if (!requestSnap.exists()) {
-    return null;
-  }
-
-  const data = requestSnap.data();
-  return mapRequest(requestSnap.id, data);
+  const requestRecord = await fetchRequestRecord(ownerId, requestId);
+  return requestRecord ? mapRequest(requestId, requestRecord) : null;
 }
 
 export async function getRequestById(requestId: string, ownerId?: string): Promise<Request | null> {
@@ -366,36 +350,34 @@ export async function getRequestById(requestId: string, ownerId?: string): Promi
     return getRequest(ownerId, requestId);
   }
 
-  const q = query(collectionGroup(db, 'requests'), where(documentId(), '==', requestId));
-  const snapshot = await getDocs(q);
-
-  if (snapshot.empty) {
+  const currentUser = await getCurrentAuthUser();
+  if (!currentUser) {
     return null;
   }
 
-  const requestDoc = snapshot.docs[0];
-  return mapRequest(requestDoc.id, requestDoc.data());
+  const settledLists = await Promise.allSettled([
+    getUserRequests(currentUser.uid),
+    getSitterRequests(currentUser.uid),
+    getDirectRequestsForSitter(currentUser.uid),
+    getAllOpenRequests(currentUser.uid),
+  ]);
+
+  const visibleRequests = settledLists.flatMap((result) =>
+    result.status === 'fulfilled' ? result.value : []
+  );
+
+  return visibleRequests.find((request) => request.id === requestId) ?? null;
 }
 
-/**
- * Get all requests for a user (their own requests)
- */
 export async function getUserRequests(ownerId: string): Promise<Request[]> {
-  const requestsRef = getUserRequestsRef(ownerId);
-  const q = query(requestsRef, orderBy('createdAt', 'desc'));
-  const querySnapshot = await getDocs(q);
+  const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request?scope=user-requests&ownerId=${encodeURIComponent(ownerId)}`,
+    { requireAuth: true }
+  );
 
-  const requests: Request[] = [];
-  querySnapshot.forEach((requestDoc) => {
-    requests.push(mapRequest(requestDoc.id, requestDoc.data()));
-  });
-
-  return requests;
+  return payload.requests.map((request) => mapRequest((request.id as string) || '', request));
 }
 
-/**
- * Update a request (only by owner, only if open)
- */
 export async function updateRequest(
   ownerId: string,
   requestId: string,
@@ -403,88 +385,67 @@ export async function updateRequest(
 ): Promise<void> {
   validateRequestTextFields(data);
 
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const currentData = requestSnap.data();
-  if (currentData.status !== 'open') {
+  const request = await requireRequest(ownerId, requestId);
+  if (request.status !== 'open') {
     throw new Error('Can only edit open requests');
   }
 
-  const updatePayload: Record<string, unknown> = {};
-  const pilotLocation = getPilotLocationPayload();
+  let petIds = request.petIds;
+  let petNames = request.petNames;
 
-  // If updating pets, validate ownership
   if (data.petIds) {
-    const petIds = data.petIds;
-    if (petIds.length === 0) {
+    if (data.petIds.length === 0) {
       throw new Error('At least one pet must be selected');
     }
 
     const userPets = await getUserPets(ownerId);
-    const validPetIds = userPets.map((p) => p.id);
-    const invalidPets = petIds.filter((id) => !validPetIds.includes(id));
-    
+    const validPetIds = userPets.map((pet) => pet.id);
+    const invalidPets = data.petIds.filter((petId) => !validPetIds.includes(petId));
     if (invalidPets.length > 0) {
       throw new Error('You can only select your own pets');
     }
 
-    // Update pet names
-    const selectedPets = userPets.filter((p) => petIds.includes(p.id));
-    const petNames = selectedPets.map((p) => p.name);
-    updatePayload.petIds = petIds;
-    updatePayload.petNames = petNames;
+    petIds = data.petIds;
+    petNames = userPets.filter((pet) => data.petIds?.includes(pet.id)).map((pet) => pet.name);
   }
 
-  const effectiveStartDate = data.startDate ?? toDateOrNow(currentData.startDate);
-  const effectiveEndDate = data.endDate ?? toDateOrNow(currentData.endDate);
-  const creditsOffered = calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate);
-
-  if (data.startDate) {
-    updatePayload.startDate = Timestamp.fromDate(data.startDate);
-  }
-  if (data.endDate) {
-    updatePayload.endDate = Timestamp.fromDate(data.endDate);
-  }
-  if (data.careType) {
-    updatePayload.careType = data.careType;
-  }
-  updatePayload.location = pilotLocation.location;
-  updatePayload.locationLat = pilotLocation.latitude;
-  updatePayload.locationLng = pilotLocation.longitude;
-  updatePayload.creditsOffered = creditsOffered;
-  if (data.notes !== undefined) {
-    updatePayload.notes = data.notes;
-  }
-  if (data.feedingSchedule !== undefined) {
-    updatePayload.feedingSchedule = data.feedingSchedule;
-  }
-  if (data.walkSchedule !== undefined) {
-    updatePayload.walkSchedule = data.walkSchedule;
-  }
-  if (data.medicationInstructions !== undefined) {
-    updatePayload.medicationInstructions = data.medicationInstructions;
-  }
-  if (data.sleepInstructions !== undefined) {
-    updatePayload.sleepInstructions = data.sleepInstructions;
-  }
-  if (data.specialWarnings !== undefined) {
-    updatePayload.specialWarnings = data.specialWarnings;
-  }
-
-  await updateDoc(requestRef, {
-    ...updatePayload,
-    updatedAt: serverTimestamp(),
+  const effectiveStartDate = data.startDate ?? request.startDate;
+  const effectiveEndDate = data.endDate ?? request.endDate;
+  const audience = data.audience ?? request.audience;
+  const requestedSitter = await resolveRequestedSitter({
+    ownerId,
+    audience,
+    requestedSitterId: data.requestedSitterId ?? request.requestedSitterId,
   });
+  const pilotLocation = getPilotLocationPayload();
+
+  await saveRequest(
+    {
+      ...request,
+      petIds,
+      petNames,
+      careType: data.careType ?? request.careType,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
+      location: pilotLocation.location,
+      locationLat: pilotLocation.latitude,
+      locationLng: pilotLocation.longitude,
+      creditsOffered: calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate),
+      audience,
+      requestedSitterId: requestedSitter.requestedSitterId,
+      requestedSitterName: requestedSitter.requestedSitterName,
+      notes: data.notes ?? request.notes ?? '',
+      feedingSchedule: data.feedingSchedule ?? request.feedingSchedule ?? '',
+      walkSchedule: data.walkSchedule ?? request.walkSchedule ?? '',
+      medicationInstructions: data.medicationInstructions ?? request.medicationInstructions ?? '',
+      sleepInstructions: data.sleepInstructions ?? request.sleepInstructions ?? '',
+      specialWarnings: data.specialWarnings ?? request.specialWarnings ?? '',
+      updatedAt: new Date(),
+    },
+    ownerId
+  );
 }
 
-/**
- * Change request status with validation
- */
 export async function changeRequestStatus(
   ownerId: string,
   requestId: string,
@@ -492,200 +453,75 @@ export async function changeRequestStatus(
   sitterId?: string,
   sitterName?: string
 ): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
+  const request = await requireRequest(ownerId, requestId);
+  if (!isValidStatusTransition(request.status, newStatus)) {
+    throw new Error(`Cannot transition from ${request.status} to ${newStatus}`);
   }
 
-  const currentData = requestSnap.data();
-  const currentStatus = currentData.status as RequestStatus;
-
-  if (!isValidStatusTransition(currentStatus, newStatus)) {
-    throw new Error(`Cannot transition from ${currentStatus} to ${newStatus}`);
-  }
-
-  const updateData: Record<string, unknown> = {
-    status: newStatus,
-    updatedAt: serverTimestamp(),
-  };
-
-  // If accepting, set sitter info
-  if (newStatus === 'accepted' && sitterId && sitterName) {
-    updateData.sitterId = sitterId;
-    updateData.sitterName = sitterName;
-  }
-
-  await updateDoc(requestRef, updateData);
+  await saveRequest(
+    {
+      ...request,
+      status: newStatus,
+      sitterId: newStatus === 'accepted' ? sitterId : request.sitterId,
+      sitterName: newStatus === 'accepted' ? sitterName : request.sitterName,
+      updatedAt: new Date(),
+    },
+    ownerId
+  );
 }
 
-/**
- * Cancel a request (owner only)
- * - For open requests: simply changes status to cancelled
- * - For accepted requests: use cancelAcceptedRequest instead
- */
 export async function cancelRequest(ownerId: string, requestId: string): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
+  const request = await requireRequest(ownerId, requestId);
 
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const currentData = requestSnap.data();
-  const currentStatus = currentData.status as RequestStatus;
-
-  if (currentStatus === 'accepted') {
+  if (request.status === 'accepted') {
     throw new Error('Use cancelAcceptedRequest to cancel an accepted request (requires escrow refund)');
   }
-
-  if (currentStatus !== 'open') {
-    throw new Error(`Cannot cancel request with status: ${currentStatus}`);
+  if (request.status !== 'open') {
+    throw new Error(`Cannot cancel request with status: ${request.status}`);
   }
 
   await changeRequestStatus(ownerId, requestId, 'cancelled');
 }
 
-/**
- * Delete a request (only if open or cancelled)
- */
 export async function deleteRequest(ownerId: string, requestId: string): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const currentData = requestSnap.data();
-  if (currentData.status !== 'open' && currentData.status !== 'cancelled') {
+  const request = await requireRequest(ownerId, requestId);
+  if (request.status !== 'open' && request.status !== 'cancelled') {
     throw new Error('Can only delete open or cancelled requests');
   }
 
-  await deleteDoc(requestRef);
+  await deleteRequestFromSupabase(ownerId, requestId, ownerId);
 }
 
-/**
- * Get all open requests across all users (for browsing)
- * Uses collection group query to fetch from all users' request subcollections
- * Optionally exclude a specific user's requests
- */
 export async function getAllOpenRequests(excludeUserId?: string): Promise<Request[]> {
-  try {
-    // Collection group query to get all requests across all users
-    // Note: Ordering removed to avoid requiring composite index
-    const requestsQuery = query(
-      collectionGroup(db, 'requests'),
-      where('status', '==', 'open')
-    );
+  const queryString = excludeUserId
+    ? `?scope=all-open&excludeUserId=${encodeURIComponent(excludeUserId)}`
+    : '?scope=all-open';
+  const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request${queryString}`,
+    { requireAuth: true }
+  );
 
-    const querySnapshot = await getDocs(requestsQuery);
-    const requests: Request[] = [];
-
-    querySnapshot.forEach((requestDoc) => {
-      const data = requestDoc.data();
-      
-      // Exclude requests from the specified user if provided
-      if (excludeUserId && data.ownerId === excludeUserId) {
-        return;
-      }
-
-       if (resolveAudience(data) === 'direct') {
-        return;
-      }
-
-      if (normalizeCity((data.location as string) || '') !== normalizeCity(PILOT_CITY)) {
-        return;
-      }
-
-      requests.push(mapRequest(requestDoc.id, data));
-    });
-
-    // Sort in JavaScript since we removed Firestore ordering
-    requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return requests;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error fetching open requests:', error);
-    throw new Error('Failed to fetch open requests: ' + message);
-  }
+  return payload.requests.map((request) => mapRequest((request.id as string) || '', request));
 }
 
 export async function getDirectRequestsForSitter(sitterId: string): Promise<Request[]> {
-  try {
-    const requestsQuery = query(
-      collectionGroup(db, 'requests'),
-      where('status', '==', 'open')
-    );
+  const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request?scope=direct-for-sitter&sitterId=${encodeURIComponent(sitterId)}`,
+    { requireAuth: true }
+  );
 
-    const querySnapshot = await getDocs(requestsQuery);
-    const requests: Request[] = [];
-
-    querySnapshot.forEach((requestDoc) => {
-      const data = requestDoc.data();
-      const mappedRequest = mapRequest(requestDoc.id, data);
-
-      if (mappedRequest.status !== 'open') {
-        return;
-      }
-
-      if (mappedRequest.audience !== 'direct') {
-        return;
-      }
-
-      if (mappedRequest.requestedSitterId !== sitterId) {
-        return;
-      }
-
-      requests.push(mappedRequest);
-    });
-
-    requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return requests;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error fetching direct requests:', error);
-    throw new Error('Failed to fetch direct requests: ' + message);
-  }
+  return payload.requests.map((request) => mapRequest((request.id as string) || '', request));
 }
 
-/**
- * Get all requests where the user is the assigned sitter
- * Used for "Jobs I'm helping with" view
- */
 export async function getSitterRequests(sitterId: string): Promise<Request[]> {
-  try {
-    // Collection group query to get all requests where user is the sitter
-    const requestsQuery = query(
-      collectionGroup(db, 'requests'),
-      where('sitterId', '==', sitterId)
-    );
+  const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request?scope=sitter-requests&sitterId=${encodeURIComponent(sitterId)}`,
+    { requireAuth: true }
+  );
 
-    const querySnapshot = await getDocs(requestsQuery);
-    const requests: Request[] = [];
-
-    querySnapshot.forEach((requestDoc) => {
-      requests.push(mapRequest(requestDoc.id, requestDoc.data()));
-    });
-
-    // Sort by date
-    requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return requests;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error fetching sitter requests:', error);
-    throw new Error('Failed to fetch sitter requests: ' + message);
-  }
+  return payload.requests.map((request) => mapRequest((request.id as string) || '', request));
 }
 
-/**
- * Apply to an open request.
- * Sitter must not be owner and must be marked available in profile.
- */
 export async function applyToRequest(
   ownerId: string,
   requestId: string,
@@ -706,23 +542,23 @@ export async function applyToRequest(
     throw new Error('Set your availability to Available before applying');
   }
 
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
+  const request = await requireRequest(ownerId, requestId);
+  if (request.status !== 'open') {
+    throw new Error('This request is no longer open');
   }
-
-  const requestData = requestSnap.data();
-  const requestAudience = resolveAudience(requestData);
-  const requestedSitterId = (requestData.requestedSitterId as string) || '';
-
-  if (requestAudience === 'direct' && requestedSitterId && requestedSitterId !== sitterId) {
+  if (
+    request.audience === 'direct' &&
+    request.requestedSitterId &&
+    request.requestedSitterId !== sitterId
+  ) {
     throw new Error('This direct request was sent to another sitter.');
   }
 
-  const requestStartAt = toDateOrNow(requestData.startDate);
-  const requestEndAt = toDateOrNow(requestData.endDate);
-  const availabilityMatch = await getAvailabilityMatch(sitterId, requestStartAt, requestEndAt);
+  const availabilityMatch = await getAvailabilityMatch(
+    sitterId,
+    request.startDate,
+    request.endDate
+  );
   if (!availabilityMatch.available) {
     if (availabilityMatch.hasConflict) {
       throw new Error('You already have another confirmed booking during these dates');
@@ -730,40 +566,28 @@ export async function applyToRequest(
     throw new Error('Add an availability slot that fully covers these dates before applying');
   }
 
-  await runTransaction(db, async (transaction) => {
-    const liveRequestSnap = await transaction.get(requestRef);
-    if (!liveRequestSnap.exists()) {
-      throw new Error('Request not found');
-    }
+  const alreadyApplied = (request.applications ?? []).some(
+    (application) => application.sitterId === sitterId
+  );
+  if (alreadyApplied) {
+    throw new Error('You have already applied to this request');
+  }
 
-    const liveRequestData = liveRequestSnap.data();
-    const status = liveRequestData.status as RequestStatus;
-    if (status !== 'open') {
-      throw new Error('This request is no longer open');
-    }
+  const updatedRequest: Request = {
+    ...request,
+    applications: [
+      ...(request.applications ?? []),
+      {
+        sitterId,
+        sitterName: sitterProfile.name,
+        message,
+        appliedAt: new Date(),
+      },
+    ],
+    updatedAt: new Date(),
+  };
 
-    const applications = parseApplications(liveRequestData.applications);
-    const alreadyApplied = applications.some((application) => application.sitterId === sitterId);
-    if (alreadyApplied) {
-      throw new Error('You have already applied to this request');
-    }
-
-    applications.push({
-      sitterId,
-      sitterName: sitterProfile.name,
-      message,
-      appliedAt: new Date(),
-    });
-
-    transaction.update(requestRef, {
-      applications: applications.map((application) => ({
-        ...application,
-        appliedAt: Timestamp.fromDate(application.appliedAt),
-      })),
-      updatedAt: serverTimestamp(),
-    });
-  });
-
+  await saveRequest(updatedRequest, sitterId);
   await ensureConversation(ownerId, requestId, sitterId, sitterProfile.name);
   await createNotification({
     userId: ownerId,
@@ -773,69 +597,57 @@ export async function applyToRequest(
   });
 }
 
-/**
- * Withdraw a sitter application from an open request.
- */
 export async function withdrawApplication(
   ownerId: string,
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
+  const request = await requireRequest(ownerId, requestId);
+  if (request.status !== 'open') {
+    throw new Error('Cannot withdraw application after request is no longer open');
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
+  const nextApplications = (request.applications ?? []).filter(
+    (application) => application.sitterId !== sitterId
+  );
+  if (nextApplications.length === (request.applications ?? []).length) {
+    throw new Error('Application not found');
+  }
 
-    const requestData = requestSnap.data();
-    const status = requestData.status as RequestStatus;
-    if (status !== 'open') {
-      throw new Error('Cannot withdraw application after request is no longer open');
-    }
-
-    const applications = parseApplications(requestData.applications);
-    const nextApplications = applications.filter((application) => application.sitterId !== sitterId);
-
-    if (nextApplications.length === applications.length) {
-      throw new Error('Application not found');
-    }
-
-    transaction.update(requestRef, {
-      applications: nextApplications.map((application) => ({
-        ...application,
-        appliedAt: Timestamp.fromDate(application.appliedAt),
-      })),
-      updatedAt: serverTimestamp(),
-    });
-  });
+  await saveRequest(
+    {
+      ...request,
+      applications: nextApplications,
+      updatedAt: new Date(),
+    },
+    sitterId
+  );
 }
 
-/**
- * Owner accepts one applicant.
- * Marks request accepted and escrows credits.
- */
 export async function acceptApplication(
   ownerId: string,
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const ownerWalletRef = getWalletRef(ownerId);
-  const ownerTransactionsRef = getWalletTransactionsRef(ownerId);
-  let selectedSitterName = 'Sitter';
-  let ownerName = 'Owner';
-  let offeredCredits = 0;
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
+  const request = await requireRequest(ownerId, requestId);
+  if (request.status !== 'open') {
+    throw new Error('Request is no longer open');
   }
-  const requestData = requestSnap.data();
+
+  const selectedApplication = (request.applications ?? []).find(
+    (application) => application.sitterId === sitterId
+  );
+  if (!selectedApplication) {
+    throw new Error('Selected sitter has not applied');
+  }
+  if (request.creditsOffered <= 0) {
+    throw new Error('Invalid credits offered');
+  }
+
   const availabilityMatch = await getAvailabilityMatch(
     sitterId,
-    toDateOrNow(requestData.startDate),
-    toDateOrNow(requestData.endDate)
+    request.startDate,
+    request.endDate
   );
   if (!availabilityMatch.available) {
     if (availabilityMatch.hasConflict) {
@@ -844,91 +656,40 @@ export async function acceptApplication(
     throw new Error('This sitter no longer has an availability slot covering these dates');
   }
 
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
+  const acceptedRequest: Request = {
+    ...request,
+    status: 'accepted',
+    escrowStatus: 'held',
+    sitterId,
+    sitterName: selectedApplication.sitterName,
+    applications: [],
+    updatedAt: new Date(),
+  };
 
-    const requestData = requestSnap.data();
-    const status = requestData.status as RequestStatus;
-    ownerName = (requestData.ownerName as string) || 'Owner';
+  await saveRequest(acceptedRequest, ownerId);
 
-    if (status !== 'open') {
-      throw new Error('Request is no longer open');
-    }
-
-    const applications = parseApplications(requestData.applications);
-    const selectedApplication = applications.find((application) => application.sitterId === sitterId);
-
-    if (!selectedApplication) {
-      throw new Error('Selected sitter has not applied');
-    }
-
-    selectedSitterName = selectedApplication.sitterName;
-    offeredCredits = asNumber(requestData.creditsOffered) || 0;
-    if (offeredCredits <= 0) {
-      throw new Error('Invalid credits offered');
-    }
-
-    const ownerWalletSnap = await transaction.get(ownerWalletRef);
-    if (!ownerWalletSnap.exists()) {
-      throw new Error('Owner wallet not found');
-    }
-    const currentBalance = asNumber(ownerWalletSnap.data().balance) || 0;
-    if (currentBalance < offeredCredits) {
-      throw new Error(
-        `Insufficient credits. You have ${currentBalance} credits but need ${offeredCredits}.`
-      );
-    }
-    const newBalance = currentBalance - offeredCredits;
-
-    transaction.update(requestRef, {
-      status: 'accepted',
-      escrowStatus: 'held',
-      sitterId,
-      sitterName: selectedSitterName,
-      applications: [],
-      updatedAt: serverTimestamp(),
-    });
-
-    transaction.update(ownerWalletRef, {
-      balance: newBalance,
-      lastRequestId: requestId,
-      lastRequestOwnerId: ownerId,
-      lastWalletAction: 'escrow_hold',
-      updatedAt: serverTimestamp(),
-    });
-
-    const txRef = doc(ownerTransactionsRef);
-    transaction.set(
-      txRef,
-      createWalletTransactionPayload(
-        'escrow',
-        offeredCredits,
-        `Escrow for request ${requestId}`,
-        requestId,
-        newBalance
-      )
+  try {
+    await escrowCredits(
+      ownerId,
+      request.creditsOffered,
+      requestId,
+      `Escrow for request ${requestId}`,
+      ownerId
     );
-  });
+  } catch (error) {
+    await rollbackRequest(request, ownerId);
+    throw error;
+  }
 
-  await ensureConversation(ownerId, requestId, sitterId, selectedSitterName);
+  await ensureConversation(ownerId, requestId, sitterId, selectedApplication.sitterName);
   await createNotification({
     userId: sitterId,
     type: 'application_accepted',
     relatedRequestId: requestId,
-    message: `Your application was accepted by ${ownerName}.`,
+    message: `Your application was accepted by ${request.ownerName || 'Owner'}.`,
   });
 }
 
-/**
- * Accept a request by a non-owner user
- * - Validates request is open and sitter is not owner
- * - Puts credits into escrow (deducts from owner wallet)
- * - Assigns sitterId and changes status to accepted
- * - All operations are atomic using Firestore transaction
- */
 export async function acceptRequest(
   ownerId: string,
   requestId: string,
@@ -946,30 +707,22 @@ export async function acceptRequest(
     throw new Error('Set your availability to Available before accepting requests');
   }
 
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const requestData = requestSnap.data();
-  const requestAudience = resolveAudience(requestData);
-  const requestedSitterId = (requestData.requestedSitterId as string) || '';
-  const requestStartAt = toDateOrNow(requestData.startDate);
-  const requestEndAt = toDateOrNow(requestData.endDate);
-  const offeredCredits = asNumber(requestData.creditsOffered) || 0;
-
-  if (requestAudience !== 'direct' || requestedSitterId !== sitterId) {
+  const request = await requireRequest(ownerId, requestId);
+  if (request.audience !== 'direct' || request.requestedSitterId !== sitterId) {
     throw new Error('This direct request was sent to another sitter.');
   }
-  if ((requestData.status as RequestStatus) !== 'open') {
+  if (request.status !== 'open') {
     throw new Error('Request is no longer open');
   }
-  if (offeredCredits <= 0) {
+  if (request.creditsOffered <= 0) {
     throw new Error('Invalid credits offered');
   }
 
-  const availabilityMatch = await getAvailabilityMatch(sitterId, requestStartAt, requestEndAt);
+  const availabilityMatch = await getAvailabilityMatch(
+    sitterId,
+    request.startDate,
+    request.endDate
+  );
   if (!availabilityMatch.available) {
     if (availabilityMatch.hasConflict) {
       throw new Error('You already have another confirmed booking during these dates');
@@ -977,77 +730,60 @@ export async function acceptRequest(
     throw new Error('You do not have an availability slot covering these dates');
   }
 
-  const ownerWalletRef = getWalletRef(ownerId);
-  const batch = writeBatch(db);
-
-  batch.update(requestRef, {
+  const acceptedRequest: Request = {
+    ...request,
     status: 'accepted',
     escrowStatus: 'held',
     sitterId,
     sitterName: sitterProfile.name,
     applications: [],
-    updatedAt: serverTimestamp(),
-  });
+    updatedAt: new Date(),
+  };
 
-  batch.update(ownerWalletRef, {
-    balance: increment(-offeredCredits),
-    lastRequestId: requestId,
-    lastRequestOwnerId: ownerId,
-    lastWalletAction: 'escrow_hold',
-    updatedAt: serverTimestamp(),
-  });
+  await saveRequest(acceptedRequest, sitterId);
 
-  await batch.commit();
+  try {
+    await escrowCredits(
+      ownerId,
+      request.creditsOffered,
+      requestId,
+      `Escrow for request ${requestId}`,
+      sitterId
+    );
+  } catch (error) {
+    await rollbackRequest(request, sitterId);
+    throw error;
+  }
+
   await ensureConversation(ownerId, requestId, sitterId, sitterProfile.name);
 }
 
-/**
- * Mark request as awaiting confirmation (sitter only)
- * - Validates request is accepted
- * - Only sitter can mark as awaiting confirmation
- * - Changes status to awaiting_confirmation
- * - Credits remain in escrow
- */
 export async function markAwaitingConfirmation(
   ownerId: string,
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
+  const request = await requireRequest(ownerId, requestId);
 
-  // Use Firestore transaction to update status
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
+  if (request.status !== 'accepted') {
+    throw new Error(`Cannot mark request with status ${request.status} as awaiting confirmation`);
+  }
+  if (request.escrowStatus !== 'held') {
+    throw new Error('Escrow must be held before moving to awaiting confirmation');
+  }
+  if (request.sitterId !== sitterId) {
+    throw new Error('Only the assigned sitter can mark this request as awaiting confirmation');
+  }
 
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
-
-    const requestData = requestSnap.data();
-    const currentStatus = requestData.status as RequestStatus;
-    const assignedSitterId = requestData.sitterId;
-    const escrowStatus = requestData.escrowStatus || 'none';
-
-    // Validate status
-    if (currentStatus !== 'accepted') {
-      throw new Error(`Cannot mark request with status ${currentStatus} as awaiting confirmation`);
-    }
-    if (escrowStatus !== 'held') {
-      throw new Error('Escrow must be held before moving to awaiting confirmation');
-    }
-
-    // Validate sitter
-    if (assignedSitterId !== sitterId) {
-      throw new Error('Only the assigned sitter can mark this request as awaiting confirmation');
-    }
-
-    // Update request to awaiting_confirmation
-    transaction.update(requestRef, {
+  await saveRequest(
+    {
+      ...request,
       status: 'awaiting_confirmation',
-      markedCompleteAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  });
+      markedCompleteAt: new Date(),
+      updatedAt: new Date(),
+    },
+    sitterId
+  );
 
   await createNotification({
     userId: ownerId,
@@ -1057,14 +793,6 @@ export async function markAwaitingConfirmation(
   });
 }
 
-/**
- * Confirm completion and release escrow (owner only)
- * - Validates request is awaiting_confirmation
- * - Only owner can confirm completion
- * - Releases escrow to sitter wallet
- * - Changes status to completed
- * - All operations are atomic
- */
 export async function confirmCompletion(
   ownerId: string,
   requestId: string,
@@ -1074,54 +802,43 @@ export async function confirmCompletion(
     throw new Error('Only the request owner can confirm completion');
   }
 
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  let sitterId = '';
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
+  const request = await requireRequest(ownerId, requestId);
+  const sitterId = request.sitterId;
+  if (request.status !== 'awaiting_confirmation') {
+    throw new Error(`Cannot confirm completion for request with status: ${request.status}`);
   }
-
-  const requestData = requestSnap.data();
-  const currentStatus = requestData.status as RequestStatus;
-  const assignedSitterId = requestData.sitterId as string | undefined;
-  const creditsOffered = asNumber(requestData.creditsOffered) || 0;
-  const escrowStatus = requestData.escrowStatus || 'none';
-
-  if (currentStatus !== 'awaiting_confirmation') {
-    throw new Error(`Cannot confirm completion for request with status: ${currentStatus}`);
-  }
-  if (escrowStatus !== 'held') {
+  if (request.escrowStatus !== 'held') {
     throw new Error('Escrow status mismatch: expected held before completion');
   }
-  if (!assignedSitterId) {
+  if (!sitterId) {
     throw new Error('No sitter assigned to this request');
   }
-  if (creditsOffered <= 0) {
+  if (request.creditsOffered <= 0) {
     throw new Error('Invalid credits offered');
   }
 
-  const sitterWalletRef = getWalletRef(assignedSitterId);
-  const batch = writeBatch(db);
-
-  batch.update(sitterWalletRef, {
-    balance: increment(creditsOffered),
-    dailyEarnedDate: getTodayKey(),
-    dailyEarnedCredits: increment(creditsOffered),
-    lastRequestId: requestId,
-    lastRequestOwnerId: ownerId,
-    lastWalletAction: 'escrow_release',
-    updatedAt: serverTimestamp(),
-  });
-
-  batch.update(requestRef, {
+  const completedRequest: Request = {
+    ...request,
     status: 'completed',
     escrowStatus: 'released',
-    confirmedCompleteAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    confirmedCompleteAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-  await batch.commit();
-  sitterId = assignedSitterId;
+  await saveRequest(completedRequest, ownerId);
+
+  try {
+    await releaseEscrow(
+      sitterId,
+      request.creditsOffered,
+      requestId,
+      `Reward completed for request ${requestId}`,
+      ownerId
+    );
+  } catch (error) {
+    await rollbackRequest(request, ownerId);
+    throw error;
+  }
 
   await createNotification({
     userId: ownerId,
@@ -1135,8 +852,14 @@ export async function confirmCompletion(
     relatedRequestId: requestId,
     message: 'Reward completed. Credits have been released.',
   });
+
   try {
-    await recalculateTrustScore(sitterId);
+    await syncProfileMetricsToSupabase({
+      actorId: ownerId,
+      targetUserId: sitterId,
+      relatedRequestId: requestId,
+      recalculateTrustScore: true,
+    });
   } catch (error) {
     console.warn('Unable to refresh sitter trust score after completion:', error);
   }
@@ -1144,92 +867,54 @@ export async function confirmCompletion(
   await logRepeatedPairActivity(ownerId, sitterId, requestId);
 }
 
-/**
- * Cancel an accepted request with escrow refund
- * - Validates request is accepted or awaiting_confirmation
- * - Refunds escrow back to owner wallet
- * - Changes status to cancelled
- * - All operations are atomic
- */
 export async function cancelAcceptedRequest(
   ownerId: string,
   requestId: string,
   cancelledBy: string
 ): Promise<void> {
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const ownerWalletRef = getWalletRef(ownerId);
-  const ownerTransactionsRef = getWalletTransactionsRef(ownerId);
+  const request = await requireRequest(ownerId, requestId);
 
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
-
-    const requestData = requestSnap.data();
-    const currentStatus = requestData.status as RequestStatus;
-    const sitterId = requestData.sitterId as string | undefined;
-    const creditsOffered = asNumber(requestData.creditsOffered) || 0;
-    const escrowStatus = requestData.escrowStatus || 'none';
-
-    if (currentStatus !== 'accepted' && currentStatus !== 'awaiting_confirmation') {
-      throw new Error(
-        `Cannot cancel request with status: ${currentStatus}. Use cancelRequest for open requests.`
-      );
-    }
-    if (escrowStatus !== 'held') {
-      throw new Error('Escrow status mismatch: expected held before refund');
-    }
-    if (!sitterId) {
-      throw new Error('No sitter assigned to this request');
-    }
-    if (cancelledBy !== ownerId && cancelledBy !== sitterId) {
-      throw new Error('Only owner or assigned sitter can cancel the request');
-    }
-    if (creditsOffered <= 0) {
-      throw new Error('Invalid credits offered');
-    }
-
-    const ownerWalletSnap = await transaction.get(ownerWalletRef);
-    if (!ownerWalletSnap.exists()) {
-      throw new Error('Owner wallet not found');
-    }
-
-    const currentBalance = asNumber(ownerWalletSnap.data().balance) || 0;
-    const newBalance = currentBalance + creditsOffered;
-
-    transaction.update(ownerWalletRef, {
-      balance: newBalance,
-      lastRequestId: requestId,
-      lastRequestOwnerId: ownerId,
-      lastWalletAction: 'escrow_refund',
-      updatedAt: serverTimestamp(),
-    });
-
-    const txRef = doc(ownerTransactionsRef);
-    transaction.set(
-      txRef,
-      createWalletTransactionPayload(
-        'escrow-refund',
-        creditsOffered,
-        `Refund for cancelled request ${requestId}`,
-        requestId,
-        newBalance
-      )
+  if (request.status !== 'accepted' && request.status !== 'awaiting_confirmation') {
+    throw new Error(
+      `Cannot cancel request with status: ${request.status}. Use cancelRequest for open requests.`
     );
+  }
+  if (request.escrowStatus !== 'held') {
+    throw new Error('Escrow status mismatch: expected held before refund');
+  }
+  if (!request.sitterId) {
+    throw new Error('No sitter assigned to this request');
+  }
+  if (cancelledBy !== ownerId && cancelledBy !== request.sitterId) {
+    throw new Error('Only owner or assigned sitter can cancel the request');
+  }
+  if (request.creditsOffered <= 0) {
+    throw new Error('Invalid credits offered');
+  }
 
-    transaction.update(requestRef, {
-      status: 'cancelled',
-      escrowStatus: 'refunded',
-      updatedAt: serverTimestamp(),
-    });
-  });
+  const cancelledRequest: Request = {
+    ...request,
+    status: 'cancelled',
+    escrowStatus: 'refunded',
+    updatedAt: new Date(),
+  };
+
+  await saveRequest(cancelledRequest, cancelledBy);
+
+  try {
+    await refundEscrow(
+      ownerId,
+      request.creditsOffered,
+      requestId,
+      `Refund for cancelled request ${requestId}`,
+      cancelledBy
+    );
+  } catch (error) {
+    await rollbackRequest(request, cancelledBy);
+    throw error;
+  }
 }
 
-/**
- * Owner submits review/rating for completed request.
- * One review per request.
- */
 export async function submitReview(
   ownerId: string,
   requestId: string,
@@ -1240,116 +925,72 @@ export async function submitReview(
     throw new Error('Rating must be between 1 and 5');
   }
 
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const reviewComment = comment.trim();
+  const request = await requireRequest(ownerId, requestId);
+  const sitterId = request.sitterId;
+  if (request.status !== 'completed') {
+    throw new Error('You can review only completed requests');
+  }
+  if (!sitterId) {
+    throw new Error('No sitter assigned for this request');
+  }
+  if (request.review || request.ownerReview) {
+    throw new Error('This request already has a review');
+  }
 
-  let reviewedSitterId = '';
-  let shouldRefreshTrustScore = false;
+  const publicSitterProfile = await getPublicProfile(sitterId);
+  if (!publicSitterProfile) {
+    throw new Error('Sitter public profile not found');
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) {
-      throw new Error('Request not found');
-    }
+  const review: RequestReview = {
+    rating,
+    comment: comment.trim(),
+    reviewerId: ownerId,
+    reviewerName: request.ownerName || 'Owner',
+    reviewedAt: new Date(),
+  };
 
-    const requestData = requestSnap.data();
-    const status = requestData.status as RequestStatus;
-    const sitterId = requestData.sitterId as string | undefined;
-    const ownerName = requestData.ownerName as string;
+  await saveRequest(
+    {
+      ...request,
+      review,
+      ownerReview: review,
+      updatedAt: new Date(),
+    },
+    ownerId
+  );
 
-    if (status !== 'completed') {
-      throw new Error('You can review only completed requests');
-    }
-    if (!sitterId) {
-      throw new Error('No sitter assigned for this request');
-    }
-    if (requestData.review) {
-      throw new Error('This request already has a review');
-    }
-
-    const publicSitterProfileRef = doc(db, 'publicProfiles', sitterId);
-    const publicSitterProfileSnap = await transaction.get(publicSitterProfileRef);
-    if (!publicSitterProfileSnap.exists()) {
-      throw new Error('Sitter public profile not found');
-    }
-
-    const sitterData = publicSitterProfileSnap.data();
-    const currentCount = asNumber(sitterData.ratingCount) || 0;
-    const currentAverage = asNumber(sitterData.ratingAverage) || 0;
-    const nextCount = currentCount + 1;
-    const nextAverage = (currentAverage * currentCount + rating) / nextCount;
-    const privateSitterProfileRef = doc(db, 'users', sitterId);
-
-    transaction.update(requestRef, {
-      review: {
-        rating,
-        comment: reviewComment,
-        reviewerId: ownerId,
-        reviewerName: ownerName || 'Owner',
-        reviewedAt: serverTimestamp(),
-      },
-      updatedAt: serverTimestamp(),
-    });
-
-    transaction.update(privateSitterProfileRef, {
-      ratingCount: nextCount,
-      ratingAverage: nextAverage,
-      lastReviewOwnerId: ownerId,
-      lastReviewRequestId: requestId,
-      updatedAt: serverTimestamp(),
-    });
-
-    transaction.update(publicSitterProfileRef, {
-      ratingCount: nextCount,
-      ratingAverage: nextAverage,
-      updatedAt: serverTimestamp(),
-    });
-
-    reviewedSitterId = sitterId;
-    shouldRefreshTrustScore = true;
+  await createNotification({
+    userId: sitterId,
+    type: 'review_received',
+    relatedRequestId: requestId,
+    message: 'You received a new review.',
   });
 
-  if (reviewedSitterId) {
-    await createNotification({
-      userId: reviewedSitterId,
-      type: 'review_received',
+  const nextRatingCount = publicSitterProfile.ratingCount + 1;
+  const nextRatingAverage =
+    (publicSitterProfile.ratingAverage * publicSitterProfile.ratingCount + rating) /
+    nextRatingCount;
+
+  try {
+    await syncProfileMetricsToSupabase({
+      actorId: ownerId,
+      targetUserId: sitterId,
       relatedRequestId: requestId,
-      message: 'You received a new review.',
+      ratingAverage: nextRatingAverage,
+      ratingCount: nextRatingCount,
+      recalculateTrustScore: true,
     });
-    if (shouldRefreshTrustScore) {
-      try {
-        await recalculateTrustScore(reviewedSitterId);
-      } catch (error) {
-        console.warn('Unable to refresh sitter trust score after review:', error);
-      }
-    }
+  } catch (error) {
+    console.warn('Unable to refresh sitter profile metrics after review:', error);
   }
 }
 
-/**
- * Fetch all completed reviewed jobs for a sitter.
- */
 export async function getSitterReviews(sitterId: string): Promise<RequestReview[]> {
-  const requestsQuery = query(
-    collectionGroup(db, 'requests'),
-    where('sitterId', '==', sitterId)
-  );
-
-  const querySnapshot = await getDocs(requestsQuery);
-  const reviews: RequestReview[] = [];
-
-  querySnapshot.forEach((requestDoc) => {
-    const data = requestDoc.data();
-    if (data.status !== 'completed' || !data.review) {
-      return;
-    }
-
-    const review = parseReview(data.review);
-    if (review) {
-      reviews.push(review);
-    }
-  });
-
-  reviews.sort((a, b) => b.reviewedAt.getTime() - a.reviewedAt.getTime());
-  return reviews;
+  const sitterRequests = await getSitterRequests(sitterId);
+  return sitterRequests
+    .filter((request) => request.status === 'completed' && Boolean(request.review || request.ownerReview))
+    .map((request) => request.ownerReview ?? request.review)
+    .filter((review): review is RequestReview => Boolean(review))
+    .sort((left, right) => right.reviewedAt.getTime() - left.reviewedAt.getTime());
 }

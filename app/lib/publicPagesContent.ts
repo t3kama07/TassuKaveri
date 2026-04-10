@@ -12,6 +12,19 @@ export type FaqItem = {
   answer: LocalizedText;
 };
 
+export type LegalPageSection = {
+  heading: LocalizedText;
+  paragraphs: readonly LocalizedText[];
+};
+
+export type LegalPageContent = {
+  eyebrow: LocalizedText;
+  title: LocalizedText;
+  subtitle: LocalizedText;
+  updatedAt: LocalizedText;
+  sections: readonly LegalPageSection[];
+};
+
 export type BlogArticleSection = {
   heading: string;
   paragraphs: string[];
@@ -311,6 +324,192 @@ export const blogArticlePageContent = {
     fi: 'Luo tili',
   },
 } as const;
+
+export const privacyPolicyPageContent = {
+  eyebrow: {
+    en: 'Privacy Policy',
+    fi: 'Tietosuojaseloste',
+  },
+  title: {
+    en: 'How we handle information on TassuKaveri.',
+    fi: 'Miten käsittelemme tietoja TassuKaverissa.',
+  },
+  subtitle: {
+    en: 'This page explains in plain language what information may be collected when you create an account, publish requests, use messaging, and participate in the community.',
+    fi: 'Tällä sivulla kerrotaan selkeästi, mitä tietoja voidaan kerätä, kun luot tilin, julkaiset pyyntöjä, käytät viestejä ja osallistut yhteisöön.',
+  },
+  updatedAt: {
+    en: 'April 9, 2026',
+    fi: '9.4.2026',
+  },
+  sections: [
+    {
+      heading: {
+        en: 'Information you provide',
+        fi: 'Antamasi tiedot',
+      },
+      paragraphs: [
+        {
+          en: 'This can include account and profile details such as your name, email address, phone verification details, location, pet information, profile description, availability, and photos.',
+          fi: 'Tähän voi kuulua tili- ja profiilitietoja, kuten nimesi, sähköpostiosoitteesi, puhelinvarmennuksen tiedot, sijainti, lemmikkitiedot, profiilikuvaus, saatavuus ja kuvat.',
+        },
+        {
+          en: 'It can also include information you create inside the service, such as requests, sitter offers, messages, reviews, credit activity, and moderation reports.',
+          fi: 'Tähän voivat kuulua myös palvelussa syntyvät tiedot, kuten pyynnöt, hoitajatarjoukset, viestit, arvostelut, krediittitapahtumat ja moderointiin liittyvät ilmoitukset.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'How information is used',
+        fi: 'Mihin tietoja käytetään',
+      },
+      paragraphs: [
+        {
+          en: 'We use information to operate the service, show relevant profiles and requests, support messaging, and help members arrange pet care more safely.',
+          fi: 'Tietoja käytetään palvelun ylläpitämiseen, olennaisten profiilien ja pyyntöjen näyttämiseen, viestinnän tukemiseen ja turvallisempien lemmikkihoitojärjestelyjen helpottamiseen.',
+        },
+        {
+          en: 'Information may also be used to improve trust and safety, respond to support questions, prevent abuse, and understand how the service is being used.',
+          fi: 'Tietoja voidaan käyttää myös luottamuksen ja turvallisuuden parantamiseen, tukikysymyksiin vastaamiseen, väärinkäytösten ehkäisyyn ja palvelun käytön ymmärtämiseen.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'What other members can see',
+        fi: 'Mitä muut jäsenet voivat nähdä',
+      },
+      paragraphs: [
+        {
+          en: 'Information that you choose to publish in your profile or care requests can be visible to other members of the platform.',
+          fi: 'Tiedot, jotka päätät julkaista profiilissasi tai hoitopyynnöissäsi, voivat näkyä muille palvelun jäsenille.',
+        },
+        {
+          en: 'Private account details and moderation-related information are not meant for public display.',
+          fi: 'Yksityiset tilitiedot ja moderointiin liittyvät tiedot eivät ole tarkoitettu julkisesti näkyviksi.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Retention and contact',
+        fi: 'Säilytys ja yhteydenotto',
+      },
+      paragraphs: [
+        {
+          en: 'We keep information for as long as it is needed to operate the service, support trust and safety, and meet legal obligations.',
+          fi: 'Tietoja säilytetään niin kauan kuin niitä tarvitaan palvelun ylläpitämiseen, luottamuksen ja turvallisuuden tukemiseen sekä lakisääteisten velvoitteiden täyttämiseen.',
+        },
+        {
+          en: 'If you have questions about privacy or need help regarding your account, contact us at info@tassukaveri.fi.',
+          fi: 'Jos sinulla on kysyttävää tietosuojasta tai tarvitset apua tiliisi liittyen, ota yhteyttä osoitteeseen info@tassukaveri.fi.',
+        },
+      ],
+    },
+  ] satisfies LegalPageSection[],
+} as const satisfies LegalPageContent;
+
+export const termsOfServicePageContent = {
+  eyebrow: {
+    en: 'Terms of Service',
+    fi: 'Käyttöehdot',
+  },
+  title: {
+    en: 'The basic rules for using TassuKaveri.',
+    fi: 'TassuKaverin käytön perussäännöt.',
+  },
+  subtitle: {
+    en: 'These terms describe what members can expect from the platform and what we expect from members who use the service.',
+    fi: 'Nämä ehdot kuvaavat, mitä jäsenet voivat odottaa alustalta ja mitä odotamme palvelua käyttäviltä jäseniltä.',
+  },
+  updatedAt: {
+    en: 'April 9, 2026',
+    fi: '9.4.2026',
+  },
+  sections: [
+    {
+      heading: {
+        en: 'Community platform',
+        fi: 'Yhteisöalusta',
+      },
+      paragraphs: [
+        {
+          en: 'TassuKaveri connects pet owners and sitters through a credit-based community model.',
+          fi: 'TassuKaveri yhdistää lemmikinomistajia ja hoitajia krediittipohjaisen yhteisömallin avulla.',
+        },
+        {
+          en: 'The platform helps members find each other, but each care arrangement is still made between the people involved.',
+          fi: 'Alusta auttaa jäseniä löytämään toisensa, mutta jokainen hoitojärjestely sovitaan edelleen osapuolten välillä.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Accounts and profiles',
+        fi: 'Tilit ja profiilit',
+      },
+      paragraphs: [
+        {
+          en: 'You should provide accurate information and keep your profile reasonably up to date.',
+          fi: 'Sinun tulee antaa oikeat tiedot ja pitää profiilisi kohtuullisen ajantasaisena.',
+        },
+        {
+          en: 'You are responsible for activity that happens through your account and for protecting your login details.',
+          fi: 'Vastaat tilisi kautta tapahtuvasta toiminnasta ja kirjautumistietojesi suojaamisesta.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Credits and exchanges',
+        fi: 'Krediitit ja vaihdot',
+      },
+      paragraphs: [
+        {
+          en: 'Credits are used inside TassuKaveri to reflect community help and are not cash or a cash substitute.',
+          fi: 'Krediittejä käytetään TassuKaverissa yhteisöllisen avun mittarina, eivätkä ne ole rahaa tai rahan korvike.',
+        },
+        {
+          en: 'Members should communicate clearly about availability, expectations, and pet care details before agreeing to an exchange.',
+          fi: 'Jäsenten tulee viestiä selkeästi saatavuudesta, odotuksista ja lemmikkihoidon yksityiskohdista ennen vaihdosta sopimista.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Safety and conduct',
+        fi: 'Turvallisuus ja toiminta',
+      },
+      paragraphs: [
+        {
+          en: 'Members must treat each other respectfully, follow local law, and put animal welfare first.',
+          fi: 'Jäsenten tulee kohdella toisiaan kunnioittavasti, noudattaa paikallista lainsäädäntöä ja asettaa eläinten hyvinvointi etusijalle.',
+        },
+        {
+          en: 'Harassment, fraud, fake profiles, or unsafe behavior can lead to content removal, restrictions, or account suspension.',
+          fi: 'Häirintä, petokset, valetilit tai turvaton toiminta voivat johtaa sisällön poistamiseen, rajoituksiin tai tilin sulkemiseen.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Changes and contact',
+        fi: 'Muutokset ja yhteydenotto',
+      },
+      paragraphs: [
+        {
+          en: 'The service may evolve as features and community guidelines improve over time.',
+          fi: 'Palvelu voi kehittyä ajan myötä ominaisuuksien ja yhteisön pelisääntöjen parantuessa.',
+        },
+        {
+          en: 'Questions about these terms can be sent to info@tassukaveri.fi.',
+          fi: 'Näitä ehtoja koskevat kysymykset voi lähettää osoitteeseen info@tassukaveri.fi.',
+        },
+      ],
+    },
+  ] satisfies LegalPageSection[],
+} as const satisfies LegalPageContent;
 
 export const blogArticles: BlogArticle[] = [
   {

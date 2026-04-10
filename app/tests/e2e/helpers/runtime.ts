@@ -45,5 +45,5 @@ export function readRunUsers(): E2ERunUsersFile {
 }
 
 export function uniqueUiSignupEmail(prefix: string): string {
-  return `${prefix}.${Date.now()}@example.com`;
+  return `${prefix}-${Date.now()}@gmail.com`;
 }

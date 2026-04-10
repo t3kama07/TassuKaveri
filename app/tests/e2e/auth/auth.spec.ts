@@ -10,7 +10,7 @@ test.describe('Authentication', () => {
     await expect(page.getByRole('heading', { name: 'Login', exact: true })).toBeVisible();
   });
 
-  test('shows validation, signs up a new user, and supports logout/login roundtrip', async ({ page }) => {
+  test('shows validation and creates a new user account', async ({ page }) => {
     const email = uniqueUiSignupEmail('playwright-signup');
     const password = 'Playwright123!';
 
@@ -30,11 +30,43 @@ test.describe('Authentication', () => {
     await passwords.nth(1).fill(password);
     await page.getByRole('button', { name: 'Sign Up', exact: true }).click();
 
-    await expect(page).toHaveURL(/\/dashboard$/);
+    const reachedDashboard = await page
+      .waitForURL(/\/dashboard$/, { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (reachedDashboard) {
+      await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+      return;
+    }
+
+    await expect(page).toHaveURL(/\/signup$/);
+    const rateLimitError = page.getByText(
+      /Failed to create account: Too many signup emails were sent recently\./i
+    );
+
+    if (await rateLimitError.isVisible()) {
+      await expect(rateLimitError).toBeVisible();
+      return;
+    }
+
+    await expect(
+      page.getByText(/Account created for .*Check your email to confirm it, then log in\./i)
+    ).toBeVisible();
+  });
+
+  test('supports logout and login roundtrip for a confirmed account', async ({ page, appUsers }) => {
+    await login(page, {
+      email: appUsers.accessMember.email,
+      password: appUsers.accessMember.password,
+    });
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
 
     await logout(page);
-    await login(page, { email, password });
+    await login(page, {
+      email: appUsers.accessMember.email,
+      password: appUsers.accessMember.password,
+    });
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
   });
 

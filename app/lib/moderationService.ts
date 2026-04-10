@@ -1,29 +1,49 @@
-import {
-  addDoc,
-  collection,
-  collectionGroup,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { REPEATED_PAIR_ACTIVITY_THRESHOLD } from './platformPolicy';
 import { ReportRecord } from '@/types/moderation';
-import { getProfile, recalculateTrustScore } from './profileService';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
+import { getSupabaseAuthHeaders } from './supabaseAuthClient';
 
-function getReportsRef() {
-  return collection(db, 'reports');
+function generateReportId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function assertAdmin(adminId: string): Promise<void> {
-  const adminProfile = await getProfile(adminId);
-  if (!adminProfile || adminProfile.role !== 'admin') {
-    throw new Error('Admin access required');
+function mapReportRecord(data: Record<string, unknown>): ReportRecord {
+  return {
+    id: (data.id as string) || '',
+    reporterId: (data.reporterId as string) || '',
+    type: (data.type as ReportRecord['type']) || 'user',
+    targetUserId: (data.targetUserId as string) || undefined,
+    targetOwnerId: (data.targetOwnerId as string) || undefined,
+    targetRequestId: (data.targetRequestId as string) || undefined,
+    reason: (data.reason as string) || '',
+    status: (data.status as ReportRecord['status']) || 'open',
+    createdAt:
+      typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
+        ? new Date(data.createdAt)
+        : new Date(),
+  };
+}
+
+async function postModerationAction(actorId: string, payload: Record<string, unknown>): Promise<void> {
+  const response = await fetch('/api/supabase-sync/moderation', {
+    method: 'POST',
+    headers: {
+      ...(await getSupabaseAuthHeaders(actorId)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      actorId,
+      ...payload,
+    }),
+  });
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(responseText || 'Moderation action failed');
   }
 }
 
@@ -36,13 +56,17 @@ export async function reportUser(reporterId: string, targetUserId: string, reaso
     throw new Error('You cannot report your own account');
   }
 
-  await addDoc(getReportsRef(), {
-    reporterId,
-    type: 'user',
-    targetUserId,
-    reason: trimmedReason,
-    status: 'open',
-    createdAt: serverTimestamp(),
+  await postModerationAction(reporterId, {
+    action: 'create-report',
+    report: {
+      id: generateReportId(),
+      reporterId,
+      type: 'user',
+      targetUserId,
+      reason: trimmedReason,
+      status: 'open',
+      createdAt: new Date(),
+    },
   });
 }
 
@@ -60,68 +84,37 @@ export async function reportRequest(
     throw new Error('Target request is required');
   }
 
-  await addDoc(getReportsRef(), {
-    reporterId,
-    type: 'request',
-    targetOwnerId,
-    targetRequestId,
-    reason: trimmedReason,
-    status: 'open',
-    createdAt: serverTimestamp(),
+  await postModerationAction(reporterId, {
+    action: 'create-report',
+    report: {
+      id: generateReportId(),
+      reporterId,
+      type: 'request',
+      targetOwnerId,
+      targetRequestId,
+      reason: trimmedReason,
+      status: 'open',
+      createdAt: new Date(),
+    },
   });
 }
 
 export async function viewReportedUsers(adminId: string): Promise<ReportRecord[]> {
-  await assertAdmin(adminId);
-  const q = query(
-    getReportsRef(),
-    where('type', '==', 'user'),
-    where('status', '==', 'open'),
-    orderBy('createdAt', 'desc')
+  const payload = await fetchSupabaseReadJson<{ reports: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/moderation?scope=reported-users&adminId=${encodeURIComponent(adminId)}`,
+    { requireAuth: true }
   );
 
-  const snapshot = await getDocs(q);
-  const reports: ReportRecord[] = [];
-
-  snapshot.forEach((reportDoc) => {
-    const data = reportDoc.data();
-    reports.push({
-      id: reportDoc.id,
-      reporterId: data.reporterId,
-      type: data.type,
-      targetUserId: data.targetUserId,
-      reason: data.reason,
-      status: data.status,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    });
-  });
-
-  return reports;
+  return payload.reports.map(mapReportRecord);
 }
 
 export async function viewSuspiciousActivity(adminId: string): Promise<ReportRecord[]> {
-  await assertAdmin(adminId);
+  const payload = await fetchSupabaseReadJson<{ reports: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/moderation?scope=open-reports&adminId=${encodeURIComponent(adminId)}`,
+    { requireAuth: true }
+  );
 
-  const q = query(getReportsRef(), where('status', '==', 'open'), orderBy('createdAt', 'desc'));
-  const snapshot = await getDocs(q);
-  const reports: ReportRecord[] = [];
-
-  snapshot.forEach((reportDoc) => {
-    const data = reportDoc.data();
-    reports.push({
-      id: reportDoc.id,
-      reporterId: data.reporterId,
-      type: data.type,
-      targetUserId: data.targetUserId,
-      targetOwnerId: data.targetOwnerId,
-      targetRequestId: data.targetRequestId,
-      reason: data.reason,
-      status: data.status,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    });
-  });
-
-  return reports;
+  return payload.reports.map(mapReportRecord);
 }
 
 export async function logRepeatedPairActivity(
@@ -129,70 +122,44 @@ export async function logRepeatedPairActivity(
   sitterId: string,
   requestId: string
 ): Promise<void> {
-  const snapshot = await getDocs(collection(db, 'users', ownerId, 'requests'));
+  const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request?scope=user-requests&ownerId=${encodeURIComponent(ownerId)}`,
+    { requireAuth: true }
+  );
 
-  let repeatedCount = 0;
-  snapshot.forEach((requestDoc) => {
-    const data = requestDoc.data();
-    if (data.ownerId === ownerId && data.status === 'completed') {
-      if (data.sitterId !== sitterId) {
-        return;
-      }
-      repeatedCount += 1;
-    }
-  });
+  const repeatedCount = payload.requests.filter(
+    (request) =>
+      (request.ownerId as string) === ownerId &&
+      (request.sitterId as string) === sitterId &&
+      (request.status as string) === 'completed'
+  ).length;
 
   if (repeatedCount < REPEATED_PAIR_ACTIVITY_THRESHOLD) {
     return;
   }
 
-  await addDoc(getReportsRef(), {
-    reporterId: ownerId,
-    type: 'suspicious',
-    targetUserId: sitterId,
-    targetOwnerId: ownerId,
-    targetRequestId: requestId,
-    reason: `Repeated completed exchanges detected between the same owner and sitter (${repeatedCount} total).`,
-    status: 'open',
-    createdAt: serverTimestamp(),
+  await postModerationAction(ownerId, {
+    action: 'create-report',
+    report: {
+      id: generateReportId(),
+      reporterId: ownerId,
+      type: 'suspicious',
+      targetUserId: sitterId,
+      targetOwnerId: ownerId,
+      targetRequestId: requestId,
+      reason: `Repeated completed exchanges detected between the same owner and sitter (${repeatedCount} total).`,
+      status: 'open',
+      createdAt: new Date(),
+    },
   });
 }
 
 export async function freezeAccount(adminId: string, targetUserId: string, reason: string): Promise<void> {
-  await assertAdmin(adminId);
-
-  const userRef = doc(db, 'users', targetUserId);
-  await updateDoc(userRef, {
-    frozen: true,
-    freezeReason: reason || 'Admin action',
-    updatedAt: serverTimestamp(),
+  await postModerationAction(adminId, {
+    action: 'freeze-account',
+    targetUserId,
+    reason: reason || 'Admin action',
   });
-}
-
-async function recalculateSitterRating(sitterId: string): Promise<void> {
-  const q = query(collectionGroup(db, 'requests'), where('sitterId', '==', sitterId));
-  const snapshot = await getDocs(q);
-
-  let reviewCount = 0;
-  let ratingSum = 0;
-
-  snapshot.forEach((requestDoc) => {
-    const data = requestDoc.data();
-    const review = data.review as { rating?: number } | undefined;
-    if (data.status === 'completed' && review && typeof review.rating === 'number') {
-      reviewCount += 1;
-      ratingSum += review.rating;
-    }
-  });
-
-  const average = reviewCount > 0 ? ratingSum / reviewCount : 0;
-  const sitterRef = doc(db, 'users', sitterId);
-  await updateDoc(sitterRef, {
-    ratingCount: reviewCount,
-    ratingAverage: average,
-    updatedAt: serverTimestamp(),
-  });
-  await recalculateTrustScore(sitterId);
 }
 
 export async function deleteAbusiveReview(
@@ -200,27 +167,9 @@ export async function deleteAbusiveReview(
   ownerId: string,
   requestId: string
 ): Promise<void> {
-  await assertAdmin(adminId);
-
-  const requestRef = doc(db, 'users', ownerId, 'requests', requestId);
-  const requestSnap = await getDoc(requestRef);
-  if (!requestSnap.exists()) {
-    throw new Error('Request not found');
-  }
-
-  const requestData = requestSnap.data();
-  const sitterId = requestData.sitterId as string | undefined;
-  if (!requestData.review) {
-    return;
-  }
-
-  await updateDoc(requestRef, {
-    review: null,
-    reviewRemovedByAdmin: true,
-    updatedAt: serverTimestamp(),
+  await postModerationAction(adminId, {
+    action: 'delete-review',
+    ownerId,
+    requestId,
   });
-
-  if (sitterId) {
-    await recalculateSitterRating(sitterId);
-  }
 }

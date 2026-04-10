@@ -114,91 +114,110 @@ export default function Navbar() {
 
   const publicLinks = [
     { href: '/#how-it-works', label: publicNavCopy.howItWorks },
-    { href: '/#trust-safety', label: publicNavCopy.safety },
-    { href: '/about.html', label: publicNavCopy.about },
-    { href: '/faq.html', label: publicNavCopy.faq },
-    { href: '/blog.html', label: publicNavCopy.blog },
+    {
+      href: '/signup',
+      label: publicContent[language].landing.hero.primaryCta,
+    },
+    {
+      href: '/#earn-credits',
+      label: language === 'en' ? 'Earn credits' : 'Ansaitse krediittejä',
+    },
   ];
 
   return (
     <nav className="border-b border-[#e7ebf0] bg-white/95 backdrop-blur">
       <div className="mx-auto w-full max-w-[1600px] px-6 sm:px-10 lg:px-14 2xl:px-20">
-        <div className="flex min-h-[68px] items-center justify-between gap-4">
-          <Link href={user ? '/dashboard' : '/'} className="flex h-[68px] items-center gap-2">
+        <div className="flex min-h-[72px] items-center justify-between gap-4">
+          <Link
+            href={user ? '/dashboard' : '/'}
+            className="flex h-[72px] shrink-0 items-center gap-2"
+          >
             <Image
-              src="/logo.png"
+              src="/images/favicon.png"
               alt="TassuKaveri"
-              width={132}
-              height={44}
-              className="h-9 w-auto sm:h-10"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-[0.95rem] object-cover sm:h-11 sm:w-11"
             />
+            <span className="text-[1.35rem] font-semibold tracking-[-0.03em] text-[#0f2640] sm:text-[1.45rem]">
+              TassuKaveri
+            </span>
           </Link>
 
-          <div className="hidden items-center justify-end gap-x-5 gap-y-3 py-3 text-[0.98rem] md:flex lg:gap-x-6">
-            {user ? (
-              <>
-                {memberLinks.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+          {user ? (
+            <div className="hidden flex-1 items-center justify-end gap-x-5 gap-y-3 py-3 text-[0.98rem] md:flex lg:gap-x-6">
+              {memberLinks.map((item) => (
                 <Link
-                  href="/notifications"
-                  className="inline-flex items-center gap-2 font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+                  key={item.href}
+                  href={item.href}
+                  className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
                 >
-                  <span>Alerts</span>
-                  {unreadNotifications > 0 && (
-                    <span className="inline-flex min-w-[1.45rem] items-center justify-center rounded-full bg-[#ff7a2d] px-2 py-0.5 text-xs font-semibold text-white">
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </span>
-                  )}
+                  {item.label}
                 </Link>
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
-                  >
-                    Admin
-                  </Link>
+              ))}
+              <Link
+                href="/notifications"
+                className="inline-flex items-center gap-2 font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+              >
+                <span>Alerts</span>
+                {unreadNotifications > 0 && (
+                  <span className="inline-flex min-w-[1.45rem] items-center justify-center rounded-full bg-[#ff7a2d] px-2 py-0.5 text-xs font-semibold text-white">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
                 )}
-                <button
-                  onClick={handleLogout}
-                  className="rounded-2xl bg-[#ff7a2d] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+              </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
                 >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                {publicLinks.map((item) => (
+                  Admin
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                className="rounded-2xl bg-[#ff7a2d] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:ml-auto md:flex md:items-center md:gap-8 lg:gap-10">
+                <div className="flex items-center gap-8 py-3 text-[1.08rem] lg:gap-9">
+                  {publicLinks.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="font-semibold tracking-[-0.01em] text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-5 py-3">
+                  <LanguageSwitcher
+                    language={language}
+                    setLanguage={setLanguage}
+                    className="border-[#e2e8f0] bg-[#fbfcfe] p-[3px] text-[0.82rem] shadow-none"
+                  />
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+                    href="/login"
+                    className="px-2 text-[1.06rem] font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
                   >
-                    {item.label}
+                    {publicNavCopy.logIn}
                   </Link>
-                ))}
-                <LanguageSwitcher language={language} setLanguage={setLanguage} />
-                <Link
-                  href="/login"
-                  className="font-semibold text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
-                >
-                  {publicNavCopy.logIn}
-                </Link>
-                <Link
-                  href="/signup"
-                  className="rounded-2xl bg-[#ff7a2d] px-6 py-3 font-semibold text-white shadow-[0_8px_20px_rgba(255,122,45,0.18)] transition-colors hover:bg-[#e66a1f]"
-                >
-                  {publicNavCopy.signUp}
-                </Link>
-              </>
-            )}
-          </div>
+                  <Link
+                    href="/signup"
+                    className="rounded-[1.2rem] bg-[#ff7a2d] px-6 py-3 text-[1.06rem] font-semibold text-white shadow-[0_8px_20px_rgba(255,122,45,0.18)] transition-colors hover:bg-[#e66a1f]"
+                  >
+                    {publicNavCopy.signUp}
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center gap-2 md:hidden">
             {!user && mobileMenuOpen && (

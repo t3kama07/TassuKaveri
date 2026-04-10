@@ -8,17 +8,20 @@
         "postinstall": "node scripts/patch-next-browserslist-warning.mjs",
         "start": "next start",
         "lint": "eslint",
-        "rotate:demo-passwords": "node scripts/rotate-demo-user-passwords.mjs",
+        "db:run-sql": "node scripts/run-supabase-sql.mjs",
+        "storage:ensure-bucket": "node scripts/ensure-supabase-storage-bucket.mjs",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui",
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:debug": "playwright test --debug"
     },
     "dependencies": {
-        "firebase": "^12.7.0",
+        "@supabase/supabase-js": "^2.103.0",
         "next": "16.0.10",
+        "pg": "^8.20.0",
         "react": "19.2.1",
-        "react-dom": "19.2.1"
+        "react-dom": "19.2.1",
+        "server-only": "^0.0.1"
     },
     "devDependencies": {
         "@playwright/test": "^1.59.1",

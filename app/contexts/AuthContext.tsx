@@ -1,15 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { 
-  User,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  UserCredential,
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import {
   createProfile,
   ensurePilotLocation,
@@ -20,14 +13,26 @@ import {
 import { PILOT_CITY, PILOT_COUNTRY } from '@/lib/platformPolicy';
 import { initializeWallet } from '@/lib/walletService';
 import { CreateProfileData, UserProfile } from '@/types/profile';
+import type { AuthUser } from '@/types/auth';
+import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
+
+type SignupResult = {
+  user: AuthUser | null;
+  requiresEmailVerification: boolean;
+  email: string;
+};
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   profile: UserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<UserProfile | null>;
-  login: (email: string, password: string) => Promise<UserCredential>;
-  signup: (email: string, password: string, profileData: CreateProfileData) => Promise<UserCredential>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  signup: (
+    email: string,
+    password: string,
+    profileData: CreateProfileData
+  ) => Promise<SignupResult>;
   logout: () => Promise<void>;
 }
 
@@ -37,12 +42,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-function formatFallbackName(user: User): string {
-  const displayName = user.displayName?.trim();
-  if (displayName) {
-    return displayName;
-  }
-
+function formatFallbackName(user: AuthUser): string {
   const emailLocalPart = user.email?.split('@')[0]?.replace(/[._-]+/g, ' ').trim();
   if (emailLocalPart) {
     return emailLocalPart;
@@ -51,7 +51,7 @@ function formatFallbackName(user: User): string {
   return 'PetBuddy User';
 }
 
-function getBootstrapProfileData(user: User): CreateProfileData {
+function getBootstrapProfileData(user: AuthUser): CreateProfileData {
   return {
     name: formatFallbackName(user),
     location: PILOT_CITY,
@@ -59,14 +59,107 @@ function getBootstrapProfileData(user: User): CreateProfileData {
   };
 }
 
+async function signOutSupabaseQuietly(): Promise<void> {
+  await supabase.auth.signOut().catch(() => undefined);
+}
+
+function isEmailConfirmationRequiredError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+  return (
+    message.includes('email not confirmed') ||
+    message.includes('email_not_confirmed') ||
+    message.includes('confirm your email')
+  );
+}
+
+function isEmailRateLimitError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+  return (
+    message.includes('email rate limit exceeded') ||
+    message.includes('over_email_send_rate_limit')
+  );
+}
+
+function normalizeAuthError(error: unknown): Error {
+  if (isEmailConfirmationRequiredError(error)) {
+    return new Error('Please confirm your email before logging in.');
+  }
+
+  if (isEmailRateLimitError(error)) {
+    return new Error('Too many signup emails were sent recently. Please wait a minute and try again.');
+  }
+
+  return error instanceof Error ? error : new Error('Unknown authentication error');
+}
+
+async function signInSupabaseWithPassword(email: string, password: string): Promise<Session | null> {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    throw normalizeAuthError(error);
+  }
+
+  return data.session ?? null;
+}
+
+async function signUpSupabaseWithPassword(email: string, password: string): Promise<Session | null> {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    throw normalizeAuthError(error);
+  }
+
+  return data.session ?? null;
+}
+
+async function ensureSupabasePasswordSession(email: string, password: string): Promise<Session | null> {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (session?.user.email?.trim().toLowerCase() === email.trim().toLowerCase()) {
+    return session;
+  }
+
+  return signInSupabaseWithPassword(email, password);
+}
+
+async function getCurrentSupabaseAuthUser(): Promise<AuthUser | null> {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return user ? mapSupabaseUserToAuthUser(user) : null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [supabaseSession, setSupabaseSession] = useState<Session | null>(null);
+  const [supabaseReady, setSupabaseReady] = useState(false);
   const bootstrapPromisesRef = useRef(new Map<string, Promise<UserProfile | null>>());
 
   async function ensureUserBootstrap(
-    authUser: User,
+    authUser: AuthUser,
     profileData?: CreateProfileData,
     overwriteProfile: boolean = false
   ): Promise<UserProfile | null> {
@@ -85,14 +178,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Authenticated user is missing an email address');
       }
 
-      // Warm the auth token before any protected Firestore reads/writes.
-      await authUser.getIdToken();
-
       const hasProfile = await profileExists(authUser.uid);
       if (overwriteProfile && profileData) {
         await createProfile(authUser.uid, email, profileData);
       } else if (!hasProfile) {
-        await createProfile(authUser.uid, email, profileData ?? getBootstrapProfileData(authUser));
+        await createProfile(
+          authUser.uid,
+          email,
+          profileData ?? getBootstrapProfileData(authUser)
+        );
       }
 
       await ensurePilotLocation(authUser.uid);
@@ -113,61 +207,170 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      if (nextUser) {
-        try {
-          const bootstrappedProfile = await ensureUserBootstrap(nextUser);
-          if (active) {
-            setProfile(bootstrappedProfile);
-          }
-        } catch (error) {
-          console.error('Failed to bootstrap signed-in user:', error);
-          if (active) {
-            setProfile(null);
-          }
+    void supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) {
+          return;
         }
+
+        if (error) {
+          console.error('Failed to restore Supabase session:', error);
+        }
+
+        setSupabaseSession(data.session ?? null);
+        setSupabaseReady(true);
+      })
+      .catch((error) => {
+        console.error('Failed to initialize Supabase session:', error);
         if (active) {
-          setUser(auth.currentUser ?? nextUser);
+          setSupabaseSession(null);
+          setSupabaseReady(true);
         }
-      } else {
-        if (active) {
-          setUser(null);
-          setProfile(null);
-        }
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) {
+        return;
       }
-      if (active) {
-        setLoading(false);
-      }
+
+      setSupabaseSession(session);
+      setSupabaseReady(true);
     });
 
     return () => {
       active = false;
-      unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!supabaseReady) {
+      return () => {
+        active = false;
+      };
+    }
+
+    async function reconcileSession() {
+      setLoading(true);
+
+      if (!supabaseSession?.user) {
+        if (active) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const currentUser = mapSupabaseUserToAuthUser(supabaseSession.user);
+        const bootstrappedProfile = await ensureUserBootstrap(currentUser);
+        if (active) {
+          setUser(currentUser);
+          setProfile(bootstrappedProfile);
+        }
+      } catch (error) {
+        console.error('Failed to bootstrap signed-in user:', error);
+        if (active) {
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void reconcileSession();
+
+    return () => {
+      active = false;
+    };
+  }, [supabaseReady, supabaseSession?.user.id, supabaseSession?.user.email]);
+
   const login = async (email: string, password: string) => {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    await credential.user.reload();
-    const currentUser = auth.currentUser ?? credential.user;
-    const bootstrappedProfile = await ensureUserBootstrap(currentUser);
-    setUser(currentUser);
-    setProfile(bootstrappedProfile);
-    return credential;
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    setLoading(true);
+
+    try {
+      await signInSupabaseWithPassword(trimmedEmail, trimmedPassword);
+      const currentUser = await getCurrentSupabaseAuthUser();
+      if (!currentUser) {
+        throw new Error('Supabase session was not created');
+      }
+
+      const bootstrappedProfile = await ensureUserBootstrap(currentUser);
+      setUser(currentUser);
+      setProfile(bootstrappedProfile);
+      setLoading(false);
+      return currentUser;
+    } catch (error) {
+      await signOutSupabaseQuietly();
+      setLoading(false);
+      throw error;
+    }
   };
 
   const signup = async (email: string, password: string, profileData: CreateProfileData) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    setLoading(true);
 
-    const bootstrappedProfile = await ensureUserBootstrap(userCredential.user, profileData, true);
-    setUser(auth.currentUser ?? userCredential.user);
-    setProfile(bootstrappedProfile);
+    try {
+      const signUpSession = await signUpSupabaseWithPassword(trimmedEmail, trimmedPassword);
 
-    return userCredential;
+      if (!signUpSession) {
+        try {
+          await ensureSupabasePasswordSession(trimmedEmail, trimmedPassword);
+        } catch (error) {
+          if (isEmailConfirmationRequiredError(error)) {
+            await signOutSupabaseQuietly();
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+
+            return {
+              user: null,
+              requiresEmailVerification: true,
+              email: trimmedEmail,
+            };
+          }
+
+          throw error;
+        }
+      }
+
+      const currentUser = await getCurrentSupabaseAuthUser();
+      if (!currentUser) {
+        throw new Error('Supabase session was not created');
+      }
+
+      const bootstrappedProfile = await ensureUserBootstrap(currentUser, profileData, true);
+      setUser(currentUser);
+      setProfile(bootstrappedProfile);
+      setLoading(false);
+
+      return {
+        user: currentUser,
+        requiresEmailVerification: false,
+        email: trimmedEmail,
+      };
+    } catch (error) {
+      await signOutSupabaseQuietly();
+      setLoading(false);
+      throw normalizeAuthError(error);
+    }
   };
 
   const refreshProfile = async () => {
-    const currentUser = auth.currentUser ?? user;
+    const currentUser = user ?? (await getCurrentSupabaseAuthUser());
     if (!currentUser) {
       setProfile(null);
       return null;
@@ -178,8 +381,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return nextProfile;
   };
 
-  const logout = () => {
-    return signOut(auth);
+  const logout = async () => {
+    setLoading(true);
+    await signOutSupabaseQuietly();
+    setUser(null);
+    setProfile(null);
+    setLoading(false);
   };
 
   const value = {
@@ -192,9 +399,5 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

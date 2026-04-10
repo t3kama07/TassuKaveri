@@ -1,41 +1,32 @@
 import {
-  addDoc,
-  collection,
-  collectionGroup,
-  deleteDoc,
-  doc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-  where,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import {
   AvailabilityMatchResult,
   AvailabilitySlot,
   CreateAvailabilitySlotData,
 } from '@/types/availability';
 import { syncPublicAvailabilitySummary } from './publicProfileService';
+import { replaceAvailabilitySlotsInSupabase as mirrorAvailabilitySlotsToSupabase } from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
 
-const AVAILABILITY_SLOTS_COLLECTION = 'availabilitySlots';
+function generateAvailabilitySlotId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
 
-function getAvailabilitySlotsRef(userId: string) {
-  return collection(db, 'users', userId, AVAILABILITY_SLOTS_COLLECTION);
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function toDate(value: unknown): Date {
-  if (value instanceof Timestamp) {
-    return value.toDate();
-  }
   if (value instanceof Date) {
     return value;
   }
   if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
     return value.toDate();
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
   }
   return new Date();
 }
@@ -55,11 +46,15 @@ function mapAvailabilitySlot(
   };
 }
 
+function sortSlots(slots: AvailabilitySlot[]): AvailabilitySlot[] {
+  return [...slots].sort((left, right) => left.startAt.getTime() - right.startAt.getTime());
+}
+
 function isSameLocalDay(firstDate: Date, secondDate: Date): boolean {
   return (
-    firstDate.getFullYear() === secondDate.getFullYear()
-    && firstDate.getMonth() === secondDate.getMonth()
-    && firstDate.getDate() === secondDate.getDate()
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
   );
 }
 
@@ -90,8 +85,8 @@ function ensureAvailabilityDoesNotOverlap(
     const previousRange = sortedRanges[index - 1];
 
     if (
-      previousRange
-      && rangesOverlap(
+      previousRange &&
+      rangesOverlap(
         previousRange.startAt,
         previousRange.endAt,
         currentRange.startAt,
@@ -128,21 +123,18 @@ export function getUpcomingAvailabilitySlots(
   slots: AvailabilitySlot[],
   referenceDate: Date = new Date()
 ): AvailabilitySlot[] {
-  return slots
-    .filter((slot) => slot.endAt.getTime() >= referenceDate.getTime())
-    .sort((left, right) => left.startAt.getTime() - right.startAt.getTime());
+  return sortSlots(slots).filter((slot) => slot.endAt.getTime() >= referenceDate.getTime());
 }
 
 export async function getAvailabilitySlots(userId: string): Promise<AvailabilitySlot[]> {
-  const slotsQuery = query(getAvailabilitySlotsRef(userId), orderBy('startAt', 'asc'));
-  const snapshot = await getDocs(slotsQuery);
+  const payload = await fetchSupabaseReadJson<{ slots: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/availability?userId=${encodeURIComponent(userId)}`,
+    { requireAuth: true }
+  );
 
-  const slots: AvailabilitySlot[] = [];
-  snapshot.forEach((slotDoc) => {
-    slots.push(mapAvailabilitySlot(userId, slotDoc.id, slotDoc.data()));
-  });
-
-  return slots;
+  return payload.slots.map((slot) =>
+    mapAvailabilitySlot(userId, (slot.id as string) || '', slot)
+  );
 }
 
 export async function createAvailabilitySlot(
@@ -154,30 +146,28 @@ export async function createAvailabilitySlot(
   const existingSlots = await getAvailabilitySlots(userId);
   ensureAvailabilityDoesNotOverlap([data], existingSlots);
 
-  const docRef = await addDoc(getAvailabilitySlotsRef(userId), {
-    startAt: Timestamp.fromDate(data.startAt),
-    endAt: Timestamp.fromDate(data.endAt),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  await syncPublicAvailabilitySummary(
+  const newSlot: AvailabilitySlot = {
+    id: generateAvailabilitySlotId(),
     userId,
-    getUpcomingAvailabilitySlots([...existingSlots, mapAvailabilitySlot(userId, docRef.id, {
-      startAt: Timestamp.fromDate(data.startAt),
-      endAt: Timestamp.fromDate(data.endAt),
-      createdAt: data.startAt,
-      updatedAt: data.startAt,
-    })])
-  );
+    startAt: data.startAt,
+    endAt: data.endAt,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const nextSlots = sortSlots([...existingSlots, newSlot]);
 
-  return docRef.id;
+  await mirrorAvailabilitySlotsToSupabase(userId, nextSlots);
+  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(nextSlots));
+
+  return newSlot.id;
 }
 
 export async function deleteAvailabilitySlot(userId: string, slotId: string): Promise<void> {
-  const slotRef = doc(db, 'users', userId, AVAILABILITY_SLOTS_COLLECTION, slotId);
-  await deleteDoc(slotRef);
-  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(await getAvailabilitySlots(userId)));
+  const existingSlots = await getAvailabilitySlots(userId);
+  const nextSlots = existingSlots.filter((slot) => slot.id !== slotId);
+
+  await mirrorAvailabilitySlotsToSupabase(userId, nextSlots);
+  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(nextSlots));
 }
 
 export async function updateAvailabilitySlot(
@@ -188,16 +178,26 @@ export async function updateAvailabilitySlot(
   validateAvailabilitySlotData(data);
 
   const existingSlots = await getAvailabilitySlots(userId);
+  const currentSlot = existingSlots.find((slot) => slot.id === slotId);
+  if (!currentSlot) {
+    throw new Error('Availability slot not found');
+  }
+
   const remainingSlots = existingSlots.filter((slot) => slot.id !== slotId);
   ensureAvailabilityDoesNotOverlap([data], remainingSlots);
 
-  const slotRef = doc(db, 'users', userId, AVAILABILITY_SLOTS_COLLECTION, slotId);
-  await updateDoc(slotRef, {
-    startAt: Timestamp.fromDate(data.startAt),
-    endAt: Timestamp.fromDate(data.endAt),
-    updatedAt: serverTimestamp(),
-  });
-  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(await getAvailabilitySlots(userId)));
+  const nextSlots = sortSlots([
+    ...remainingSlots,
+    {
+      ...currentSlot,
+      startAt: data.startAt,
+      endAt: data.endAt,
+      updatedAt: new Date(),
+    },
+  ]);
+
+  await mirrorAvailabilitySlotsToSupabase(userId, nextSlots);
+  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(nextSlots));
 }
 
 export async function replaceAvailabilitySlotsForDay(
@@ -216,9 +216,9 @@ export async function replaceAvailabilitySlotsForDay(
   const existingSlots = await getAvailabilitySlots(userId);
   const editableSlots = existingSlots.filter(
     (slot) =>
-      slot.startAt.getTime() > Date.now()
-      && isSingleDayAvailabilitySlot(slot)
-      && isSameLocalDay(slot.startAt, day)
+      slot.startAt.getTime() > Date.now() &&
+      isSingleDayAvailabilitySlot(slot) &&
+      isSameLocalDay(slot.startAt, day)
   );
   const remainingSlots = existingSlots.filter(
     (slot) => !editableSlots.some((editableSlot) => editableSlot.id === slot.id)
@@ -230,51 +230,29 @@ export async function replaceAvailabilitySlotsForDay(
     return;
   }
 
-  const batch = writeBatch(db);
+  const nextSlots = sortSlots([
+    ...remainingSlots,
+    ...ranges.map((range) => ({
+      id: generateAvailabilitySlotId(),
+      userId,
+      startAt: range.startAt,
+      endAt: range.endAt,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })),
+  ]);
 
-  editableSlots.forEach((slot) => {
-    batch.delete(doc(db, 'users', userId, AVAILABILITY_SLOTS_COLLECTION, slot.id));
-  });
-
-  ranges.forEach((range) => {
-    const slotRef = doc(getAvailabilitySlotsRef(userId));
-    batch.set(slotRef, {
-      startAt: Timestamp.fromDate(range.startAt),
-      endAt: Timestamp.fromDate(range.endAt),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  });
-
-  await batch.commit();
-  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(await getAvailabilitySlots(userId)));
+  await mirrorAvailabilitySlotsToSupabase(userId, nextSlots);
+  await syncPublicAvailabilitySummary(userId, getUpcomingAvailabilitySlots(nextSlots));
 }
 
 async function hasActiveRequestConflict(userId: string, startAt: Date, endAt: Date): Promise<boolean> {
-  const requestsQuery = query(collectionGroup(db, 'requests'), where('sitterId', '==', userId));
-  const snapshot = await getDocs(requestsQuery);
+  const payload = await fetchSupabaseReadJson<{ hasConflict: boolean }>(
+    `/api/supabase-read/request?scope=conflict-check&sitterId=${encodeURIComponent(userId)}&startAt=${encodeURIComponent(startAt.toISOString())}&endAt=${encodeURIComponent(endAt.toISOString())}`,
+    { requireAuth: true }
+  );
 
-  let conflictFound = false;
-
-  snapshot.forEach((requestDoc) => {
-    if (conflictFound) {
-      return;
-    }
-
-    const data = requestDoc.data();
-    const status = typeof data.status === 'string' ? data.status : '';
-    if (status !== 'accepted' && status !== 'awaiting_confirmation') {
-      return;
-    }
-
-    const requestStartAt = toDate(data.startDate);
-    const requestEndAt = toDate(data.endDate);
-    if (rangesOverlap(requestStartAt, requestEndAt, startAt, endAt)) {
-      conflictFound = true;
-    }
-  });
-
-  return conflictFound;
+  return payload.hasConflict === true;
 }
 
 export async function getAvailabilityMatch(
@@ -288,7 +266,9 @@ export async function getAvailabilityMatch(
   }
 
   const slots = existingSlots ?? (await getAvailabilitySlots(userId));
-  const matchingSlots = getUpcomingAvailabilitySlots(slots).filter((slot) => doesSlotCoverRange(slot, startAt, endAt));
+  const matchingSlots = getUpcomingAvailabilitySlots(slots).filter((slot) =>
+    doesSlotCoverRange(slot, startAt, endAt)
+  );
 
   if (matchingSlots.length === 0) {
     return {

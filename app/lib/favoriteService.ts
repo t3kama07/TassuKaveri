@@ -1,11 +1,31 @@
-import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
-import { db } from './firebase';
 import { FavoriteSitter } from '@/types/favorite';
 import { PublicUserProfile } from '@/types/profile';
 import { getPublicProfile } from './publicProfileService';
+import { deleteFavoriteFromSupabase, mirrorFavoriteToSupabase } from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
 
-function getFavoritesRef() {
-  return collection(db, 'favorites');
+function generateFavoriteId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function toDate(value: unknown): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+  return new Date();
 }
 
 export async function addFavoriteSitter(ownerId: string, sitterId: string): Promise<void> {
@@ -13,51 +33,43 @@ export async function addFavoriteSitter(ownerId: string, sitterId: string): Prom
     throw new Error('You cannot favorite yourself');
   }
 
-  const existingQuery = query(
-    getFavoritesRef(),
-    where('ownerId', '==', ownerId),
-    where('sitterId', '==', sitterId)
-  );
-  const existingSnapshot = await getDocs(existingQuery);
-  if (!existingSnapshot.empty) {
+  const existingFavorites = await getFavoriteSitters(ownerId);
+  const alreadyFavorited = existingFavorites.some((favorite) => favorite.sitterId === sitterId);
+  if (alreadyFavorited) {
     return;
   }
 
-  await addDoc(getFavoritesRef(), {
-    ownerId,
-    sitterId,
-    createdAt: serverTimestamp(),
+  await mirrorFavoriteToSupabase({
+    actorId: ownerId,
+    favorite: {
+      id: generateFavoriteId(),
+      ownerId,
+      sitterId,
+      createdAt: new Date(),
+    },
   });
 }
 
 export async function removeFavoriteSitter(ownerId: string, sitterId: string): Promise<void> {
-  const existingQuery = query(
-    getFavoritesRef(),
-    where('ownerId', '==', ownerId),
-    where('sitterId', '==', sitterId)
-  );
-  const snapshot = await getDocs(existingQuery);
-
-  await Promise.all(snapshot.docs.map((favoriteDoc) => deleteDoc(doc(db, 'favorites', favoriteDoc.id))));
+  await deleteFavoriteFromSupabase({
+    actorId: ownerId,
+    ownerId,
+    sitterId,
+  });
 }
 
 export async function getFavoriteSitters(ownerId: string): Promise<FavoriteSitter[]> {
-  const q = query(getFavoritesRef(), where('ownerId', '==', ownerId));
-  const snapshot = await getDocs(q);
+  const payload = await fetchSupabaseReadJson<{ favorites: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/favorite?ownerId=${encodeURIComponent(ownerId)}`,
+    { requireAuth: true }
+  );
 
-  const favorites: FavoriteSitter[] = [];
-  snapshot.forEach((favoriteDoc) => {
-    const data = favoriteDoc.data();
-    favorites.push({
-      id: favoriteDoc.id,
-      ownerId: data.ownerId,
-      sitterId: data.sitterId,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    });
-  });
-
-  favorites.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  return favorites;
+  return payload.favorites.map((favorite) => ({
+    id: (favorite.id as string) || '',
+    ownerId: (favorite.ownerId as string) || ownerId,
+    sitterId: (favorite.sitterId as string) || '',
+    createdAt: toDate(favorite.createdAt),
+  }));
 }
 
 export async function getFavoriteSitterProfiles(ownerId: string): Promise<PublicUserProfile[]> {

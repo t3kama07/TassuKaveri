@@ -5,7 +5,7 @@ This folder is the deployable Next.js application for TassuKaveri.
 ## Requirements
 
 - Node.js 20+
-- Firebase project with Web App credentials
+- Supabase project with browser and service-role credentials
 
 ## Environment Variables
 
@@ -17,12 +17,9 @@ copy .env.example .env.local
 
 Required variables:
 
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
 ## Development
 

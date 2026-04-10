@@ -2,30 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
-import PublicFooter from '@/components/PublicFooter';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicContent } from '@/lib/publicContent';
+import card1Image from '@/public/images/card1.webp';
+import card2Image from '@/public/images/card2.webp';
+import card3Image from '@/public/images/card3.webp';
 
 type IconProps = {
   className?: string;
 };
-
-function IconShell({
-  children,
-  className = '',
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#ff7a2d] ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
 
 function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
@@ -40,61 +25,6 @@ function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
       className={className}
     >
       <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function ProfileIcon({ className = 'h-6 w-6' }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-      <path d="M4 20a8 8 0 0 1 16 0" />
-    </svg>
-  );
-}
-
-function SearchIcon({ className = 'h-6 w-6' }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
-  );
-}
-
-function CreditIcon({ className = 'h-6 w-6' }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <rect x="3" y="6" width="18" height="12" rx="3" />
-      <path d="M7 12h10" />
-      <path d="M12 9v6" />
     </svg>
   );
 }
@@ -153,7 +83,7 @@ function StarIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
-function FlagIcon({ className = 'h-5 w-5' }: IconProps) {
+function UsersIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -165,8 +95,28 @@ function FlagIcon({ className = 'h-5 w-5' }: IconProps) {
       aria-hidden="true"
       className={className}
     >
-      <path d="M5 21V5" />
-      <path d="M5 5h9l1.5 2.5H20v7h-6.5L12 12H5" />
+      <path d="M16 21v-1.5a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4V21" />
+      <path d="M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+      <path d="M20 21v-1.5a4 4 0 0 0-2.6-3.74" />
+      <path d="M15.5 4.2a3.5 3.5 0 0 1 0 6.6" />
+    </svg>
+  );
+}
+
+function LockIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
     </svg>
   );
 }
@@ -207,7 +157,7 @@ function HeroContent({
         className={`text-balance text-[3rem] font-extrabold tracking-tight text-[#0f2640] leading-[0.98] sm:text-[3.45rem] lg:text-[4rem] lg:leading-[0.97] max-sm:max-w-[19rem] max-sm:text-[2.35rem] max-sm:leading-[0.94] ${titleClassName}`}
       >
         {copy.hero.titleStart}{' '}
-        <span className="text-[#ff7a2d]">{copy.hero.titleAccent}</span>.
+        <span className="text-[#ff7a2d]">{copy.hero.titleAccent}.</span>
       </h1>
       <p
         className={`text-[1.24rem] leading-9 text-[#4b5563] sm:text-[1.34rem] lg:text-[1.46rem] lg:leading-10 max-sm:max-w-[19rem] max-sm:text-[0.94rem] max-sm:leading-7 ${bodyClassName}`}
@@ -249,11 +199,78 @@ function HeroContent({
 export default function LandingPage() {
   const { language } = useLanguage();
   const copy = publicContent[language].landing;
-  const howItWorksIcons = [ProfileIcon, SearchIcon, CreditIcon] as const;
-  const safetyIcons = [ShieldIcon, MessageIcon, StarIcon, FlagIcon] as const;
+  const safetyIcons = [ShieldIcon, MessageIcon, StarIcon, UsersIcon] as const;
+  const howItWorksVisuals = [
+    {
+      src: card1Image,
+      objectPosition: 'center',
+    },
+    {
+      src: card2Image,
+      objectPosition: 'center',
+    },
+    {
+      src: card3Image,
+      objectPosition: 'center',
+    },
+  ] as const;
+  const safetyEyebrow =
+    language === 'en'
+      ? 'BUILT TO HELP YOU CHOOSE WITH CONFIDENCE'
+      : 'LUOTTAMUS & TURVALLISUUS';
+  const safetyHeading =
+    language === 'en'
+      ? 'Find the right pet care.'
+      : 'Koska lemmikkisi turvallisuus tulee ensin.';
+  const safetyHeadingAccent = language === 'en' ? 'Your way.' : '';
+  const safetyBody =
+    language === 'en'
+      ? 'TassuKaveri connects pet owners and gives you the tools to make informed choices.'
+      : copy.safety.body;
+  const safetyFeatureTitles =
+    language === 'en'
+      ? [
+          'Verified user profiles',
+          'In-app messaging',
+          'Reviews from pet owners',
+          'Community guidelines',
+        ]
+      : copy.safety.features;
+  const safetyFeatureDescriptions =
+    language === 'en'
+      ? [
+          "Every member completes identity verification, so you know who you're connecting with.",
+          'Chat easily and securely within the platform before making any arrangements.',
+          'See honest feedback from other pet owners to help you decide.',
+          'We set clear guidelines and actively moderate to keep the community respectful.',
+        ]
+      : [
+          'Kaikki käyttäjät vahvistavat henkilöllisyytensä ennen kuin voivat pyytää tai tarjota hoitoapua.',
+          'Keskustele turvallisesti sovelluksessa ja ilmoita helposti kaikesta, mikä tuntuu väärältä.',
+          'Näe aidot arviot ja tähtiarviot muilta lemmikinomistajilta ennen kuin valitset hoitajan.',
+          'Valvomme yhteisöä aktiivisesti, jotta TassuKaveri pysyy ystävällisenä ja turvallisena.',
+        ];
+  const safetyNote =
+    language === 'en'
+      ? 'TassuKaveri connects pet owners. Users are responsible for their own arrangements.'
+      : 'Lemmikkisi ansaitsee parasta hoitoa. Me varmistamme sen.';
+  const safetyTestimonialBody =
+    language === 'en'
+      ? 'We found a sitter quickly and had a great experience. Our dog was happy, and so were we.'
+      : copy.safety.testimonialBody;
+  const safetyTestimonialName =
+    language === 'en'
+      ? 'Matti K.'
+      : copy.safety.testimonialAuthor.replace(/^-+\s*/, '').replace(/\s*,.*$/, '');
+  const safetyTestimonialLocation =
+    language === 'en' ? 'Helsinki, Finland' : 'Helsinki, Suomi';
+  const safetyTestimonialLabel =
+    language === 'en'
+      ? ''
+      : copy.safety.testimonialTitle.toUpperCase();
 
   return (
-    <div className="bg-white text-[#0f2640]">
+    <main className="bg-white text-[#0f2640]">
       <section className="relative flex min-h-[480px] items-center overflow-hidden lg:min-h-[600px] max-sm:min-h-[640px]">
         <div className="absolute inset-0">
           <Image
@@ -301,92 +318,179 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="relative mt-14 grid gap-y-14 lg:grid-cols-3 lg:gap-x-8">
             {copy.howItWorks.cards.map(({ title, description }, index) => {
-              const Icon = howItWorksIcons[index];
+              const stepNumber = String(index + 1).padStart(2, '0');
+              const cardTitle = title.replace(/^\d+\.\s*/, '');
+              const visual = howItWorksVisuals[index % howItWorksVisuals.length];
 
               return (
                 <article
                   key={title}
-                  className="flex h-full flex-col rounded-xl border border-[#E5E7EB] p-6"
+                  id={index === copy.howItWorks.cards.length - 1 ? 'earn-credits' : undefined}
+                  className="group relative text-center transition-transform duration-300 hover:-translate-y-1"
                 >
-                  <IconShell>
-                    <Icon />
-                  </IconShell>
-                  <h3 className="mt-6 text-xl font-semibold text-[#0f2640]">{title}</h3>
-                  <p className="mt-3 text-base leading-7 text-[#4b5563]">
-                    {description}
-                  </p>
+                  {index < copy.howItWorks.cards.length - 1 && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-[calc(100%-0.5rem)] top-[5.45rem] hidden w-20 items-center gap-2 text-[#bec8d4] lg:flex xl:w-24"
+                    >
+                      <div className="h-px flex-1 border-t-2 border-dashed border-current" />
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4 shrink-0"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="m13 7 5 5-5 5" />
+                      </svg>
+                    </div>
+                  )}
+
+                  <div className="relative mx-auto h-[11.5rem] w-[11.5rem] sm:h-[12rem] sm:w-[12rem]">
+                    <div className="absolute left-0 top-1 z-[2] flex h-12 w-12 items-center justify-center rounded-full bg-[#fff2e9] text-[1.35rem] font-black tracking-[-0.05em] text-[#e7792f] shadow-[0_10px_22px_rgba(231,121,47,0.14)]">
+                      {stepNumber}
+                    </div>
+                    <div className="absolute inset-x-3 bottom-2 top-2 overflow-hidden rounded-full border border-[#edf1f5] shadow-[0_18px_34px_rgba(15,38,64,0.09)] transition-transform duration-300 group-hover:scale-[1.02]">
+                      <Image
+                        src={visual.src}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 18rem, 12rem"
+                        className="object-cover"
+                        style={{ objectPosition: visual.objectPosition }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-8 flex flex-col items-center">
+                    <h3 className="max-w-[16rem] text-balance text-[1.6rem] font-bold leading-[1.08] tracking-[-0.04em] text-[#16314f] sm:text-[1.72rem]">
+                      {cardTitle}
+                    </h3>
+                    <p className="mt-5 max-w-[21rem] text-base leading-8 text-[#55687b]">
+                      {description}
+                    </p>
+                  </div>
                 </article>
               );
             })}
           </div>
+
         </div>
       </section>
 
-      <section id="trust-safety" className="border-y border-[#E5E7EB] py-16 sm:py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:px-8">
+      <section id="trust-safety" className="py-20 sm:py-24">
+        <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:items-start lg:px-8 xl:gap-16">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-[#0f2640] sm:text-4xl">
-              {copy.safety.title}
+            <p className="text-[0.82rem] font-semibold uppercase tracking-[0.28em] text-[#ff7a2d]">
+              {safetyEyebrow}
+            </p>
+            <h2 className="mt-5 max-w-[12ch] text-balance text-[3rem] font-black leading-[0.94] tracking-[-0.07em] text-[#16314f] sm:text-[3.8rem]">
+              {language === 'en' ? (
+                <>
+                  <span>{safetyHeading}</span>
+                  <span className="mt-1 block text-[#ff7a2d]">
+                    {safetyHeadingAccent}
+                  </span>
+                </>
+              ) : (
+                safetyHeading
+              )}
             </h2>
-            <p className="mt-4 max-w-xl text-lg leading-8 text-[#4b5563]">
-              {copy.safety.body}
+            <p className="mt-6 max-w-xl text-[1.08rem] leading-9 text-[#5b6c7d]">
+              {safetyBody}
             </p>
 
-            <ul className="mt-8 space-y-3">
-              {copy.safety.features.map((label, index) => {
+            <ul className="mt-10 divide-y divide-[#e7edf3]">
+              {safetyFeatureTitles.map((label, index) => {
                 const Icon = safetyIcons[index];
+                const description =
+                  safetyFeatureDescriptions[index % safetyFeatureDescriptions.length];
 
                 return (
                   <li
                     key={label}
-                    className="flex items-start gap-4 rounded-xl border border-[#E5E7EB] px-5 py-4"
+                    className="flex gap-4 py-5 first:pt-0 last:pb-0 sm:gap-5"
                   >
-                    <IconShell className="h-11 w-11 rounded-lg">
-                      <Icon />
-                    </IconShell>
-                    <span className="pt-1 text-base leading-7 text-[#1f2937]">
-                      {label}
-                    </span>
+                    <div className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#ffe2d1] bg-[#fff5ee] text-[#ff7a2d] shadow-[0_10px_24px_rgba(255,122,45,0.08)]">
+                      <Icon className="h-7 w-7" />
+                    </div>
+                    <div className="pt-1">
+                      <h3 className="text-[1.28rem] font-semibold tracking-[-0.03em] text-[#16314f]">
+                        {label}
+                      </h3>
+                      <p className="mt-1 max-w-md text-[0.98rem] leading-7 text-[#627487]">
+                        {description}
+                      </p>
+                    </div>
                   </li>
                 );
               })}
             </ul>
+
+            <div className="mt-8 inline-flex max-w-xl items-center gap-3 rounded-[18px] border border-[#f4e4d8] bg-[#fff7f1] px-4 py-4 text-[#30475f] shadow-[0_12px_26px_rgba(255,122,45,0.08)] sm:px-5">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#ff7a2d] shadow-[0_8px_18px_rgba(255,122,45,0.12)]">
+                <LockIcon className="h-5 w-5" />
+              </span>
+              <p className="text-sm font-medium leading-6 sm:text-[0.98rem]">
+                {safetyNote}
+              </p>
+            </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-[#E5E7EB]">
-            <div className="relative aspect-[5/4] w-full bg-[#f9fafb]">
-              <Image
-                src="/images/middleimage.webp"
-                alt={copy.safety.imageAlt}
-                fill
-                sizes="(min-width: 1024px) 52vw, 100vw"
-                className="object-cover"
-              />
+          <div className="relative">
+            <div className="relative overflow-hidden rounded-[28px] border border-[#edf1f5] bg-white shadow-[0_24px_60px_rgba(15,38,64,0.14)]">
+              <div className="relative aspect-[4/4.95] w-full bg-[#f9fafb]">
+                <Image
+                  src="/images/middleimage.webp"
+                  alt={copy.safety.imageAlt}
+                  fill
+                  sizes="(min-width: 1024px) 52vw, 100vw"
+                  className="object-cover"
+                  style={{ objectPosition: 'center 30%' }}
+                />
+              </div>
             </div>
 
-            <div className="border-t border-[#E5E7EB] bg-white p-4 md:absolute md:bottom-4 md:right-4 md:max-w-sm md:rounded-2xl md:border md:backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <QuoteIcon className="h-8 w-8 text-[#d1d5db]" />
+            <div className="mx-3 -mt-10 rounded-[24px] border border-[#eef2f6] bg-white p-5 shadow-[0_18px_40px_rgba(15,38,64,0.16)] sm:mx-0 sm:absolute sm:bottom-5 sm:right-[-1rem] sm:mt-0 sm:max-w-[23rem] sm:p-6">
+              <QuoteIcon className="h-8 w-8 text-[#ffd0b4]" />
+              <p className="mt-3 text-[1rem] leading-7 text-[#405466] sm:text-[1.02rem]">
+                {safetyTestimonialBody}
+              </p>
+
+              <div className="mt-5 flex items-center gap-3">
+                <div className="relative h-11 w-11 overflow-hidden rounded-full border border-[#edf1f5]">
+                  <Image
+                    src="/images/middleimage.webp"
+                    alt=""
+                    fill
+                    sizes="44px"
+                    className="object-cover"
+                    style={{ objectPosition: 'center 18%' }}
+                  />
+                </div>
                 <div>
-                  <p className="text-xl font-semibold text-[#0f2640]">
-                    {copy.safety.testimonialTitle}
+                  <p className="text-sm font-semibold text-[#16314f]">
+                    {safetyTestimonialName}
                   </p>
-                  <p className="mt-3 text-base leading-7 text-[#374151]">
-                    {copy.safety.testimonialBody}
+                  <p className="text-xs text-[#7f90a1]">
+                    {safetyTestimonialLocation}
                   </p>
-                  <p className="mt-4 text-sm font-semibold text-[#0f2640]">
-                    {copy.safety.testimonialAuthor}
-                  </p>
+                  {safetyTestimonialLabel ? (
+                    <p className="mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[#ff7a2d]">
+                      {safetyTestimonialLabel}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      <PublicFooter copy={copy.footer} />
-    </div>
+    </main>
   );
 }

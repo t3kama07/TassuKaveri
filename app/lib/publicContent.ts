@@ -12,10 +12,10 @@ export const publicContent = {
     landing: {
       hero: {
         eyebrow: 'Community pet care in Finland',
-        titleStart: 'Trusted pet care without money - powered by',
+        titleStart: 'Find trusted pet sitters near you from your local',
         titleAccent: 'community',
         body:
-          'Exchange pet care using credits. No payments, just mutual help. Join a growing community across Finland.',
+          'Earn credits by helping other pet owners, and use them when you need care.',
         primaryCta: 'Find a sitter',
         secondaryCta: 'Offer pet care',
         imageAlt:
@@ -23,27 +23,25 @@ export const publicContent = {
       },
       trustItems: [
         'Verified users',
-        '4.9 rating',
-        '1,500+ users in Finland',
-        'Finnish service',
+        'Local community in Finland',
       ],
       howItWorks: {
-        title: 'How it works',
+        title: 'How TassuKaveri works',
         body: 'A simple way to exchange trusted pet care through community credits.',
         cards: [
           {
-            title: '1. Create profile',
+            title: '1. Post your pet care need or offer help',
             description:
-              'Register and verify your phone number. Introduce yourself and your pet.',
+              'Tell others what you need or help nearby pet owners.',
           },
           {
-            title: '2. Browse requests',
-            description: 'Post a request or browse nearby pet care needs.',
+            title: '2. Connect with trusted local pet owners',
+            description: 'Chat safely and choose someone you trust.',
           },
           {
-            title: '3. Earn and use credits',
+            title: '3. Exchange care using credits',
             description:
-              'Help others to earn credits and use them when you need help.',
+              'Help others to earn credits, and use them when you need care.',
           },
         ],
       },
@@ -91,38 +89,25 @@ export const publicContent = {
         ],
         columns: [
           {
-            title: 'Service',
+            title: 'Product',
             items: [
               { label: 'How it works', href: '/#how-it-works' },
-              { label: 'Find help', href: '/signup' },
-              { label: 'Requests', href: '/signup' },
+              { label: 'Find a sitter', href: '/signup' },
+              { label: 'Earn credits', href: '/#earn-credits' },
             ],
           },
           {
             title: 'Support',
             items: [
-              { label: 'Trust & safety', href: '/#trust-safety' },
-              {
-                label: 'FAQ',
-                href: '/faq.html',
-              },
+              { label: 'FAQ', href: '/faq.html' },
               { label: 'Contact', href: 'mailto:info@tassukaveri.fi' },
-            ],
-          },
-          {
-            title: 'Company',
-            items: [
-              { label: 'About us', href: '/about.html' },
-              { label: 'Blog', href: '/blog.html' },
-              { label: 'Community values', href: '/about.html#values' },
-              { label: 'Finnish service', href: '/about.html#finland' },
             ],
           },
           {
             title: 'Legal',
             items: [
-              { label: 'Privacy policy' },
-              { label: 'Terms of service' },
+              { label: 'Privacy Policy', href: '/privacy-policy.html' },
+              { label: 'Terms of Service', href: '/terms-of-service.html' },
             ],
           },
         ],
@@ -154,9 +139,7 @@ export const publicContent = {
       },
       trustItems: [
         'Varmennetut käyttäjät',
-        '4,9 arvosana',
-        '1 500+ käyttäjää Suomessa',
-        'Suomalainen palvelu',
+        'Paikallinen yhteisö Suomessa',
       ],
       howItWorks: {
         title: 'Miten se toimii',
@@ -227,35 +210,22 @@ export const publicContent = {
             title: 'Palvelu',
             items: [
               { label: 'Miten se toimii', href: '/#how-it-works' },
-              { label: 'Löydä apua', href: '/signup' },
-              { label: 'Pyynnöt', href: '/signup' },
+              { label: 'Löydä hoitaja', href: '/signup' },
+              { label: 'Ansaitse krediittejä', href: '/#earn-credits' },
             ],
           },
           {
             title: 'Tuki',
             items: [
-              { label: 'Turvallisuus', href: '/#trust-safety' },
-              {
-                label: 'UKK',
-                href: '/faq.html',
-              },
+              { label: 'UKK', href: '/faq.html' },
               { label: 'Yhteystiedot', href: 'mailto:info@tassukaveri.fi' },
-            ],
-          },
-          {
-            title: 'Yritys',
-            items: [
-              { label: 'Meistä', href: '/about.html' },
-              { label: 'Blogi', href: '/blog.html' },
-              { label: 'Yhteisön arvot', href: '/about.html#values' },
-              { label: 'Suomalainen palvelu', href: '/about.html#finland' },
             ],
           },
           {
             title: 'Lakiasiat',
             items: [
-              { label: 'Tietosuojaseloste' },
-              { label: 'Käyttöehdot' },
+              { label: 'Tietosuojaseloste', href: '/privacy-policy.html' },
+              { label: 'Käyttöehdot', href: '/terms-of-service.html' },
             ],
           },
         ],

@@ -1,43 +1,31 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-  where,
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { AvailabilitySlot } from '@/types/availability';
 import { PublicUserProfile } from '@/types/profile';
-
-const PUBLIC_PROFILES_COLLECTION = 'publicProfiles';
+import type { SupabasePublicProfileInput } from './supabasePublicProfileStore';
+import { mirrorPublicProfileToSupabase } from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function hasToDate(value: unknown): value is { toDate: () => Date } {
-  return Boolean(value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function');
-}
-
 function toDate(value: unknown): Date | undefined {
-  if (value instanceof Timestamp) {
-    return value.toDate();
-  }
   if (value instanceof Date) {
     return value;
   }
-  if (hasToDate(value)) {
+  if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
     return value.toDate();
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
   }
   return undefined;
 }
 
-function getPublicProfileRef(uid: string) {
-  return doc(db, PUBLIC_PROFILES_COLLECTION, uid);
+async function syncPublicProfileMirror(profile: SupabasePublicProfileInput): Promise<void> {
+  await mirrorPublicProfileToSupabase(profile);
 }
 
 export function buildPublicProfileDocument(
@@ -66,20 +54,59 @@ export function buildPublicProfileDocument(
     ratingAverage: asNumber(data.ratingAverage) || 0,
     ratingCount: asNumber(data.ratingCount) || 0,
     trustScore: asNumber(data.trustScore) || 0,
-    createdAt: data.createdAt ?? serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: data.createdAt ?? new Date(),
+    updatedAt: data.updatedAt ?? new Date(),
   };
 }
 
+async function getPrivateProfileRecord(uid: string): Promise<Record<string, unknown> | null> {
+  const payload = await fetchSupabaseReadJson<{ profile: Record<string, unknown> | null }>(
+    `/api/supabase-read/profile?uid=${encodeURIComponent(uid)}`,
+    { requireAuth: true }
+  );
+
+  return payload.profile;
+}
+
 export async function syncPublicProfile(uid: string): Promise<void> {
-  const privateProfileRef = doc(db, 'users', uid);
-  const privateProfileSnap = await getDoc(privateProfileRef);
-  if (!privateProfileSnap.exists()) {
+  const privateProfile = await getPrivateProfileRecord(uid);
+  if (!privateProfile) {
     return;
   }
 
-  await setDoc(getPublicProfileRef(uid), buildPublicProfileDocument(uid, privateProfileSnap.data()), {
-    merge: true,
+  const publicProfileDocument = buildPublicProfileDocument(uid, privateProfile);
+
+  await syncPublicProfileMirror({
+    uid,
+    name: (publicProfileDocument.name as string) || '',
+    location: (publicProfileDocument.location as string) || '',
+    country: (publicProfileDocument.country as string) || 'Finland',
+    photoURL: (publicProfileDocument.photoURL as string) || '',
+    bio: (publicProfileDocument.bio as string) || '',
+    petExperience: (publicProfileDocument.petExperience as string) || '',
+    availability:
+      (publicProfileDocument.availability as PublicUserProfile['availability']) || 'available',
+    phoneVerified: Boolean(publicProfileDocument.phoneVerified),
+    petTypeExperience: Array.isArray(publicProfileDocument.petTypeExperience)
+      ? (publicProfileDocument.petTypeExperience as string[])
+      : [],
+    preferredPetSize: Array.isArray(publicProfileDocument.preferredPetSize)
+      ? (publicProfileDocument.preferredPetSize as string[])
+      : [],
+    experienceLevel:
+      (publicProfileDocument.experienceLevel as PublicUserProfile['experienceLevel']) ||
+      'beginner',
+    experienceWithDogs: Boolean(publicProfileDocument.experienceWithDogs),
+    experienceWithCats: Boolean(publicProfileDocument.experienceWithCats),
+    experienceWithLargeDogs: Boolean(publicProfileDocument.experienceWithLargeDogs),
+    experienceWithSeniorPets: Boolean(publicProfileDocument.experienceWithSeniorPets),
+    latitude: asNumber(publicProfileDocument.latitude),
+    longitude: asNumber(publicProfileDocument.longitude),
+    ratingAverage: asNumber(publicProfileDocument.ratingAverage) || 0,
+    ratingCount: asNumber(publicProfileDocument.ratingCount) || 0,
+    trustScore: asNumber(publicProfileDocument.trustScore) || 0,
+    createdAt: toDate(publicProfileDocument.createdAt),
+    updatedAt: toDate(publicProfileDocument.updatedAt) ?? new Date(),
   });
 }
 
@@ -87,34 +114,15 @@ export async function syncPublicAvailabilitySummary(
   uid: string,
   slots: AvailabilitySlot[]
 ): Promise<void> {
-  const publicProfileRef = getPublicProfileRef(uid);
-  const publicProfileSnap = await getDoc(publicProfileRef);
-  if (!publicProfileSnap.exists()) {
-    await syncPublicProfile(uid);
-  }
-
   const nextAvailableSlot = slots[0];
 
-  await setDoc(
-    publicProfileRef,
-    {
-      uid,
-      hasDetailedAvailability: slots.length > 0,
-      nextAvailableStartAt: nextAvailableSlot ? Timestamp.fromDate(nextAvailableSlot.startAt) : null,
-      nextAvailableEndAt: nextAvailableSlot ? Timestamp.fromDate(nextAvailableSlot.endAt) : null,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-}
-
-export async function getPublicProfile(uid: string): Promise<PublicUserProfile | null> {
-  const profileSnap = await getDoc(getPublicProfileRef(uid));
-  if (!profileSnap.exists()) {
-    return null;
-  }
-
-  return mapPublicUserProfile(profileSnap.id, profileSnap.data());
+  await syncPublicProfileMirror({
+    uid,
+    hasDetailedAvailability: slots.length > 0,
+    nextAvailableStartAt: nextAvailableSlot?.startAt ?? null,
+    nextAvailableEndAt: nextAvailableSlot?.endAt ?? null,
+    updatedAt: new Date(),
+  });
 }
 
 export function mapPublicUserProfile(
@@ -151,19 +159,20 @@ export function mapPublicUserProfile(
   };
 }
 
-export async function getAvailablePublicProfiles(): Promise<PublicUserProfile[]> {
-  const profilesQuery = query(
-    collection(db, PUBLIC_PROFILES_COLLECTION),
-    where('availability', '==', 'available')
+export async function getPublicProfile(uid: string): Promise<PublicUserProfile | null> {
+  const payload = await fetchSupabaseReadJson<{ profile: Record<string, unknown> | null }>(
+    `/api/supabase-read/public-profile?uid=${encodeURIComponent(uid)}`
   );
-  const snapshot = await getDocs(profilesQuery);
 
-  const profiles: PublicUserProfile[] = [];
-  snapshot.forEach((profileDoc) => {
-    profiles.push(mapPublicUserProfile(profileDoc.id, profileDoc.data()));
-  });
+  return payload.profile ? mapPublicUserProfile(uid, payload.profile) : null;
+}
 
-  profiles.sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime());
+export async function getAvailablePublicProfiles(): Promise<PublicUserProfile[]> {
+  const payload = await fetchSupabaseReadJson<{ profiles: Array<Record<string, unknown>> }>(
+    '/api/supabase-read/public-profile?available=true'
+  );
 
-  return profiles;
+  return payload.profiles.map((profile) =>
+    mapPublicUserProfile((profile.uid as string) || '', profile)
+  );
 }

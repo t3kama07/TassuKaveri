@@ -1,97 +1,60 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { Pet, CreatePetData, UpdatePetData } from '@/types/pet';
+import { deletePetsFromSupabase, mirrorPetsToSupabase } from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
 
-/**
- * Get the pets subcollection reference for a user
- */
-function getUserPetsCollection(ownerId: string) {
-  return collection(db, 'users', ownerId, 'pets');
-}
-
-/**
- * Create a new pet in user's subcollection
- */
-export async function createPet(ownerId: string, data: CreatePetData): Promise<string> {
-  const petsRef = getUserPetsCollection(ownerId);
-  const docRef = await addDoc(petsRef, {
-    name: data.name,
-    type: data.type,
-    breed: data.breed,
-    age: data.age,
-    size: data.size,
-    notes: data.notes,
-    behaviour: data.behaviour || '',
-    allergies: data.allergies || '',
-    vaccinationStatus: data.vaccinationStatus || '',
-    friendlyWithDogs: Boolean(data.friendlyWithDogs),
-    friendlyWithCats: Boolean(data.friendlyWithCats),
-    friendlyWithChildren: Boolean(data.friendlyWithChildren),
-    medicationRequired: Boolean(data.medicationRequired),
-    specialCareInstructions: data.specialCareInstructions || '',
-    emergencyVetContact: data.emergencyVetContact || '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  return docRef.id;
-}
-
-/**
- * Get a single pet by ID from user's subcollection
- */
-export async function getPet(ownerId: string, petId: string): Promise<Pet | null> {
-  const petRef = doc(db, 'users', ownerId, 'pets', petId);
-  const petSnap = await getDoc(petRef);
-
-  if (!petSnap.exists()) {
-    return null;
+function generatePetId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
 
-  const data = petSnap.data();
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function mapPetRecord(id: string, ownerId: string, data: Record<string, unknown>): Pet {
   return {
-    id: petSnap.id,
+    id,
     ownerId,
-    name: data.name,
-    type: data.type,
-    breed: data.breed,
-    age: data.age,
-    size: data.size,
-    notes: data.notes,
-    behaviour: data.behaviour || '',
-    allergies: data.allergies || '',
-    vaccinationStatus: data.vaccinationStatus || '',
+    name: (data.name as string) || '',
+    type: ((data.type as Pet['type']) || 'other'),
+    breed: (data.breed as string) || '',
+    age: typeof data.age === 'number' && Number.isFinite(data.age) ? data.age : 0,
+    size: ((data.size as Pet['size']) || 'medium'),
+    notes: (data.notes as string) || '',
+    behaviour: (data.behaviour as string) || '',
+    allergies: (data.allergies as string) || '',
+    vaccinationStatus: (data.vaccinationStatus as string) || '',
     friendlyWithDogs: Boolean(data.friendlyWithDogs),
     friendlyWithCats: Boolean(data.friendlyWithCats),
     friendlyWithChildren: Boolean(data.friendlyWithChildren),
     medicationRequired: Boolean(data.medicationRequired),
-    specialCareInstructions: data.specialCareInstructions || '',
-    emergencyVetContact: data.emergencyVetContact || '',
-    createdAt: data.createdAt?.toDate() || new Date(),
-    updatedAt: data.updatedAt?.toDate() || new Date(),
+    specialCareInstructions: (data.specialCareInstructions as string) || '',
+    emergencyVetContact: (data.emergencyVetContact as string) || '',
+    createdAt:
+      typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
+        ? new Date(data.createdAt)
+        : ((data.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date()),
+    updatedAt:
+      typeof data.updatedAt === 'string' || typeof data.updatedAt === 'number'
+        ? new Date(data.updatedAt)
+        : ((data.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ?? new Date()),
   };
 }
 
-/**
- * Get all pets for a specific owner from their subcollection
- */
-export async function getUserPets(ownerId: string): Promise<Pet[]> {
-  const petsRef = getUserPetsCollection(ownerId);
-  const querySnapshot = await getDocs(petsRef);
+async function savePets(
+  ownerId: string,
+  pets: Pet[],
+  action: 'upsert' | 'replace' = 'upsert'
+): Promise<void> {
+  await mirrorPetsToSupabase(ownerId, pets, action);
+}
 
-  const pets: Pet[] = [];
-  querySnapshot.forEach((doc) => {
-    const data = doc.data();
-    pets.push({
-      id: doc.id,
+export async function createPet(ownerId: string, data: CreatePetData): Promise<string> {
+  const id = generatePetId();
+  const now = new Date();
+
+  await savePets(ownerId, [
+    {
+      id,
       ownerId,
       name: data.name,
       type: data.type,
@@ -108,23 +71,35 @@ export async function getUserPets(ownerId: string): Promise<Pet[]> {
       medicationRequired: Boolean(data.medicationRequired),
       specialCareInstructions: data.specialCareInstructions || '',
       emergencyVetContact: data.emergencyVetContact || '',
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-    });
-  });
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
 
-  return pets;
+  return id;
 }
 
-/**
- * Update a pet in user's subcollection
- */
+export async function getPet(ownerId: string, petId: string): Promise<Pet | null> {
+  const payload = await fetchSupabaseReadJson<{ pet: Record<string, unknown> | null }>(
+    `/api/supabase-read/pets?ownerId=${encodeURIComponent(ownerId)}&petId=${encodeURIComponent(petId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.pet ? mapPetRecord(petId, ownerId, payload.pet) : null;
+}
+
+export async function getUserPets(ownerId: string): Promise<Pet[]> {
+  const payload = await fetchSupabaseReadJson<{ pets: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/pets?ownerId=${encodeURIComponent(ownerId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.pets.map((pet) => mapPetRecord((pet.id as string) || '', ownerId, pet));
+}
+
 export async function updatePet(ownerId: string, petId: string, data: UpdatePetData): Promise<void> {
-  const petRef = doc(db, 'users', ownerId, 'pets', petId);
-  
-  // Verify pet exists
-  const petSnap = await getDoc(petRef);
-  if (!petSnap.exists()) {
+  const currentPet = await getPet(ownerId, petId);
+  if (!currentPet) {
     throw new Error('Pet not found');
   }
 
@@ -132,33 +107,25 @@ export async function updatePet(ownerId: string, petId: string, data: UpdatePetD
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
 
-  await updateDoc(petRef, {
-    ...filteredData,
-    updatedAt: serverTimestamp(),
-  });
+  await savePets(ownerId, [
+    {
+      ...currentPet,
+      ...filteredData,
+      updatedAt: new Date(),
+    },
+  ]);
 }
 
-/**
- * Delete a pet from user's subcollection
- */
 export async function deletePet(ownerId: string, petId: string): Promise<void> {
-  const petRef = doc(db, 'users', ownerId, 'pets', petId);
-  
-  // Verify pet exists
-  const petSnap = await getDoc(petRef);
-  if (!petSnap.exists()) {
+  const currentPet = await getPet(ownerId, petId);
+  if (!currentPet) {
     throw new Error('Pet not found');
   }
 
-  await deleteDoc(petRef);
+  await deletePetsFromSupabase(ownerId, [petId]);
 }
 
-/**
- * Verify if a pet exists in user's subcollection
- */
 export async function verifyPetOwnership(ownerId: string, petId: string): Promise<boolean> {
-  const petRef = doc(db, 'users', ownerId, 'pets', petId);
-  const petSnap = await getDoc(petRef);
-  
-  return petSnap.exists();
+  const pet = await getPet(ownerId, petId);
+  return Boolean(pet);
 }

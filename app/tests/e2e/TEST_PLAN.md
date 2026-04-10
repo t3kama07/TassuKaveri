@@ -58,8 +58,8 @@
 
 ## UI/API-Backed Features Found
 
-- Firebase Auth drives signup/login/logout.
-- Firestore collections back profiles, public profiles, pets, availability slots, requests, conversations/messages, wallet, notifications, favorites, and reports.
+- Supabase Auth drives signup/login/logout.
+- Supabase tables back profiles, public profiles, pets, availability slots, requests, conversations/messages, wallet, notifications, favorites, and reports.
 - There are no traditional REST API endpoints to seed or clean state.
 - Existing seed support lives in `app/lib/testUserService.ts` and is exposed to the localhost-only dev tool.
 
@@ -120,8 +120,8 @@
 
 ## Assumptions
 
-- A real Firebase project is configured through the existing `NEXT_PUBLIC_FIREBASE_*` variables.
-- The test environment allows Firebase Auth/Firestore network access.
+- A real Supabase project is configured through the existing `NEXT_PUBLIC_SUPABASE_*` and `SUPABASE_SERVICE_ROLE_KEY` variables.
+- The test environment allows Supabase Auth/Postgres network access.
 - Running locally on `localhost` or `127.0.0.1` is acceptable; the seed tool and config assume that.
 - Pilot location logic remains active, so tests use `Oulu, Finland`.
 
@@ -130,7 +130,7 @@
 - There are almost no `data-testid` hooks in the current UI.
 - Many labels are visually present but not programmatically associated with inputs, so `getByLabel()` is not reliable everywhere.
 - No API cleanup endpoint exists, so true destructive cleanup is not automated.
-- Firebase Storage-backed profile photo upload may fail if Storage is not enabled or Storage rules are not deployed.
+- Supabase Storage-backed profile photo upload may fail if the bucket is not created or storage policies are missing.
 - Native browser dialogs (`confirm`, `prompt`) are used in several flows, so tests must explicitly handle dialogs.
 
 ## Exact Testability Improvements Recommended

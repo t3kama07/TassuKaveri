@@ -1,19 +1,9 @@
-import {
-  collectionGroup,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
-import { db } from './firebase';
 import { UserProfile, CreateProfileData, UpdateProfileData } from '@/types/profile';
 import { getPilotLocationPayload } from './platformPolicy';
 import { syncPublicAvailabilitySummary, syncPublicProfile } from './publicProfileService';
+import { mirrorProfileToSupabase } from './supabaseMirrorClient';
+import { fetchSupabaseReadJson } from './supabaseReadClient';
+import { calculateTrustScore, isProfileCompleted } from './trustScore';
 
 const USERS_COLLECTION = 'users';
 
@@ -22,11 +12,14 @@ function asNumber(value: unknown): number | undefined {
 }
 
 function asDate(value: unknown): Date | undefined {
-  if (value instanceof Timestamp) {
-    return value.toDate();
-  }
   if (value instanceof Date) {
     return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
   }
   return undefined;
 }
@@ -35,64 +28,74 @@ function generateSixDigitCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export function isProfileCompleted(
-  profile: Pick<UserProfile, 'name' | 'location' | 'bio' | 'petExperience' | 'photoURL'>
-): boolean {
-  return Boolean(
-    profile.name.trim() &&
-      profile.location.trim() &&
-      profile.bio.trim() &&
-      profile.petExperience.trim() &&
-      profile.photoURL.trim()
+function mapProfileRecord(uid: string, data: Record<string, unknown>): UserProfile {
+  return {
+    uid: (data.uid as string) || uid,
+    email: (data.email as string) || '',
+    name: (data.name as string) || '',
+    location: (data.location as string) || '',
+    country: (data.country as string) || 'Finland',
+    photoURL: (data.photoURL as string) || '',
+    bio: (data.bio as string) || '',
+    petExperience: (data.petExperience as string) || '',
+    availability: ((data.availability as UserProfile['availability']) || 'available'),
+    emailVerified: Boolean(data.emailVerified),
+    phoneNumber: (data.phoneNumber as string) || '',
+    phoneVerified: Boolean(data.phoneVerified),
+    phoneVerificationCode: (data.phoneVerificationCode as string) || undefined,
+    phoneVerificationExpires: asDate(data.phoneVerificationExpires),
+    petTypeExperience: Array.isArray(data.petTypeExperience) ? data.petTypeExperience : [],
+    preferredPetSize: Array.isArray(data.preferredPetSize) ? data.preferredPetSize : [],
+    experienceLevel: (data.experienceLevel as UserProfile['experienceLevel']) || 'beginner',
+    experienceWithDogs: Boolean(data.experienceWithDogs),
+    experienceWithCats: Boolean(data.experienceWithCats),
+    experienceWithLargeDogs: Boolean(data.experienceWithLargeDogs),
+    experienceWithSeniorPets: Boolean(data.experienceWithSeniorPets),
+    latitude: asNumber(data.latitude),
+    longitude: asNumber(data.longitude),
+    ratingAverage: asNumber(data.ratingAverage) || 0,
+    ratingCount: asNumber(data.ratingCount) || 0,
+    trustScore: asNumber(data.trustScore) || 0,
+    role: (data.role as UserProfile['role']) || 'user',
+    frozen: Boolean(data.frozen),
+    createdAt: asDate(data.createdAt) || new Date(),
+    updatedAt: asDate(data.updatedAt) || new Date(),
+  };
+}
+
+async function saveProfile(profile: UserProfile): Promise<void> {
+  await mirrorProfileToSupabase(profile);
+}
+
+async function fetchCompletedSitsCount(userId: string): Promise<number> {
+  const payload = await fetchSupabaseReadJson<{ completedCount: number }>(
+    `/api/supabase-read/request?scope=completed-count&sitterId=${encodeURIComponent(userId)}`,
+    { requireAuth: true }
   );
+
+  return typeof payload.completedCount === 'number' ? payload.completedCount : 0;
 }
 
-export function calculateTrustScore(profile: UserProfile, completedSits: number): number {
-  let score = 0;
+async function getProfileRecord(uid: string): Promise<Record<string, unknown> | null> {
+  const payload = await fetchSupabaseReadJson<{ profile: Record<string, unknown> | null }>(
+    `/api/supabase-read/profile?uid=${encodeURIComponent(uid)}`,
+    { requireAuth: true }
+  );
 
-  if (isProfileCompleted(profile)) {
-    score += 20;
-  }
-  if (profile.phoneVerified) {
-    score += 20;
-  }
-  if (profile.emailVerified) {
-    score += 10;
-  }
-  score += Math.max(0, completedSits) * 3;
-  if (profile.ratingAverage > 4.5) {
-    score += 10;
-  }
-
-  return Math.min(score, 100);
+  return payload.profile;
 }
 
-async function getCompletedSitsCount(userId: string): Promise<number> {
-  const sitsQuery = query(collectionGroup(db, 'requests'), where('sitterId', '==', userId));
-  const sitsSnapshot = await getDocs(sitsQuery);
-  let completedCount = 0;
+export { calculateTrustScore, isProfileCompleted } from './trustScore';
 
-  sitsSnapshot.forEach((requestDoc) => {
-    const data = requestDoc.data();
-    if (data.status === 'completed') {
-      completedCount += 1;
-    }
-  });
-
-  return completedCount;
-}
-
-/**
- * Create a new user profile in Firestore
- */
 export async function createProfile(
   uid: string,
   email: string,
   data: CreateProfileData
 ): Promise<void> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
   const pilotLocation = getPilotLocationPayload();
-  await setDoc(profileRef, {
+  const now = new Date();
+
+  await saveProfile({
     uid,
     email,
     name: data.name,
@@ -119,77 +122,39 @@ export async function createProfile(
     trustScore: 0,
     role: 'user',
     frozen: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: now,
+    updatedAt: now,
   });
+
   await syncPublicProfile(uid);
   await syncPublicAvailabilitySummary(uid, []);
 }
 
-/**
- * Get a user profile from Firestore
- */
 export async function getProfile(uid: string): Promise<UserProfile | null> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  const profileSnap = await getDoc(profileRef);
-
-  if (!profileSnap.exists()) {
-    return null;
-  }
-
-  const data = profileSnap.data();
-  return {
-    uid: data.uid,
-    email: data.email,
-    name: data.name || '',
-    location: data.location || '',
-    country: data.country || 'Finland',
-    photoURL: data.photoURL || '',
-    bio: data.bio || '',
-    petExperience: data.petExperience || '',
-    availability: data.availability || 'available',
-    emailVerified: Boolean(data.emailVerified),
-    phoneNumber: data.phoneNumber || '',
-    phoneVerified: Boolean(data.phoneVerified),
-    phoneVerificationCode: data.phoneVerificationCode || undefined,
-    phoneVerificationExpires: asDate(data.phoneVerificationExpires),
-    petTypeExperience: Array.isArray(data.petTypeExperience) ? data.petTypeExperience : [],
-    preferredPetSize: Array.isArray(data.preferredPetSize) ? data.preferredPetSize : [],
-    experienceLevel: data.experienceLevel || 'beginner',
-    experienceWithDogs: Boolean(data.experienceWithDogs),
-    experienceWithCats: Boolean(data.experienceWithCats),
-    experienceWithLargeDogs: Boolean(data.experienceWithLargeDogs),
-    experienceWithSeniorPets: Boolean(data.experienceWithSeniorPets),
-    latitude: asNumber(data.latitude),
-    longitude: asNumber(data.longitude),
-    ratingAverage: asNumber(data.ratingAverage) || 0,
-    ratingCount: asNumber(data.ratingCount) || 0,
-    trustScore: asNumber(data.trustScore) || 0,
-    role: data.role || 'user',
-    frozen: Boolean(data.frozen),
-    createdAt: asDate(data.createdAt) || new Date(),
-    updatedAt: asDate(data.updatedAt) || new Date(),
-  };
+  const profileRecord = await getProfileRecord(uid);
+  return profileRecord ? mapProfileRecord(uid, profileRecord) : null;
 }
 
-/**
- * Update user location with geocoded coordinates
- */
 export async function updateUserLocation(
   uid: string,
   _city: string,
   _country: string
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  const pilotLocation = getPilotLocationPayload();
+  const profile = await getProfile(uid);
+  if (!profile) {
+    throw new Error(`${USERS_COLLECTION} profile not found`);
+  }
 
-  await updateDoc(profileRef, {
+  const pilotLocation = getPilotLocationPayload();
+  await saveProfile({
+    ...profile,
     location: pilotLocation.location,
     country: pilotLocation.country,
     latitude: pilotLocation.latitude,
     longitude: pilotLocation.longitude,
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date(),
   });
+
   await syncPublicProfile(uid);
 
   return {
@@ -198,67 +163,63 @@ export async function updateUserLocation(
   };
 }
 
-/**
- * Update a user profile in Firestore
- */
 export async function updateProfile(uid: string, data: UpdateProfileData): Promise<void> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
+  const profile = await getProfile(uid);
+  if (!profile) {
+    throw new Error('Profile not found');
+  }
+
+  const pilotLocation = getPilotLocationPayload();
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
-  const pilotLocation = getPilotLocationPayload();
 
-  await updateDoc(profileRef, {
+  await saveProfile({
+    ...profile,
     ...filteredData,
     location: pilotLocation.location,
     country: pilotLocation.country,
     latitude: pilotLocation.latitude,
     longitude: pilotLocation.longitude,
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date(),
   });
 
   await recalculateTrustScore(uid);
 }
 
-/**
- * Generate and store phone verification code with 10 minute expiry.
- */
 export async function sendPhoneVerificationCode(uid: string, phoneNumber: string): Promise<string> {
   const trimmedPhone = phoneNumber.trim();
   if (!trimmedPhone) {
     throw new Error('Phone number is required');
   }
 
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  const code = generateSixDigitCode();
-  const expiry = Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000));
-
-  await updateDoc(profileRef, {
-    phoneNumber: trimmedPhone,
-    phoneVerified: false,
-    phoneVerificationCode: code,
-    phoneVerificationExpires: expiry,
-    updatedAt: serverTimestamp(),
-  });
-
-  await syncPublicProfile(uid);
-
-  return code;
-}
-
-/**
- * Verify stored phone code and mark profile as phone verified.
- */
-export async function verifyPhoneCode(uid: string, code: string): Promise<void> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  const profileSnap = await getDoc(profileRef);
-  if (!profileSnap.exists()) {
+  const profile = await getProfile(uid);
+  if (!profile) {
     throw new Error('Profile not found');
   }
 
-  const data = profileSnap.data();
-  const storedCode = (data.phoneVerificationCode as string) || '';
-  const expiresAt = asDate(data.phoneVerificationExpires);
+  const code = generateSixDigitCode();
+  await saveProfile({
+    ...profile,
+    phoneNumber: trimmedPhone,
+    phoneVerified: false,
+    phoneVerificationCode: code,
+    phoneVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+    updatedAt: new Date(),
+  });
+
+  await syncPublicProfile(uid);
+  return code;
+}
+
+export async function verifyPhoneCode(uid: string, code: string): Promise<void> {
+  const profile = await getProfile(uid);
+  if (!profile) {
+    throw new Error('Profile not found');
+  }
+
+  const storedCode = profile.phoneVerificationCode || '';
+  const expiresAt = profile.phoneVerificationExpires;
   const submittedCode = code.trim();
 
   if (!storedCode || !expiresAt) {
@@ -271,56 +232,55 @@ export async function verifyPhoneCode(uid: string, code: string): Promise<void> 
     throw new Error('Invalid verification code');
   }
 
-  await updateDoc(profileRef, {
+  await saveProfile({
+    ...profile,
     phoneVerified: true,
-    phoneVerificationCode: null,
-    phoneVerificationExpires: null,
-    updatedAt: serverTimestamp(),
+    phoneVerificationCode: undefined,
+    phoneVerificationExpires: undefined,
+    updatedAt: new Date(),
   });
 
   await recalculateTrustScore(uid);
 }
 
-/**
- * Recalculate and persist trust score.
- */
 export async function recalculateTrustScore(uid: string): Promise<number> {
   const profile = await getProfile(uid);
   if (!profile) {
     throw new Error('Profile not found');
   }
 
-  const completedSits = await getCompletedSitsCount(uid);
+  const completedSits = await fetchCompletedSitsCount(uid);
   const trustScore = calculateTrustScore(profile, completedSits);
 
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  await updateDoc(profileRef, {
+  await saveProfile({
+    ...profile,
     trustScore,
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date(),
   });
 
   await syncPublicProfile(uid);
-
   return trustScore;
 }
 
-/**
- * Check if a profile exists
- */
 export async function profileExists(uid: string): Promise<boolean> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  const profileSnap = await getDoc(profileRef);
-  return profileSnap.exists();
+  const payload = await fetchSupabaseReadJson<{ profile: Record<string, unknown> | null }>(
+    `/api/supabase-read/profile?uid=${encodeURIComponent(uid)}`,
+    { requireAuth: true }
+  );
+
+  return Boolean(payload.profile);
 }
 
-/**
- * Keep profile verification badge in sync with Firebase Auth email verification.
- */
 export async function setEmailVerifiedStatus(uid: string, emailVerified: boolean): Promise<void> {
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  await updateDoc(profileRef, {
+  const profile = await getProfile(uid);
+  if (!profile) {
+    throw new Error('Profile not found');
+  }
+
+  await saveProfile({
+    ...profile,
     emailVerified,
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date(),
   });
   await recalculateTrustScore(uid);
 }
@@ -342,13 +302,13 @@ export async function ensurePilotLocation(uid: string): Promise<void> {
     return;
   }
 
-  const profileRef = doc(db, USERS_COLLECTION, uid);
-  await updateDoc(profileRef, {
+  await saveProfile({
+    ...profile,
     location: pilotLocation.location,
     country: pilotLocation.country,
     latitude: pilotLocation.latitude,
     longitude: pilotLocation.longitude,
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date(),
   });
 
   await syncPublicProfile(uid);

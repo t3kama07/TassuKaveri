@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import PublicFooter from '@/components/PublicFooter';
 import { useLanguage, type Language } from '@/contexts/LanguageContext';
-import { publicContent } from '@/lib/publicContent';
 import type { LocalizedText } from '@/lib/publicPagesContent';
 
 type ShellAction = {
@@ -33,10 +31,9 @@ export default function PublicPageShell({
   children,
 }: PublicPageShellProps) {
   const { language } = useLanguage();
-  const footerCopy = publicContent[language].landing.footer;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f2640]">
+    <div className="bg-[#f8fafc] text-[#0f2640]">
       <section className="border-b border-[#e5ebf3] bg-[linear-gradient(135deg,#fff7ef_0%,#ffffff_42%,#eef5ff_100%)]">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
           <div className="max-w-4xl">
@@ -77,8 +74,6 @@ export default function PublicPageShell({
       </section>
 
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">{children}</main>
-
-      <PublicFooter copy={footerCopy} />
     </div>
   );
 }

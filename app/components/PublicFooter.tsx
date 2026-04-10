@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -24,24 +25,6 @@ type FooterContent = {
   columns: readonly FooterColumn[];
   copyright: string;
 };
-
-function BrandPinIcon({ className = 'h-7 w-7' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M12 21s6-5.3 6-11a6 6 0 1 0-12 0c0 5.7 6 11 6 11Z" />
-      <circle cx="12" cy="10" r="2.6" />
-    </svg>
-  );
-}
 
 function FacebookIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
@@ -106,10 +89,10 @@ function SocialIcon({
 
 function FooterLink({ item }: { item: FooterItem }) {
   const className =
-    'text-sm text-[#dbe5f2]/78 transition-colors duration-200 hover:text-white sm:text-[0.95rem]';
+    'text-[0.98rem] text-[#dbe5f2]/82 transition-colors duration-200 hover:text-white sm:text-[1.04rem]';
 
   if (!item.href) {
-    return <span className="text-sm text-[#dbe5f2]/60 sm:text-[0.95rem]">{item.label}</span>;
+    return <span className="text-[0.98rem] text-[#dbe5f2]/64 sm:text-[1.04rem]">{item.label}</span>;
   }
 
   if (item.href.startsWith('mailto:')) {
@@ -150,26 +133,32 @@ export default function PublicFooter({ copy }: { copy: FooterContent }) {
       />
 
       <div className="relative">
-        <div className="mx-auto grid w-full max-w-[1600px] gap-x-10 gap-y-10 px-6 py-12 sm:grid-cols-2 sm:px-10 sm:py-14 lg:grid-cols-[minmax(320px,1.2fr)_repeat(4,minmax(140px,1fr))] lg:items-start lg:px-14 xl:gap-x-14 2xl:px-20">
+        <div className="mx-auto grid w-full max-w-[1600px] gap-x-10 gap-y-10 px-8 py-10 sm:grid-cols-2 sm:px-12 sm:py-12 lg:grid-cols-[minmax(360px,1.55fr)_repeat(3,minmax(180px,1fr))] lg:items-start lg:px-16 xl:gap-x-16 xl:px-20 2xl:px-24">
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-white/14 bg-white/6 text-[#ff7a2d] shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
-                <BrandPinIcon />
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-white/14 bg-white/6 shadow-[0_10px_35px_rgba(0,0,0,0.16)]">
+                <Image
+                  src="/images/favicon.png"
+                  alt="TassuKaveri"
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-[0.7rem] object-cover"
+                />
               </span>
               <div>
-                <p className="text-[1.4rem] font-semibold tracking-tight text-white sm:text-[1.5rem]">
+                <p className="text-[1.48rem] font-semibold tracking-tight text-white sm:text-[1.62rem]">
                   TassuKaveri
                 </p>
               </div>
             </div>
 
-            <p className="mt-5 max-w-[350px] text-[0.98rem] leading-7 text-[#dbe5f2]/76">
+            <p className="mt-5 max-w-[390px] text-[1.04rem] leading-8 text-[#dbe5f2]/78">
               {copy.brandDescription}
             </p>
 
             <a
               href={`mailto:${copy.email}`}
-              className="mt-7 inline-flex text-sm font-semibold text-[#f4f7fb] transition-colors hover:text-[#ffb07d] sm:text-[0.98rem]"
+              className="mt-6 inline-flex text-[1.02rem] font-semibold text-[#f4f7fb] transition-colors hover:text-[#ffb07d] sm:text-[1.08rem]"
             >
               {copy.email}
             </a>
@@ -192,7 +181,7 @@ export default function PublicFooter({ copy }: { copy: FooterContent }) {
 
           {copy.columns.map((column) => (
             <div key={column.title}>
-              <h2 className="text-[1.12rem] font-semibold tracking-tight text-white">
+              <h2 className="text-[1.14rem] font-semibold tracking-tight text-white sm:text-[1.18rem]">
                 {column.title}
               </h2>
               <ul className="mt-5 space-y-3">
@@ -207,7 +196,7 @@ export default function PublicFooter({ copy }: { copy: FooterContent }) {
         </div>
 
         <div className="border-t border-white/10 bg-[#0d1e34]/78">
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-3 text-center text-sm text-[#b8c7da] sm:px-10 lg:px-14 2xl:px-20">
+          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center px-8 py-4 text-[0.96rem] text-[#b8c7da] sm:px-12 lg:px-16 xl:px-20 2xl:px-24">
             {copy.copyright.replace('{year}', year.toString())}
           </div>
         </div>
