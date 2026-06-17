@@ -92,7 +92,7 @@ export default function SignupPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              placeholder="Optional during development"
+              placeholder="Your name"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>
@@ -106,7 +106,7 @@ export default function SignupPage() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               autoComplete="address-level2"
-              placeholder="Optional during development"
+              placeholder="Oulu"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>

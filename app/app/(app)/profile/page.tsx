@@ -808,7 +808,7 @@ export default function ProfilePage() {
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-[#0f2640]">Availability Planner</h2>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Use this area for your real booking windows, separate from the general profile.
+              Add the times when you are open to pet care requests.
             </p>
 
             <div className="mt-6 grid gap-4">
@@ -828,12 +828,6 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Why this tab helps</p>
-                <p className="mt-2 text-sm text-[#516173]">
-                  Your idea was right. The cleaner pattern is to keep broad profile readiness and real calendar slots separate, so updating one never makes the page feel heavy.
-                </p>
-              </div>
             </div>
           </div>
         </div>
