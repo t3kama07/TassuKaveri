@@ -28,26 +28,20 @@ export default function SignupPage() {
     setError('');
     setSuccess('');
 
+    const trimmedName = name.trim();
+    const trimmedLocation = location.trim();
+
     if (password !== confirmPassword) {
       return setError('Passwords do not match');
-    }
-
-    if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
-    }
-
-    if (!name.trim()) {
-      return setError('Name is required');
-    }
-
-    if (!location.trim()) {
-      return setError('Location is required');
     }
 
     setLoading(true);
 
     try {
-      const result = await signup(email, password, { name, location });
+      const result = await signup(email, password, {
+        name: trimmedName,
+        location: trimmedLocation,
+      });
       if (result.requiresEmailVerification) {
         setSuccess(`Account created for ${result.email}. Check your email to confirm it, then log in.`);
         setPassword('');
@@ -97,7 +91,8 @@ export default function SignupPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
+              autoComplete="name"
+              placeholder="Optional during development"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>
@@ -110,8 +105,8 @@ export default function SignupPage() {
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              required
-              placeholder="e.g., Helsinki"
+              autoComplete="address-level2"
+              placeholder="Optional during development"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>
@@ -125,6 +120,7 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>
@@ -138,6 +134,7 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="new-password"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>
@@ -151,6 +148,7 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              autoComplete="new-password"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>

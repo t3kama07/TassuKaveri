@@ -94,6 +94,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden profile metrics target' }, { status: 403 });
     }
 
+    const actorProfile = await getProfileFromSupabase(payload.actorId);
+    const actorIsAdmin = actorProfile?.role === 'admin';
+
+    if (typeof payload.frozen === 'boolean' && !actorIsAdmin) {
+      return NextResponse.json({ error: 'Only admins can change frozen status' }, { status: 403 });
+    }
+
     const profileUpdates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };

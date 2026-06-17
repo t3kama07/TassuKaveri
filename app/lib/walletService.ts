@@ -76,9 +76,15 @@ async function saveWalletState(params: {
   await mirrorWalletStateToSupabase(params);
 }
 
-export async function getAllTransactions(userId: string): Promise<Transaction[]> {
+export async function getAllTransactions(
+  userId: string,
+  requestId?: string
+): Promise<Transaction[]> {
+  const requestQuery = requestId
+    ? `&requestId=${encodeURIComponent(requestId)}`
+    : '';
   const payload = await fetchSupabaseReadJson<{ transactions: Array<Record<string, unknown>> }>(
-    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}&includeTransactions=true`,
+    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}&includeTransactions=true${requestQuery}`,
     { requireAuth: true }
   );
 
@@ -99,12 +105,12 @@ export async function syncWalletMirrorToSupabase(
   actorId: string = userId,
   requestId?: string
 ): Promise<void> {
-  const wallet = await getWallet(userId);
+  const wallet = await getWallet(userId, requestId);
   if (!wallet) {
     return;
   }
 
-  const transactions = await getAllTransactions(userId);
+  const transactions = await getAllTransactions(userId, requestId);
   await saveWalletState({
     actorId,
     userId,
@@ -148,9 +154,15 @@ export async function initializeWallet(userId: string): Promise<void> {
   });
 }
 
-export async function getWallet(userId: string): Promise<Wallet | null> {
+export async function getWallet(
+  userId: string,
+  requestId?: string
+): Promise<Wallet | null> {
+  const requestQuery = requestId
+    ? `&requestId=${encodeURIComponent(requestId)}`
+    : '';
   const payload = await fetchSupabaseReadJson<{ wallet: Record<string, unknown> | null }>(
-    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}`,
+    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}${requestQuery}`,
     { requireAuth: true }
   );
 
@@ -262,10 +274,14 @@ export async function deductCredits(
 
 export async function getRecentTransactions(
   userId: string,
-  maxResults: number = 10
+  maxResults: number = 10,
+  requestId?: string
 ): Promise<Transaction[]> {
+  const requestQuery = requestId
+    ? `&requestId=${encodeURIComponent(requestId)}`
+    : '';
   const payload = await fetchSupabaseReadJson<{ transactions: Array<Record<string, unknown>> }>(
-    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}&includeTransactions=true&maxResults=${maxResults}`,
+    `/api/supabase-read/wallet?userId=${encodeURIComponent(userId)}&includeTransactions=true&maxResults=${maxResults}${requestQuery}`,
     { requireAuth: true }
   );
 
@@ -305,7 +321,7 @@ export async function escrowCredits(
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(ownerId);
+  const wallet = await getWallet(ownerId, requestId);
   if (!wallet) {
     throw new Error('Wallet not found');
   }
@@ -315,7 +331,7 @@ export async function escrowCredits(
     );
   }
 
-  const transactions = await getAllTransactions(ownerId);
+  const transactions = await getAllTransactions(ownerId, requestId);
   const newBalance = wallet.balance - amount;
   await saveWalletState({
     actorId,
@@ -351,12 +367,12 @@ export async function releaseEscrow(
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(sitterId);
+  const wallet = await getWallet(sitterId, requestId);
   if (!wallet) {
     throw new Error('Sitter wallet not found');
   }
 
-  const transactions = await getAllTransactions(sitterId);
+  const transactions = await getAllTransactions(sitterId, requestId);
   const newBalance = wallet.balance + amount;
   await saveWalletState({
     actorId,
@@ -394,12 +410,12 @@ export async function refundEscrow(
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(ownerId);
+  const wallet = await getWallet(ownerId, requestId);
   if (!wallet) {
     throw new Error('Owner wallet not found');
   }
 
-  const transactions = await getAllTransactions(ownerId);
+  const transactions = await getAllTransactions(ownerId, requestId);
   const newBalance = wallet.balance + amount;
   await saveWalletState({
     actorId,

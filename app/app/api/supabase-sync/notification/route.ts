@@ -37,7 +37,7 @@ async function canActorTargetNotificationForRequest(
     }>();
 
   if (error || !data) {
-    return true;
+    return false;
   }
 
   const participants = [data.owner_uid, data.sitter_uid, data.requested_sitter_uid].filter(

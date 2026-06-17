@@ -28,6 +28,8 @@ interface AuthContextType {
   loading: boolean;
   refreshProfile: () => Promise<UserProfile | null>;
   login: (email: string, password: string) => Promise<AuthUser>;
+  sendPasswordReset: (email: string) => Promise<string>;
+  updatePassword: (password: string) => Promise<void>;
   signup: (
     email: string,
     password: string,
@@ -56,6 +58,21 @@ function getBootstrapProfileData(user: AuthUser): CreateProfileData {
     name: formatFallbackName(user),
     location: PILOT_CITY,
     country: PILOT_COUNTRY,
+  };
+}
+
+function normalizeSignupProfileData(
+  user: AuthUser,
+  profileData: CreateProfileData
+): CreateProfileData {
+  const trimmedName = profileData.name.trim();
+  const trimmedLocation = profileData.location.trim();
+  const trimmedCountry = profileData.country?.trim();
+
+  return {
+    name: trimmedName || formatFallbackName(user),
+    location: trimmedLocation || PILOT_CITY,
+    country: trimmedCountry || PILOT_COUNTRY,
   };
 }
 
@@ -94,6 +111,16 @@ function normalizeAuthError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Unknown authentication error');
 }
 
+function normalizeEmailForAuth(email: string): string {
+  const normalizedEmail = email
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim();
+  const extractedEmail = normalizedEmail.match(/<([^<>]+)>/)?.[1] ?? normalizedEmail;
+
+  return extractedEmail.replace(/["'`“”‘’]/g, '').replace(/\s+/g, '').toLowerCase();
+}
+
 async function signInSupabaseWithPassword(email: string, password: string): Promise<Session | null> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -118,6 +145,19 @@ async function signUpSupabaseWithPassword(email: string, password: string): Prom
   }
 
   return data.session ?? null;
+}
+
+async function sendSupabasePasswordReset(email: string): Promise<void> {
+  const redirectTo =
+    typeof window === 'undefined' ? undefined : `${window.location.origin}/reset-password`;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    throw normalizeAuthError(error);
+  }
 }
 
 async function ensureSupabasePasswordSession(email: string, password: string): Promise<Session | null> {
@@ -295,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabaseReady, supabaseSession?.user.id, supabaseSession?.user.email]);
 
   const login = async (email: string, password: string) => {
-    const trimmedEmail = email.trim();
+    const trimmedEmail = normalizeEmailForAuth(email);
     const trimmedPassword = password.trim();
     setLoading(true);
 
@@ -318,8 +358,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const sendPasswordReset = async (email: string) => {
+    const trimmedEmail = normalizeEmailForAuth(email);
+
+    if (!trimmedEmail) {
+      throw new Error('Enter the email address for your account.');
+    }
+
+    await sendSupabasePasswordReset(trimmedEmail);
+    return trimmedEmail;
+  };
+
+  const updatePassword = async (password: string) => {
+    const trimmedPassword = password.trim();
+
+    if (trimmedPassword.length < 6) {
+      throw new Error('Password must be at least 6 characters.');
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: trimmedPassword,
+    });
+
+    if (error) {
+      throw normalizeAuthError(error);
+    }
+  };
+
   const signup = async (email: string, password: string, profileData: CreateProfileData) => {
-    const trimmedEmail = email.trim();
+    const trimmedEmail = normalizeEmailForAuth(email);
     const trimmedPassword = password.trim();
     setLoading(true);
 
@@ -352,7 +419,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Supabase session was not created');
       }
 
-      const bootstrappedProfile = await ensureUserBootstrap(currentUser, profileData, true);
+      const normalizedProfileData = normalizeSignupProfileData(currentUser, profileData);
+      const bootstrappedProfile = await ensureUserBootstrap(currentUser, normalizedProfileData, true);
       setUser(currentUser);
       setProfile(bootstrappedProfile);
       setLoading(false);
@@ -395,6 +463,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     refreshProfile,
     login,
+    sendPasswordReset,
+    updatePassword,
     signup,
     logout,
   };

@@ -9,6 +9,7 @@
         "start": "next start",
         "lint": "eslint",
         "db:run-sql": "node scripts/run-supabase-sql.mjs",
+        "db:audit-integrity": "node scripts/audit-supabase-integrity.mjs",
         "storage:ensure-bucket": "node scripts/ensure-supabase-storage-bucket.mjs",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui",
