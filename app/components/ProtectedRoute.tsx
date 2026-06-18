@@ -30,9 +30,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return (
       <div className="max-w-xl mx-auto px-4 py-12">
         <div className="bg-white rounded-lg border border-red-200 p-6">
-          <h1 className="text-2xl font-bold text-[#0f2640] mb-2">Account Frozen</h1>
+          <h1 className="text-2xl font-bold text-[#0f2640] mb-2">Account paused</h1>
           <p className="text-[#6b7280]">
-            This account has been frozen by an administrator. Please contact support.
+            You cannot use this account right now. Please contact support if you think this is a mistake.
           </p>
         </div>
       </div>

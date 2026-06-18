@@ -22,18 +22,18 @@ type ProfileTab = 'details' | 'availability' | 'settings';
 const PROFILE_TABS: Array<{ id: ProfileTab; label: string; description: string }> = [
   {
     id: 'details',
-    label: 'Personal Details',
-    description: 'Your public intro, experience, and care preferences.',
+    label: 'Basic information',
+    description: 'Your name, photo, location, and care style.',
   },
   {
     id: 'availability',
-    label: 'Availability Planner',
-    description: 'Your actual time slots and booking windows.',
+    label: 'Times I can help',
+    description: 'Add the times when you can care for pets.',
   },
   {
     id: 'settings',
-    label: 'Trust & Settings',
-    description: 'Verification, account health, and contact details.',
+    label: 'Trust and verification',
+    description: 'Phone, email, and account details.',
   },
 ];
 
@@ -145,7 +145,7 @@ export default function ProfilePage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load profile: ' + message);
+      setError('We could not load your profile right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -197,12 +197,12 @@ export default function ProfilePage() {
         await updateUserLocation(user.uid, location, country);
       }
 
-      setSuccess('Profile updated successfully');
+      setSuccess('Profile saved.');
       setIsEditing(false);
       await loadProfile();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to update profile: ' + message);
+      setError('We could not save your profile right now. Please check the fields and try again. ' + message);
     } finally {
       setSaving(false);
     }
@@ -220,7 +220,7 @@ export default function ProfilePage() {
       await loadProfile();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to send phone verification code: ' + message);
+      setError('We could not send the phone code right now. Please check the number and try again. ' + message);
     } finally {
       setPhoneProcessing(false);
     }
@@ -234,12 +234,12 @@ export default function ProfilePage() {
 
     try {
       await verifyPhoneCode(user.uid, phoneCode);
-      setSuccess('Phone number verified successfully.');
+      setSuccess('Phone number verified.');
       setPhoneCode('');
       await loadProfile();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to verify phone code: ' + message);
+      setError('We could not verify this code. Please check it and try again. ' + message);
     } finally {
       setPhoneProcessing(false);
     }
@@ -260,10 +260,10 @@ export default function ProfilePage() {
     try {
       const uploadedPhotoURL = await uploadProfileImage(user.uid, selectedFile);
       setPhotoURL(uploadedPhotoURL);
-      setSuccess('Profile image uploaded. Save changes to update your profile.');
+      setSuccess('Profile photo uploaded. Save changes to update your profile.');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to upload profile image: ' + message);
+      setError('We could not upload this photo right now. Please try again. ' + message);
     } finally {
       setPhotoUploading(false);
     }
@@ -375,9 +375,9 @@ export default function ProfilePage() {
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-[#0f2640]">Personal Details</h2>
+              <h2 className="text-xl font-bold text-[#0f2640]">Basic information</h2>
               <p className="mt-1 text-sm text-[#6b7280]">
-                Keep your public profile clear, friendly, and easy to scan.
+                Your profile helps other users decide if they can trust you.
               </p>
             </div>
             {!isEditing && (
@@ -394,7 +394,7 @@ export default function ProfilePage() {
           {isEditing ? (
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               <div className="rounded-2xl border border-[#e5edf6] bg-[#f8fbff] p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Basic Details</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">Profile photo</h3>
                 <div className="mt-4 rounded-2xl border border-dashed border-[#d7e2ef] bg-white p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                     {photoURL ? (
@@ -413,7 +413,7 @@ export default function ProfilePage() {
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#0f2640]">Profile Photo</p>
+                      <p className="text-sm font-medium text-[#0f2640]">Profile photo</p>
                       <p className="mt-1 text-sm text-[#6b7280]">
                         Upload a clear image so your profile feels more personal and trustworthy.
                       </p>
@@ -462,7 +462,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Location (City)</label>
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Your location</label>
                     <input
                       type="text"
                       value={location}
@@ -484,10 +484,10 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-white p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">About You</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">About you</h3>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Short Bio</label>
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Short intro</label>
                     <textarea
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
@@ -496,7 +496,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Pet Experience</label>
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Pet care experience</label>
                     <textarea
                       value={petExperience}
                       onChange={(e) => setPetExperience(e.target.value)}
@@ -508,10 +508,10 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-white p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Care Preferences</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">Care preferences</h3>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Availability</label>
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Can you help now?</label>
                     <select
                       value={availability}
                       onChange={(e) => setAvailability(e.target.value as AvailabilityStatus)}
@@ -522,7 +522,7 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Experience Level</label>
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Experience level</label>
                     <select
                       value={experienceLevel}
                       onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
@@ -537,7 +537,7 @@ export default function ProfilePage() {
 
                 <div className="mt-4 space-y-4">
                   <div>
-                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Pet Type Experience</p>
+                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Pet types you know</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_TYPE_OPTIONS.map((option) => {
                         const selected = petTypeExperience.includes(option);
@@ -564,7 +564,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div>
-                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Preferred Pet Size</p>
+                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Pet sizes you prefer</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_SIZE_OPTIONS.map((option) => {
                         const selected = preferredPetSize.includes(option);
@@ -629,9 +629,9 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-[#fcfdff] p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Optional Map Pin</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">Your location</h3>
                 <p className="mt-1 text-sm text-[#6b7280]">
-                  Add coordinates only if you want more accurate nearby matching.
+                  Your location is used to show nearby sitters and requests.
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
@@ -697,7 +697,7 @@ export default function ProfilePage() {
                   <p className="mt-1 text-sm text-[#516173]">{profile.location}, {profile.country}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Availability</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">Times I can help</p>
                   <p className="mt-1 text-sm text-[#516173]">
                     {profile.availability === 'available' ? 'Open for bookings' : 'Bookings paused'}
                   </p>
@@ -721,12 +721,12 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl bg-[#f8fbff] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">About You</p>
+                <p className="text-sm font-semibold text-[#0f2640]">About you</p>
                 <p className="mt-2 text-sm text-[#516173]">{profile.bio || 'No bio added yet.'}</p>
               </div>
 
               <div className="rounded-2xl bg-[#fffaf6] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Pet Experience</p>
+                <p className="text-sm font-semibold text-[#0f2640]">Pet care experience</p>
                 <p className="mt-2 text-sm text-[#516173]">
                   {profile.petExperience || 'No pet care notes added yet.'}
                 </p>
@@ -759,7 +759,7 @@ export default function ProfilePage() {
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-[#0f2640]">Profile Checklist</h2>
+                <h2 className="text-xl font-bold text-[#0f2640]">Profile strength</h2>
                 <p className="mt-1 text-sm text-[#6b7280]">
                   Small wins that make the profile easier to trust.
                 </p>
@@ -806,7 +806,7 @@ export default function ProfilePage() {
       <section className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
         <div className="space-y-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-[#0f2640]">Availability Planner</h2>
+            <h2 className="text-xl font-bold text-[#0f2640]">Times I can help</h2>
             <p className="mt-1 text-sm text-[#6b7280]">
               Add the times when you are open to pet care requests.
             </p>
@@ -817,7 +817,7 @@ export default function ProfilePage() {
                 <p className="mt-2 text-sm text-[#516173]">
                   {availability === 'available'
                     ? 'Your profile is open for new booking requests.'
-                    : 'Your profile is currently paused. Turn it back on from Personal Details when ready.'}
+                    : 'Your profile is paused. Turn it back on from Basic information when ready.'}
                 </p>
               </div>
 
@@ -845,9 +845,9 @@ export default function ProfilePage() {
     return (
       <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-[#0f2640]">Trust & Settings</h2>
+          <h2 className="text-xl font-bold text-[#0f2640]">Trust and verification</h2>
           <p className="mt-1 text-sm text-[#6b7280]">
-            Keep your account easy to trust and easy to reach.
+            Verified information helps other users feel safer choosing you.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -870,9 +870,9 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-6 rounded-2xl border border-[#e5edf6] bg-[#f8fbff] p-5">
-            <h3 className="text-lg font-bold text-[#0f2640]">Phone Verification</h3>
+            <h3 className="text-lg font-bold text-[#0f2640]">Phone verification</h3>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Use a number pet owners can reach if plans change quickly.
+              Your phone number helps with trust and safety.
             </p>
 
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
@@ -889,7 +889,7 @@ export default function ProfilePage() {
                 disabled={phoneProcessing}
                 className="rounded-full border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc] disabled:opacity-50"
               >
-                Send Code
+                Send code
               </button>
             </div>
 
@@ -907,7 +907,7 @@ export default function ProfilePage() {
                 disabled={phoneProcessing}
                 className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
               >
-                Verify Code
+                Verify code
               </button>
             </div>
           </div>
@@ -915,14 +915,17 @@ export default function ProfilePage() {
 
         <div className="space-y-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-[#0f2640]">Account Overview</h2>
+            <h2 className="text-xl font-bold text-[#0f2640]">Account overview</h2>
             <p className="mt-1 text-sm text-[#6b7280]">
               Useful details to keep handy.
             </p>
             <div className="mt-6 space-y-5">
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Credits balance</p>
+                <p className="text-sm font-semibold text-[#0f2640]">Credits</p>
                 <p className="mt-1 text-sm text-[#516173]">{creditBalance} credits</p>
+                <p className="mt-1 text-sm text-[#6b7280]">
+                  Spend credits when someone cares for your pet. Earn credits when you help others.
+                </p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-[#0f2640]">Role</p>
@@ -937,13 +940,13 @@ export default function ProfilePage() {
                 <p className="mt-1 text-sm text-[#516173]">{formatDateText(profile.updatedAt)}</p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Map precision</p>
+                <p className="text-sm font-semibold text-[#0f2640]">Location detail</p>
                 <p className="mt-1 text-sm text-[#516173]">
-                  {hasCoordinates ? 'Exact coordinates set' : 'Using city-level location'}
+                  {hasCoordinates ? 'Exact location added' : 'Using city-level location'}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Trust score</p>
+                <p className="text-sm font-semibold text-[#0f2640]">Trust level</p>
                 <p className="mt-1 text-sm text-[#516173]">{profile.trustScore}</p>
               </div>
               <div>
@@ -953,7 +956,7 @@ export default function ProfilePage() {
               <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
                 <p className="text-sm font-semibold text-[#0f2640]">Best next step</p>
                 <p className="mt-2 text-sm text-[#516173]">
-                  Finish your key details, verify your phone, and keep a few upcoming slots in the planner for the strongest first impression.
+                  Finish your details, verify your phone, and add a few times you can help.
                 </p>
               </div>
             </div>
@@ -1032,7 +1035,7 @@ export default function ProfilePage() {
                       {profileComplete ? 'Edit profile' : 'Finish profile'}
                     </button>
                     <p className="text-sm text-[#6b7280]">
-                      Use the tabs below to manage availability and settings.
+                      Use the tabs below to manage your profile and times you can help.
                     </p>
                   </div>
 
@@ -1080,7 +1083,7 @@ export default function ProfilePage() {
                     <p className="mt-1 text-sm text-[#6b7280]">Available for upcoming exchanges.</p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Trust score</p>
+                    <p className="text-sm text-[#6b7280]">Trust level</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.phoneVerified ? 'Phone verified and visible.' : 'Verify your phone to strengthen trust.'}

@@ -151,7 +151,7 @@ export default function AvailabilityPlanner({
         }
 
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('Failed to load availability slots: ' + message);
+        setError('We could not load your times right now. Please try again. ' + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -172,7 +172,7 @@ export default function AvailabilityPlanner({
       setSlots(await fetchUpcomingSlots(userId));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load availability slots: ' + message);
+      setError('We could not load your times right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -256,7 +256,7 @@ export default function AvailabilityPlanner({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(
-        `${editor.mode === 'edit' ? 'Failed to update time slot' : 'Failed to add time slot'}: ${message}`
+        `${editor.mode === 'edit' ? 'We could not update this time' : 'We could not add this time'}. Please check the dates and try again. ${message}`
       );
     } finally {
       setSaving(false);
@@ -275,7 +275,7 @@ export default function AvailabilityPlanner({
       await refreshSlots();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to remove time slot: ' + message);
+      setError('We could not remove this time right now. Please try again. ' + message);
     } finally {
       setSaving(false);
     }
@@ -370,9 +370,9 @@ export default function AvailabilityPlanner({
     <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
       <div className="mb-6">
         <div>
-          <h2 className="text-xl font-bold text-[#0f2640]">Availability Planner</h2>
+          <h2 className="text-xl font-bold text-[#0f2640]">Times I can help</h2>
           <p className="mt-1 text-sm text-[#6b7280]">
-            Manage each slot in one row. Dates stay on the left, times stay on the right.
+            Add the dates and times when you can care for pets.
           </p>
         </div>
       </div>
@@ -391,9 +391,9 @@ export default function AvailabilityPlanner({
       <div className="rounded-2xl border border-[#d9e6f2] bg-[#f8fbff] p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-[#0f2640]">Your time slots</p>
+            <p className="text-sm font-medium text-[#0f2640]">Your saved times</p>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Add, edit, or remove slots directly from this list.
+              Pet owners can use these times when they ask for help.
             </p>
           </div>
           <button
@@ -402,7 +402,7 @@ export default function AvailabilityPlanner({
             onClick={() => openCreateEditor()}
             className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-medium text-white hover:bg-[#e66a1f] disabled:opacity-50"
           >
-            Add Slot
+            Add time
           </button>
         </div>
 
@@ -421,7 +421,7 @@ export default function AvailabilityPlanner({
             </div>
           ) : slots.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#c9d8e6] bg-white px-4 py-8 text-center text-sm text-[#6b7280]">
-              No time slots yet. Use <span className="font-medium text-[#0f2640]">Add Slot</span> to create one.
+              No times added yet. Add times you can help.
             </div>
           ) : (
             slots.map((slot) => (

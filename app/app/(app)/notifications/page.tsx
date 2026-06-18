@@ -25,7 +25,7 @@ function getNotificationIntent(notification: AppNotification): NotificationInten
       };
     case 'application_received':
       return {
-        badge: 'Application',
+        badge: 'Offer',
         badgeClassName: 'bg-blue-50 text-blue-700',
         ctaLabel: 'Open my requests',
         href: '/exchange?tab=my-requests',
@@ -34,7 +34,7 @@ function getNotificationIntent(notification: AppNotification): NotificationInten
       return {
         badge: 'Accepted',
         badgeClassName: 'bg-emerald-50 text-emerald-700',
-        ctaLabel: 'Open my sits',
+        ctaLabel: 'Open care I give',
         href: '/exchange?tab=my-sits',
       };
     case 'message_received':
@@ -55,7 +55,7 @@ function getNotificationIntent(notification: AppNotification): NotificationInten
       return {
         badge: 'Completion',
         badgeClassName: 'bg-amber-50 text-amber-700',
-        ctaLabel: 'Open exchange',
+        ctaLabel: 'Open requests',
         href: '/exchange',
       };
     default:
@@ -151,7 +151,7 @@ export default function NotificationsPage() {
       setNotifications(userNotifications);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load notifications: ' + message);
+      setError('We could not load your updates right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -167,7 +167,7 @@ export default function NotificationsPage() {
       );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to update notification: ' + message);
+      setError('We could not update this item right now. Please try again. ' + message);
     }
   }
 
@@ -200,16 +200,16 @@ export default function NotificationsPage() {
     <ProtectedRoute>
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
         <section className="rounded-[28px] border border-[#dbe5f0] bg-[linear-gradient(135deg,#fff8f1_0%,#ffffff_40%,#eef5ff_100%)] p-6 sm:p-8">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">Alerts</p>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">Updates</p>
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">Stay on top of incoming requests</h1>
+              <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">See what needs your attention</h1>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#516173]">
-                Direct requests appear in their own alert lane, then open straight into your separate Direct Requests tab.
+                Updates about requests, messages, and reviews appear here.
               </p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 px-5 py-4 shadow-[0_10px_26px_rgba(15,38,64,0.08)]">
-              <p className="text-sm text-[#6b7280]">Unread alerts</p>
+              <p className="text-sm text-[#6b7280]">Unread updates</p>
               <p className="mt-1 text-3xl font-bold text-[#0f2640]">{unreadCount}</p>
             </div>
           </div>
@@ -223,32 +223,32 @@ export default function NotificationsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-2xl border border-[#e6edf5] bg-white p-6 shadow-[0_10px_24px_rgba(15,38,64,0.05)]">
-            <p className="text-[#6b7280]">Loading alerts...</p>
+            <p className="text-[#6b7280]">Loading updates...</p>
           </div>
         ) : notifications.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-[#e6edf5] bg-white p-8 text-center shadow-[0_10px_24px_rgba(15,38,64,0.05)]">
-            <h2 className="text-xl font-semibold text-[#0f2640]">No alerts yet</h2>
-            <p className="mt-2 text-[#6b7280]">When someone contacts you, applies, or sends a direct request, it will show up here.</p>
+            <h2 className="text-xl font-semibold text-[#0f2640]">No notifications yet</h2>
+            <p className="mt-2 text-[#6b7280]">Updates about requests, messages, and reviews will appear here.</p>
           </div>
         ) : (
           <div className="mt-8 space-y-8">
             <section className="rounded-[28px] border border-[#ffd7be] bg-[#fffaf6] p-5 sm:p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct Requests</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct asks</h2>
                   <p className="mt-1 text-sm leading-6 text-[#6b7280]">
-                    Personal invites from pet owners. These stay separate from community browsing.
+                    Pet owners sent these requests only to you.
                   </p>
                 </div>
                 <span className="inline-flex self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-[#ff7a2d] shadow-sm">
-                  {directRequestNotifications.length} alert{directRequestNotifications.length === 1 ? '' : 's'}
+                  {directRequestNotifications.length} update{directRequestNotifications.length === 1 ? '' : 's'}
                 </span>
               </div>
 
               <div className="mt-5 space-y-4">
                 {directRequestNotifications.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#ffd7be] bg-white/80 p-5 text-sm text-[#6b7280]">
-                    No direct request alerts right now.
+                    No direct asks right now.
                   </div>
                 ) : (
                   directRequestNotifications.map((notification) => (
@@ -268,7 +268,7 @@ export default function NotificationsPage() {
                 <div>
                   <h2 className="text-2xl font-bold text-[#0f2640]">Other Activity</h2>
                   <p className="mt-1 text-sm leading-6 text-[#6b7280]">
-                    Applications, completion updates, reviews, and message-related notifications.
+                    Offers, finished care, reviews, and messages.
                   </p>
                 </div>
                 <span className="inline-flex self-start rounded-full bg-[#f4f7fb] px-3 py-1 text-sm font-semibold text-[#0f2640]">

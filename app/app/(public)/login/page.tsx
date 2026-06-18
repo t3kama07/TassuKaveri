@@ -29,7 +29,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to login: ' + message);
+      setError('We could not log you in. Please check your email and password, then try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -37,7 +37,8 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-14 sm:px-6">
-      <h1 className="mb-8 text-4xl font-bold text-[#0f2640] sm:text-[2.75rem]">Login</h1>
+      <h1 className="mb-2 text-4xl font-bold text-[#0f2640] sm:text-[2.75rem]">Log in</h1>
+      <p className="mb-8 text-[#6b7280]">Continue to your pet-care requests, messages, and credits.</p>
       
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
@@ -77,7 +78,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full rounded-lg bg-[#ff7a2d] px-4 py-3.5 text-[1.05rem] font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Logging in...' : 'Log in'}
         </button>
       </form>
 

@@ -84,7 +84,7 @@ export default function SittersPage() {
         setSitters(results);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('Failed to load sitters: ' + message);
+        setError('We could not load sitters right now. Please try again. ' + message);
       } finally {
         setLoading(false);
       }
@@ -107,7 +107,7 @@ export default function SittersPage() {
       const hasStart = nextRequestedStartAt.trim().length > 0;
       const hasEnd = nextRequestedEndAt.trim().length > 0;
       if (hasStart !== hasEnd) {
-        throw new Error('Choose both start and end dates to filter by availability');
+        throw new Error('Choose both start and end times.');
       }
 
       let parsedRequestedStartAt: Date | undefined;
@@ -121,11 +121,11 @@ export default function SittersPage() {
           Number.isNaN(parsedRequestedStartAt.getTime()) ||
           Number.isNaN(parsedRequestedEndAt.getTime())
         ) {
-          throw new Error('Please enter valid dates for availability filtering');
+          throw new Error('Please enter valid dates and times.');
         }
 
         if (parsedRequestedEndAt.getTime() <= parsedRequestedStartAt.getTime()) {
-          throw new Error('Availability end date must be after the start date');
+          throw new Error('The end time must be after the start time.');
         }
       }
 
@@ -144,7 +144,7 @@ export default function SittersPage() {
       setSitters(results);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to search sitters: ' + message);
+      setError('We could not search sitters right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -165,7 +165,7 @@ export default function SittersPage() {
 
   async function handleReportSitter(sitterId: string) {
     if (!user) return;
-    const reason = prompt('Report reason:');
+    const reason = prompt('Tell us what feels wrong with this profile:');
     if (!reason || !reason.trim()) {
       return;
     }
@@ -174,7 +174,7 @@ export default function SittersPage() {
       await reportUser(user.uid, sitterId, reason);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to report sitter: ' + message);
+      setError('We could not send this report right now. Please try again. ' + message);
     }
   }
 
@@ -182,9 +182,9 @@ export default function SittersPage() {
     <ProtectedRoute>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Find Sitters</h1>
+          <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Find a sitter</h1>
           <p className="text-[#6b7280]">
-            Browse sitters near your location. Detailed availability stays private until you contact a sitter.
+            Find someone nearby who can care for your pet. Results may depend on the sitter&apos;s saved times.
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Need Care From</label>
+              <label className="block text-sm font-medium text-[#0f2640] mb-1">Care starts</label>
               <input
                 type="datetime-local"
                 value={requestedStartAt}
@@ -215,7 +215,7 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Need Care Until</label>
+              <label className="block text-sm font-medium text-[#0f2640] mb-1">Care ends</label>
               <input
                 type="datetime-local"
                 value={requestedEndAt}
@@ -224,7 +224,7 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Within (km)</label>
+              <label className="block text-sm font-medium text-[#0f2640] mb-1">Distance (km)</label>
               <input
                 type="number"
                 min="1"
@@ -278,7 +278,7 @@ export default function SittersPage() {
                   checked={useDistance}
                   onChange={(e) => setUseDistance(e.target.checked)}
                 />
-                Use distance filter
+                Use distance
               </label>
             </div>
             <div className="flex items-end">
@@ -287,7 +287,7 @@ export default function SittersPage() {
                   onClick={() => runSearch()}
                   className="flex-1 px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm"
                 >
-                  Find Sitters
+                  Find sitters
                 </button>
                 <button
                   onClick={() => {
@@ -297,13 +297,16 @@ export default function SittersPage() {
                   }}
                   className="px-4 py-2 border border-gray-300 text-[#0f2640] rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
                 >
-                  Browse All
+                  Browse all
                 </button>
               </div>
             </div>
           </div>
           <p className="text-xs text-[#6b7280] mt-3">
-            Leave the date fields empty if you just want to browse all sitters who are open for bookings.
+            Choose the date and time you need help. Leave them empty to browse all sitters.
+          </p>
+          <p className="text-xs text-[#6b7280] mt-1">
+            Distance is based on your saved location. Some sitters may not have full times listed yet.
           </p>
           <p className="text-sm text-[#0f2640] mt-3">
             {requestedWindowLabel
@@ -320,8 +323,8 @@ export default function SittersPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-[#6b7280]">
               {requestedWindowLabel
-                ? 'No sitters are open for bookings with these filters right now. Try widening the time range or tap Browse All.'
-                : 'No available sitters found for this filter.'}
+                ? 'No sitters found for this search. Try changing the date, city, or distance.'
+                : 'No sitters found for this search. Try changing the city or distance.'}
             </p>
           </div>
         ) : (
@@ -333,7 +336,9 @@ export default function SittersPage() {
                 {entry.distanceKm !== undefined && (
                   <p className="text-xs text-[#6b7280] mt-1">{entry.distanceKm.toFixed(1)} km away</p>
                 )}
-                <p className="text-xs text-[#6b7280] mt-1">Match score: {entry.matchScore}</p>
+                <p className="text-xs text-[#6b7280] mt-1">
+                  {entry.matchScore >= 80 ? 'Strong match' : 'Possible match'}
+                </p>
 
                 <div className="flex flex-wrap gap-2 mt-3 mb-3">
                   <span className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700">Open for bookings</span>
@@ -342,14 +347,14 @@ export default function SittersPage() {
                       entry.profile.phoneVerified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {entry.profile.phoneVerified ? 'Phone Verified' : 'Phone Not Verified'}
+                    {entry.profile.phoneVerified ? 'Phone verified' : 'Phone not verified'}
                   </span>
                   <span
                     className={`px-2 py-1 text-xs rounded ${
                       entry.profileCompleted ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {entry.profileCompleted ? 'Profile Completed' : 'Profile Incomplete'}
+                    {entry.profileCompleted ? 'Profile complete' : 'Profile needs details'}
                   </span>
                 </div>
 
@@ -387,13 +392,13 @@ export default function SittersPage() {
                     href={`/sitters/${entry.profile.uid}`}
                     className="px-3 py-1 text-sm rounded bg-[#ff7a2d] text-white hover:bg-[#e66a1f]"
                   >
-                    View Profile
+                    View profile
                   </Link>
                   <button
                     onClick={() => toggleFavorite(entry.profile.uid)}
                     className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
                   >
-                    {favoriteSitterIds.includes(entry.profile.uid) ? 'Remove Favorite' : 'Add Favorite'}
+                    {favoriteSitterIds.includes(entry.profile.uid) ? 'Saved' : 'Save sitter'}
                   </button>
                   <button
                     onClick={() => handleReportSitter(entry.profile.uid)}

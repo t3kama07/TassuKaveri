@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
       setEmail('');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to send reset email: ' + message);
+      setError('We could not send the reset email right now. Please check the email address and try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
       <p className="mt-5 text-center text-[1.02rem] text-[#6b7280]">
         Remembered it?{' '}
         <Link href="/login" className="text-[#ff7a2d] hover:underline">
-          Back to login
+          Back to log in
         </Link>
       </p>
     </main>

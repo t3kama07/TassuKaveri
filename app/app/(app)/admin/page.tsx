@@ -52,7 +52,7 @@ export default function AdminPage() {
       setSuspicious(suspiciousActivity);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load admin data: ' + message);
+      setError('We could not load admin tools right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export default function AdminPage() {
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to freeze account: ' + message);
+      setError('We could not freeze this account right now. Please try again. ' + message);
     }
   }
 
@@ -86,7 +86,7 @@ export default function AdminPage() {
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to remove review: ' + message);
+      setError('We could not remove this review right now. Please try again. ' + message);
     }
   }
 
@@ -112,7 +112,10 @@ export default function AdminPage() {
           </div>
         ) : !isAdmin ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">Admin access required.</p>
+            <p className="text-[#0f2640] font-semibold">This page is only for admins.</p>
+            <p className="mt-2 text-sm text-[#6b7280]">
+              If you need help, please contact support.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">

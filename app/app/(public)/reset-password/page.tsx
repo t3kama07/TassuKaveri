@@ -46,7 +46,7 @@ function ResetPasswordForm() {
       } catch (err: unknown) {
         if (active) {
           const message = err instanceof Error ? err.message : 'Unknown error';
-          setError('Failed to open password reset session: ' + message);
+          setError('We could not open this reset link. Please request a new password reset email. ' + message);
         }
       } finally {
         if (active) {
@@ -84,7 +84,7 @@ function ResetPasswordForm() {
       }, 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to update password: ' + message);
+      setError('We could not update your password right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ function ResetPasswordForm() {
     <main className="mx-auto max-w-lg px-4 py-14 sm:px-6">
       <h1 className="mb-4 text-4xl font-bold text-[#0f2640] sm:text-[2.75rem]">Choose a new password</h1>
       <p className="mb-8 text-[1.02rem] leading-7 text-[#6b7280]">
-        Use at least 6 characters. After saving, you&apos;ll return to login.
+        Use at least 6 characters. After saving, you&apos;ll return to log in.
       </p>
 
       {error && (

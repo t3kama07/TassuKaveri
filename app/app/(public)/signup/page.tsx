@@ -32,7 +32,7 @@ export default function SignupPage() {
     const trimmedLocation = location.trim();
 
     if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+      return setError('The passwords do not match.');
     }
 
     setLoading(true);
@@ -52,7 +52,7 @@ export default function SignupPage() {
       router.push('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to create account: ' + message);
+      setError('We could not create your account right now. Please check the fields and try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,10 @@ export default function SignupPage() {
 
   return (
     <main className="max-w-md mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-[#0f2640] mb-6">Sign Up</h1>
+      <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Create your account</h1>
+      <p className="mb-6 text-[#6b7280]">
+        Start by adding your basic details. You can add pets and sitter times after sign-up.
+      </p>
       
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
@@ -99,7 +102,7 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Location (City)
+              City
             </label>
             <input
               type="text"
@@ -141,7 +144,7 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Confirm Password
+              Confirm password
             </label>
             <input
               type="password"
@@ -158,7 +161,7 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Sign Up'}
+            {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
       )}
@@ -166,7 +169,7 @@ export default function SignupPage() {
       <p className="mt-4 text-center text-[#6b7280]">
         Already have an account?{' '}
         <Link href="/login" className="text-[#ff7a2d] hover:underline">
-          Login
+          Log in
         </Link>
       </p>
     </main>

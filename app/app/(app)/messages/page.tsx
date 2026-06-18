@@ -67,7 +67,7 @@ function MessagesPageContent() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load conversations: ' + message);
+      setError('We could not load your messages right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ function MessagesPageContent() {
       await loadConversations();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to send message: ' + message);
+      setError('We could not send this message right now. Please try again. ' + message);
     } finally {
       setSending(false);
     }
@@ -171,7 +171,12 @@ function MessagesPageContent() {
     <ProtectedRoute>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-[#0f2640]">Messages</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-[#0f2640]">Messages</h1>
+            <p className="mt-2 text-sm text-[#6b7280]">
+              Chat opens after a pet-care request is accepted.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -192,7 +197,10 @@ function MessagesPageContent() {
         ) : conversations.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-[#6b7280]">
-              No conversations yet. Conversations start when applications are created.
+              No messages yet.
+            </p>
+            <p className="mt-2 text-sm text-[#6b7280]">
+              Messages will appear after a pet-care request is accepted.
             </p>
           </div>
         ) : (
@@ -232,7 +240,7 @@ function MessagesPageContent() {
 
                   <div className="flex-1 overflow-y-auto space-y-2 mb-3">
                     {messages.length === 0 ? (
-                      <p className="text-[#6b7280] text-sm">No messages yet.</p>
+                      <p className="text-[#6b7280] text-sm">No messages yet. Say hello when you are ready.</p>
                     ) : (
                       messages.map((message) => {
                         const mine = message.senderId === user?.uid;

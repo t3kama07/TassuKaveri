@@ -44,8 +44,9 @@ export default function PetsPage() {
       setLoading(true);
       const userPets = await getUserPets(user.uid);
       setPets(userPets);
-    } catch (err: any) {
-      setError('Failed to load pets: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('We could not load your pets right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -131,17 +132,18 @@ export default function PetsPage() {
 
       if (editingPet) {
         await updatePet(user.uid, editingPet.id, petData);
-        setSuccess('Pet updated successfully');
+        setSuccess('Pet saved.');
       } else {
         await createPet(user.uid, petData);
-        setSuccess('Pet added successfully');
+        setSuccess('Pet added.');
       }
 
       setShowForm(false);
       setEditingPet(null);
       await loadPets();
-    } catch (err: any) {
-      setError('Failed to save pet: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('We could not save this pet right now. Please check the fields and try again. ' + message);
     } finally {
       setSaving(false);
     }
@@ -149,17 +151,18 @@ export default function PetsPage() {
 
   async function handleDelete(pet: Pet) {
     if (!user) return;
-    if (!confirm(`Are you sure you want to delete ${pet.name}?`)) return;
+    if (!confirm(`Delete ${pet.name}? You will need to add this pet again before asking for care.`)) return;
 
     setError('');
     setSuccess('');
 
     try {
       await deletePet(user.uid, pet.id);
-      setSuccess(`${pet.name} deleted successfully`);
+      setSuccess(`${pet.name} deleted.`);
       await loadPets();
-    } catch (err: any) {
-      setError('Failed to delete pet: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError('We could not delete this pet right now. Please try again. ' + message);
     }
   }
 
@@ -173,7 +176,7 @@ export default function PetsPage() {
               onClick={handleAddNew}
               className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
             >
-              Add Pet
+              {pets.length === 0 ? 'Add your first pet' : 'Add pet'}
             </button>
           )}
         </div>
@@ -193,12 +196,15 @@ export default function PetsPage() {
         {showForm ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-xl font-bold text-[#0f2640] mb-4">
-              {editingPet ? 'Edit Pet' : 'Add New Pet'}
+              {editingPet ? 'Edit pet' : 'Add your pet'}
             </h2>
+            <p className="mb-4 text-sm text-[#6b7280]">
+              Add clear care details so sitters know how to help safely.
+            </p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Name
+                  Pet name
                 </label>
                 <input
                   type="text"
@@ -211,7 +217,7 @@ export default function PetsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Type
+                  Pet type
                 </label>
                 <select
                   value={type}
@@ -269,14 +275,14 @@ export default function PetsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Notes
+                  Notes for the sitter
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  placeholder="Any special care instructions, temperament, etc."
+                  placeholder="Food, routine, behavior, or anything important."
                 />
               </div>
 
@@ -309,7 +315,7 @@ export default function PetsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Vaccination Status
+                  Vaccination status
                 </label>
                 <input
                   type="text"
@@ -357,7 +363,7 @@ export default function PetsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Special Care Instructions
+                  Special care instructions
                 </label>
                 <textarea
                   value={specialCareInstructions}
@@ -370,7 +376,7 @@ export default function PetsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Emergency Vet Contact
+                  Emergency vet contact
                 </label>
                 <input
                   type="text"
@@ -387,7 +393,7 @@ export default function PetsPage() {
                   disabled={saving}
                   className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingPet ? 'Update Pet' : 'Add Pet'}
+                  {saving ? 'Saving...' : editingPet ? 'Save pet' : 'Add pet'}
                 </button>
                 <button
                   type="button"
@@ -408,7 +414,13 @@ export default function PetsPage() {
           </div>
         ) : pets.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">No pets yet. Click "Add Pet" to get started.</p>
+            <p className="text-[#6b7280]">You have not added any pets yet.</p>
+            <button
+              onClick={handleAddNew}
+              className="mt-4 px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium"
+            >
+              Add your first pet
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -68,7 +68,7 @@ export default function SitterProfilePage() {
         }
 
         if (!publicProfile) {
-          setError('This sitter profile is not available.');
+          setError('This sitter profile is not available right now.');
           setProfile(null);
           setConversation(null);
           return;
@@ -97,7 +97,7 @@ export default function SitterProfilePage() {
           return;
         }
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('Failed to load sitter profile: ' + message);
+        setError('We could not load this sitter profile right now. Please try again. ' + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -168,7 +168,7 @@ export default function SitterProfilePage() {
                         href={createRequestHref}
                         className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                       >
-                        Create Request
+                        Ask this sitter
                       </Link>
                     )}
 
@@ -177,7 +177,7 @@ export default function SitterProfilePage() {
                         href={messageHref}
                         className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
                       >
-                        Open Messages
+                        Open messages
                       </Link>
                     )}
 
@@ -188,14 +188,14 @@ export default function SitterProfilePage() {
                         className="cursor-not-allowed rounded-full border border-[#e0e7ef] bg-white px-5 py-3 text-sm font-semibold text-[#9aa6b2]"
                         title="Messages open after your first request or application."
                       >
-                        Message
+                        Messages open after acceptance
                       </button>
                     )}
                   </div>
 
                   {!isOwnProfile && !conversation && (
                     <p className="mt-3 text-sm text-[#6b7280]">
-                      Messages open after your first request or once a conversation already exists.
+                      Chat opens after a pet-care request is accepted.
                     </p>
                   )}
                 </div>
@@ -213,21 +213,21 @@ export default function SitterProfilePage() {
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Trust Score</p>
+                    <p className="text-sm text-[#6b7280]">Trust level</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.phoneVerified ? 'Phone verified' : 'Phone not verified'}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
-                    <p className="text-sm text-[#6b7280]">Next Open Time</p>
+                    <p className="text-sm text-[#6b7280]">Next time they can help</p>
                     <p className="mt-2 text-lg font-semibold text-[#0f2640]">
                       {formatDateTimeRange(profile.nextAvailableStartAt, profile.nextAvailableEndAt)}
                     </p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.hasDetailedAvailability
-                        ? 'This sitter has shared a public availability summary.'
-                        : 'Detailed time slots are private until you connect.'}
+                        ? 'This sitter has shared a public time summary.'
+                        : 'Some sitters do not list all times. You can ask directly.'}
                     </p>
                   </div>
                 </div>
@@ -299,8 +299,7 @@ export default function SitterProfilePage() {
                 <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
                   <p className="text-sm font-semibold text-[#0f2640]">Best next step</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    Create a request for your pet and dates first. If you already have a shared
-                    conversation with this sitter, you can also continue in Messages.
+                    Ask this sitter for your pet and dates. Chat opens after the request is accepted.
                   </p>
                 </div>
               </div>

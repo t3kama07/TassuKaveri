@@ -159,7 +159,7 @@ function RequestsPageContent() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to load data: ' + message);
+      setError('We could not load your requests right now. Please try again. ' + message);
     } finally {
       setLoading(false);
     }
@@ -212,7 +212,7 @@ function RequestsPageContent() {
 
   function handleEdit(request: Request) {
     if (request.status !== 'open') {
-      setError('Can only edit open requests');
+      setError('You can only edit requests that are still open.');
       return;
     }
 
@@ -256,7 +256,7 @@ function RequestsPageContent() {
       const parsedEndDate = parseFormDateTime(endDate, endTime);
 
       if (!parsedStartDate || !parsedEndDate) {
-        throw new Error('Choose valid start and end dates with times.');
+        throw new Error('Please choose a start and end date with times.');
       }
 
       const autoCalculatedCredits = calculateCreditsForRequestWindow(parsedStartDate, parsedEndDate);
@@ -281,10 +281,10 @@ function RequestsPageContent() {
 
       if (editingRequest) {
         await updateRequest(user.uid, editingRequest.id, requestData);
-        setSuccess('Request updated successfully');
+        setSuccess('Pet-care request updated.');
       } else {
         await createRequest(user.uid, requestData);
-        setSuccess('Request created successfully');
+        setSuccess('Pet-care request sent.');
       }
 
       setShowForm(false);
@@ -293,7 +293,7 @@ function RequestsPageContent() {
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to save request: ' + message);
+      setError('We could not save this request right now. Please check the fields and try again. ' + message);
     } finally {
       setSaving(false);
     }
@@ -301,41 +301,41 @@ function RequestsPageContent() {
 
   async function handleCancelRequest(request: Request) {
     if (!user) return;
-    if (!confirm(`Are you sure you want to cancel this request?`)) return;
+    if (!confirm('Cancel this pet-care request? Sitters will no longer see it.')) return;
 
     setError('');
     setSuccess('');
 
     try {
       await cancelRequest(user.uid, request.id);
-      setSuccess('Request cancelled successfully');
+      setSuccess('Pet-care request cancelled.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to cancel request: ' + message);
+      setError('We could not cancel this request right now. Please try again. ' + message);
     }
   }
 
   async function handleDelete(request: Request) {
     if (!user) return;
-    if (!confirm(`Are you sure you want to delete this request?`)) return;
+    if (!confirm('Delete this pet-care request? This cannot be undone.')) return;
 
     setError('');
     setSuccess('');
 
     try {
       await deleteRequest(user.uid, request.id);
-      setSuccess('Request deleted successfully');
+      setSuccess('Pet-care request deleted.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to delete request: ' + message);
+      setError('We could not delete this request right now. Please try again. ' + message);
     }
   }
 
   async function handleMarkAwaitingConfirmation(request: Request) {
     if (!user) return;
-    if (!confirm(`Mark this job as completed? The owner will need to confirm before credits are released.`)) return;
+    if (!confirm('Mark this pet care as finished? The owner must confirm before you receive the credits.')) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -343,11 +343,11 @@ function RequestsPageContent() {
 
     try {
       await markAwaitingConfirmation(request.ownerId, request.id, user.uid);
-      setSuccess('Job marked as completed! Waiting for owner confirmation.');
+      setSuccess('Marked as finished. Waiting for the owner to confirm.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to mark as completed: ' + message);
+      setError('We could not mark this care as finished. Please try again. ' + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -355,7 +355,7 @@ function RequestsPageContent() {
 
   async function handleConfirmCompletion(request: Request) {
     if (!user) return;
-    if (!confirm(`Confirm that the job is completed? Credits will be released to the sitter.`)) return;
+    if (!confirm('Confirm the care is finished? The sitter will receive the reserved credits.')) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -363,11 +363,11 @@ function RequestsPageContent() {
 
     try {
       await confirmCompletion(request.ownerId, request.id);
-      setSuccess('Request completed! Credits have been released to the sitter.');
+      setSuccess('Care confirmed. The sitter received the credits.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to confirm completion: ' + message);
+      setError('We could not confirm this care right now. Please try again. ' + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -375,7 +375,7 @@ function RequestsPageContent() {
 
   async function handleCancelAcceptedRequest(request: Request) {
     if (!user) return;
-    if (!confirm(`Cancel this accepted request? Credits will be refunded to the owner.`)) return;
+    if (!confirm('Cancel this accepted pet care? The reserved credits will be returned to the owner.')) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -383,11 +383,11 @@ function RequestsPageContent() {
 
     try {
       await cancelAcceptedRequest(request.ownerId, request.id, user.uid);
-      setSuccess('Request cancelled successfully! Credits have been refunded to the owner.');
+      setSuccess('Pet care cancelled. The reserved credits were returned to the owner.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to cancel request: ' + message);
+      setError('We could not cancel this pet care right now. Please try again. ' + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -395,7 +395,7 @@ function RequestsPageContent() {
 
   async function handleAcceptApplicant(request: Request, application: RequestApplication) {
     if (!user) return;
-    if (!confirm(`Accept ${application.sitterName} for this request?`)) return;
+    if (!confirm(`Choose ${application.sitterName} as the sitter? Credits will be reserved until the care is finished or cancelled.`)) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -403,11 +403,11 @@ function RequestsPageContent() {
 
     try {
       await acceptApplication(request.ownerId, request.id, application.sitterId);
-      setSuccess(`Accepted ${application.sitterName}. Credits moved to escrow.`);
+      setSuccess(`Accepted ${application.sitterName}. The credits are reserved until the care is finished or cancelled.`);
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to accept applicant: ' + message);
+      setError('We could not accept this sitter right now. Please try again. ' + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -430,11 +430,11 @@ function RequestsPageContent() {
 
     try {
       await submitReview(request.ownerId, request.id, rating, comment);
-      setSuccess('Review submitted successfully.');
+      setSuccess('Review sent. Thank you for helping the community.');
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to submit review: ' + message);
+      setError('We could not send your review right now. Please try again. ' + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -447,7 +447,7 @@ function RequestsPageContent() {
 
   async function handleApply(request: Request) {
     if (!user) return;
-    if (!confirm(`Apply for ${request.petNames.join(', ')} (${request.creditsOffered} credits)?`)) {
+    if (!confirm(`Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits?`)) {
       return;
     }
 
@@ -462,11 +462,11 @@ function RequestsPageContent() {
         user.uid,
         applicationMessages[request.id] || ''
       );
-      setSuccess(`Application submitted for ${request.petNames.join(', ')}.`);
+      setSuccess(`Offer sent for ${request.petNames.join(', ')}.`);
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to apply: ' + message);
+      setError('We could not send your offer right now. Please try again. ' + message);
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -474,7 +474,7 @@ function RequestsPageContent() {
 
   async function handleAcceptDirectRequest(request: Request) {
     if (!user) return;
-    if (!confirm(`Accept this direct request for ${request.petNames.join(', ')}?`)) {
+    if (!confirm(`Accept this direct pet-care request for ${request.petNames.join(', ')}?`)) {
       return;
     }
 
@@ -484,11 +484,11 @@ function RequestsPageContent() {
 
     try {
       await acceptRequest(request.ownerId, request.id, user.uid);
-      setSuccess(`Direct request accepted for ${request.petNames.join(', ')}.`);
+      setSuccess(`Direct pet-care request accepted for ${request.petNames.join(', ')}.`);
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to accept direct request: ' + message);
+      setError('We could not accept this direct request right now. Please try again. ' + message);
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -496,7 +496,7 @@ function RequestsPageContent() {
 
   async function handleWithdraw(request: Request) {
     if (!user) return;
-    if (!confirm('Withdraw your application?')) {
+    if (!confirm('Withdraw your offer to help?')) {
       return;
     }
 
@@ -506,11 +506,11 @@ function RequestsPageContent() {
 
     try {
       await withdrawApplication(request.ownerId, request.id, user.uid);
-      setSuccess(`Application withdrawn for ${request.petNames.join(', ')}.`);
+      setSuccess(`Offer withdrawn for ${request.petNames.join(', ')}.`);
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to withdraw application: ' + message);
+      setError('We could not withdraw your offer right now. Please try again. ' + message);
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -518,17 +518,17 @@ function RequestsPageContent() {
 
   async function handleReportCommunityRequest(request: Request) {
     if (!user) return;
-    const reason = prompt('Report reason:');
+    const reason = prompt('Tell us what feels wrong with this request:');
     if (!reason || !reason.trim()) {
       return;
     }
 
     try {
       await reportRequest(user.uid, request.ownerId, request.id, reason);
-      setSuccess('Request reported. Admin will review it.');
+      setSuccess('Request reported. An admin will review it.');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to report request: ' + message);
+      setError('We could not send this report right now. Please try again. ' + message);
     }
   }
 
@@ -562,7 +562,7 @@ function RequestsPageContent() {
       case 'accepted':
         return 'Accepted';
       case 'awaiting_confirmation':
-        return 'Awaiting confirmation';
+        return 'Waiting for owner';
       case 'completed':
         return 'Completed';
       case 'cancelled':
@@ -574,10 +574,10 @@ function RequestsPageContent() {
 
   function getCareTypeLabel(careType: string): string {
     const labels: Record<string, string> = {
-      'daily-visit': 'Daily Visit',
-      overnight: 'Overnight Stay',
+      'daily-visit': 'Visit at home',
+      overnight: 'Overnight care',
       boarding: 'Boarding',
-      walking: 'Dog Walking',
+      walking: 'Dog walk',
     };
     return labels[careType] || careType;
   }
@@ -632,10 +632,10 @@ function RequestsPageContent() {
                 Exchange
               </p>
               <h1 className="mt-3 text-3xl font-bold text-[#0f2640] sm:text-4xl">
-                Manage requests and sitter jobs in one place
+                Ask for pet care or offer to help
               </h1>
               <p className="mt-3 max-w-3xl text-[#516173]">
-                Create your own requests, browse community needs, and track the sits you are helping with.
+                Keep your pet-care requests, direct invites, and sitter jobs in one place.
               </p>
             </div>
 
@@ -644,30 +644,30 @@ function RequestsPageContent() {
                 onClick={handleAddNew}
                 className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
               >
-                Create Request
+                Ask for pet care
               </button>
             )}
           </div>
 
           <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">My Requests</p>
+              <p className="text-sm text-[#6b7280]">My pet-care requests</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{requests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Direct Requests</p>
+              <p className="text-sm text-[#6b7280]">Direct asks</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{directRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Community Requests</p>
+              <p className="text-sm text-[#6b7280]">Open requests</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{communityRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">My Sits</p>
+              <p className="text-sm text-[#6b7280]">Care I give</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{sitterJobs.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Pets Ready</p>
+              <p className="text-sm text-[#6b7280]">Pets added</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{pets.length}</p>
             </div>
           </div>
@@ -682,7 +682,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            My Requests
+            My requests
           </button>
           <button
             onClick={() => selectTab('direct-requests')}
@@ -692,7 +692,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Direct Requests
+            Direct asks
           </button>
           <button
             onClick={() => selectTab('community')}
@@ -702,7 +702,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Community Requests
+            Open requests
           </button>
           <button
             onClick={() => selectTab('my-sits')}
@@ -712,7 +712,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            My Sits
+            Care I give
           </button>
         </div>
 
@@ -730,31 +730,31 @@ function RequestsPageContent() {
 
         {activeTab === 'my-requests' && pets.length === 0 && !loading && !showForm && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
-            You need to add pets before creating requests. Go to the Pets page first.
+            Add your pet before you ask for pet care.
           </div>
         )}
 
         {activeTab === 'my-requests' && showForm ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-xl font-bold text-[#0f2640] mb-4">
-              {editingRequest ? 'Edit Request' : 'Create New Request'}
+              {editingRequest ? 'Edit pet-care request' : 'Ask for pet care'}
             </h2>
             {!editingRequest && requestedSitterId && requestedSitterName && (
               <div className="mb-4 rounded-2xl border border-[#ffd7bf] bg-[#fff7ef] p-4">
                 <p className="text-sm font-semibold text-[#0f2640]">
-                  Creating a request for {requestedSitterName}
+                  Asking {requestedSitterName} directly
                 </p>
                 <p className="mt-1 text-sm text-[#516173]">
-                  Fill in your pet details and dates here. Once the request is created, you can
-                  continue from Exchange and Messages if a conversation already exists.
+                  Direct requests are sent to one sitter only. Chat opens after the request is accepted.
                 </p>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-2">
-                  Select Pet(s)
+                  Pet that needs care
                 </label>
+                <p className="mb-2 text-sm text-[#6b7280]">Choose the pet that needs care.</p>
                 {pets.length > 0 ? (
                   <div className="space-y-2">
                     {pets.map((pet) => (
@@ -774,12 +774,12 @@ function RequestsPageContent() {
                 ) : (
                   <>
                     <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed">
-                      No pets available
+                      You have not added any pets yet.
                     </div>
                     <div className="mt-3 flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex-1">
                         <p className="text-sm text-blue-800 font-medium">
-                          You need to add at least one pet before creating a request.
+                          Add your first pet before you ask for care.
                         </p>
                       </div>
                       <button
@@ -787,7 +787,7 @@ function RequestsPageContent() {
                         onClick={() => router.push('/pets')}
                         className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm whitespace-nowrap"
                       >
-                        + Add a Pet
+                        Add your first pet
                       </button>
                     </div>
                   </>
@@ -796,8 +796,9 @@ function RequestsPageContent() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Care Type
+                  Type of care
                 </label>
+                <p className="mb-2 text-sm text-[#6b7280]">Choose what kind of help your pet needs.</p>
                 <select
                   value={careType}
                   onChange={(e) => setCareType(e.target.value as CareType)}
@@ -813,7 +814,7 @@ function RequestsPageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Start Date
+                    Start date
                   </label>
                   <input
                     type="date"
@@ -825,7 +826,7 @@ function RequestsPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Start Time
+                    Start time
                   </label>
                   <input
                     type="time"
@@ -840,7 +841,7 @@ function RequestsPageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    End Date
+                    End date
                   </label>
                   <input
                     type="date"
@@ -852,7 +853,7 @@ function RequestsPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    End Time
+                    End time
                   </label>
                   <input
                     type="time"
@@ -866,8 +867,9 @@ function RequestsPageContent() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Location (City)
+                  Location
                 </label>
+                <p className="mb-2 text-sm text-[#6b7280]">Add the city or area where the care is needed.</p>
                 <input
                   type="text"
                   value={location}
@@ -881,9 +883,9 @@ function RequestsPageContent() {
               <div className="rounded-2xl border border-[#ffd7be] bg-[#fff8f2] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-sm font-medium text-[#0f2640]">Credits</p>
+                    <p className="text-sm font-medium text-[#0f2640]">Credit cost</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      Filled automatically using the rule: 1 hour = 1 credit.
+                      Credits are used instead of money. You spend credits when someone cares for your pet.
                     </p>
                   </div>
                   <div className="sm:text-right">
@@ -901,21 +903,21 @@ function RequestsPageContent() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Notes (optional)
+                  Notes for the sitter
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  placeholder="Any special instructions or requirements..."
+                  placeholder="Feeding, walking, medicine, behavior, or anything important."
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Feeding Schedule
+                    Feeding
                   </label>
                   <textarea
                     value={feedingSchedule}
@@ -927,7 +929,7 @@ function RequestsPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Walk Schedule
+                    Walks
                   </label>
                   <textarea
                     value={walkSchedule}
@@ -939,7 +941,7 @@ function RequestsPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Medication Instructions
+                    Medicine
                   </label>
                   <textarea
                     value={medicationInstructions}
@@ -951,7 +953,7 @@ function RequestsPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Sleep Instructions
+                    Sleep
                   </label>
                   <textarea
                     value={sleepInstructions}
@@ -965,14 +967,14 @@ function RequestsPageContent() {
 
               <div>
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Special Warnings
+                  Important warnings
                 </label>
                 <textarea
                   value={specialWarnings}
                   onChange={(e) => setSpecialWarnings(e.target.value)}
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  placeholder="Anything critical to avoid or monitor"
+                  placeholder="Anything the sitter must avoid or watch closely"
                 />
               </div>
 
@@ -982,7 +984,7 @@ function RequestsPageContent() {
                   disabled={saving || pets.length === 0}
                   className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingRequest ? 'Update Request' : 'Create Request'}
+                  {saving ? 'Saving...' : editingRequest ? 'Update request' : 'Ask for pet care'}
                 </button>
                 <button
                   type="button"
@@ -1005,11 +1007,11 @@ function RequestsPageContent() {
           <>
             {activeTab === 'my-requests' && (
               <div className="mb-8">
-              <h2 className="text-2xl font-bold text-[#0f2640] mb-4">My Requests</h2>
+              <h2 className="text-2xl font-bold text-[#0f2640] mb-4">My pet-care requests</h2>
               {requests.length === 0 ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <p className="text-[#6b7280]">
-                    No requests yet. {pets.length > 0 ? 'Tap "Create Request" to get started.' : 'Add pets first.'}
+                    You have not asked for pet care yet. {pets.length > 0 ? 'Use "Ask for pet care" to start.' : 'Add your first pet first.'}
                   </p>
                 </div>
               ) : (
@@ -1032,17 +1034,17 @@ function RequestsPageContent() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
                           {request.status === 'accepted' && (
-                            <p className="text-xs text-[#6b7280]">(In escrow)</p>
+                            <p className="text-xs text-[#6b7280]">Reserved until care is finished or cancelled</p>
                           )}
                           {request.status === 'awaiting_confirmation' && (
-                            <p className="text-xs text-[#6b7280]">(In escrow)</p>
+                            <p className="text-xs text-[#6b7280]">Reserved until you confirm the care is finished</p>
                           )}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                         <div>
-                          <p className="text-[#6b7280]">Care Type:</p>
+                          <p className="text-[#6b7280]">Care type:</p>
                           <p className="text-[#0f2640] font-medium">
                             {getCareTypeLabel(request.careType)}
                           </p>
@@ -1052,13 +1054,13 @@ function RequestsPageContent() {
                           <p className="text-[#0f2640] font-medium">{request.location}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Start Date:</p>
+                          <p className="text-[#6b7280]">Starts:</p>
                           <p className="text-[#0f2640] font-medium">
                             {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">End Date:</p>
+                          <p className="text-[#6b7280]">Ends:</p>
                           <p className="text-[#0f2640] font-medium">
                             {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
@@ -1124,7 +1126,7 @@ function RequestsPageContent() {
                           <p className="text-sm text-[#6b7280]">Direct request sent to:</p>
                           <p className="text-sm text-[#0f2640] font-medium">{request.requestedSitterName}</p>
                           <p className="mt-1 text-sm text-[#516173]">
-                            This request is waiting for that sitter to review it from their direct requests tab.
+                            This sitter can see it in Direct asks.
                           </p>
                         </div>
                       )}
@@ -1132,10 +1134,10 @@ function RequestsPageContent() {
                       {request.status === 'open' && request.audience !== 'direct' && (
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg">
                           <p className="text-sm text-[#6b7280] mb-2">
-                            Applicants: {request.applications?.length || 0}
+                            Offers to help: {request.applications?.length || 0}
                           </p>
                           {!request.applications || request.applications.length === 0 ? (
-                            <p className="text-sm text-[#6b7280]">No applications yet.</p>
+                            <p className="text-sm text-[#6b7280]">No offers yet.</p>
                           ) : (
                             <div className="space-y-2">
                               {request.applications.map((application) => (
@@ -1156,7 +1158,7 @@ function RequestsPageContent() {
                                     disabled={actioningRequestId === request.id}
                                     className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    {actioningRequestId === request.id ? 'Processing...' : 'Accept'}
+                                    {actioningRequestId === request.id ? 'Processing...' : 'Choose sitter'}
                                   </button>
                                 </div>
                               ))}
@@ -1212,7 +1214,7 @@ function RequestsPageContent() {
                                 disabled={actioningRequestId === request.id}
                                 className="mt-2 px-3 py-1 text-sm bg-[#ff7a2d] text-white rounded hover:bg-[#e66a1f] transition-colors disabled:opacity-50"
                               >
-                                {actioningRequestId === request.id ? 'Submitting...' : 'Submit Review'}
+                                {actioningRequestId === request.id ? 'Submitting...' : 'Send review'}
                               </button>
                             </>
                           )}
@@ -1243,14 +1245,14 @@ function RequestsPageContent() {
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Confirm Completion'}
+                              {actioningRequestId === request.id ? 'Processing...' : 'Confirm care is finished'}
                             </button>
                             <button
                               onClick={() => handleCancelAcceptedRequest(request)}
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel Request'}
+                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
                             </button>
                           </>
                         )}
@@ -1261,7 +1263,7 @@ function RequestsPageContent() {
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel Request'}
+                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
                             </button>
                           </>
                         )}
@@ -1284,15 +1286,15 @@ function RequestsPageContent() {
             {activeTab === 'direct-requests' && (
               <div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct Requests</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct asks</h2>
                   <p className="mt-2 text-sm text-[#6b7280]">
-                    These requests were sent directly to you from your sitter profile, so they stay separate from the public community queue.
+                    These pet-care requests were sent only to you.
                   </p>
                 </div>
 
                 {directRequests.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                    <p className="text-[#6b7280]">No direct requests right now.</p>
+                    <p className="text-[#6b7280]">No direct asks right now.</p>
                   </div>
                 ) : (
                   <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -1307,7 +1309,7 @@ function RequestsPageContent() {
                             <p className="text-sm text-[#6b7280]">Owner: {request.ownerName}</p>
                           </div>
                           <span className="rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
-                            Direct request
+                            Direct ask
                           </span>
                         </div>
 
@@ -1325,7 +1327,7 @@ function RequestsPageContent() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-[#6b7280]">Credits</p>
+                            <p className="text-[#6b7280]">Credits you earn</p>
                             <p className="font-medium text-[#ff7a2d]">{request.creditsOffered}</p>
                           </div>
                           <div className="col-span-2">
@@ -1346,7 +1348,7 @@ function RequestsPageContent() {
                           disabled={processingCommunityRequestId === request.id}
                           className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                         >
-                          {processingCommunityRequestId === request.id ? 'Processing...' : 'Accept Direct Request'}
+                          {processingCommunityRequestId === request.id ? 'Processing...' : 'Accept direct ask'}
                         </button>
                       </div>
                     ))}
@@ -1398,13 +1400,14 @@ function RequestsPageContent() {
                     </div>
                   </div>
                   <p className="mt-3 text-sm text-[#6b7280]">
-                    These are open requests from other pet owners. Your current sitter availability still controls whether you can apply.
+                    Open requests can be seen by available sitters. Offer to help only when the time works for you.
                   </p>
                 </div>
 
                 {filteredCommunityRequests.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                    <p className="text-[#6b7280]">No matching community requests right now.</p>
+                    <p className="text-[#6b7280]">No open pet-care requests found.</p>
+                    <p className="mt-2 text-sm text-[#6b7280]">Try changing the city or distance.</p>
                   </div>
                 ) : (
                   <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -1440,7 +1443,7 @@ function RequestsPageContent() {
                               </p>
                             </div>
                             <div>
-                              <p className="text-[#6b7280]">Credits</p>
+                              <p className="text-[#6b7280]">Credits you earn</p>
                               <p className="font-medium text-[#ff7a2d]">{request.creditsOffered}</p>
                             </div>
                             <div className="col-span-2">
@@ -1501,7 +1504,7 @@ function RequestsPageContent() {
                                 }))
                               }
                               rows={2}
-                              placeholder="Optional message to owner"
+                              placeholder="Optional message to the owner"
                               className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                             />
                           )}
@@ -1512,7 +1515,7 @@ function RequestsPageContent() {
                               disabled={processingCommunityRequestId === request.id}
                               className="w-full border border-gray-400 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
                             >
-                              {processingCommunityRequestId === request.id ? 'Processing...' : 'Withdraw Application'}
+                              {processingCommunityRequestId === request.id ? 'Processing...' : 'Withdraw offer'}
                             </button>
                           ) : (
                             <button
@@ -1520,14 +1523,14 @@ function RequestsPageContent() {
                               disabled={processingCommunityRequestId === request.id}
                               className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                             >
-                              {processingCommunityRequestId === request.id ? 'Applying...' : 'Apply to Help'}
+                              {processingCommunityRequestId === request.id ? 'Sending...' : 'Offer to help'}
                             </button>
                           )}
                           <button
                             onClick={() => handleReportCommunityRequest(request)}
                             className="w-full mt-2 border border-red-300 text-red-700 py-2 px-4 rounded-lg hover:bg-red-50 transition-colors font-medium"
                           >
-                            Report Request
+                            Report request
                           </button>
                         </div>
                       );
@@ -1539,11 +1542,11 @@ function RequestsPageContent() {
 
             {activeTab === 'my-sits' && (
               <div>
-                <h2 className="text-2xl font-bold text-[#0f2640] mb-4">My Sits</h2>
+                <h2 className="text-2xl font-bold text-[#0f2640] mb-4">Care I give</h2>
                 {sitterJobs.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <p className="text-[#6b7280]">
-                      You are not assigned to any sits yet. Check Direct Requests for personal invites or browse the Community Requests tab to apply.
+                      You are not helping with any pet care yet. Check Direct asks or browse Open requests.
                     </p>
                   </div>
                 ) : (
@@ -1566,10 +1569,10 @@ function RequestsPageContent() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
                           {request.status === 'accepted' && (
-                            <p className="text-xs text-green-600">(To be earned on completion)</p>
+                            <p className="text-xs text-green-600">You receive these after the owner confirms the care is finished.</p>
                           )}
                           {request.status === 'awaiting_confirmation' && (
-                            <p className="text-xs text-yellow-600">(Awaiting owner confirmation)</p>
+                            <p className="text-xs text-yellow-600">Waiting for the owner to confirm.</p>
                           )}
                           {request.status === 'completed' && (
                             <p className="text-xs text-green-600">(Earned)</p>
@@ -1583,7 +1586,7 @@ function RequestsPageContent() {
                           <p className="text-[#0f2640] font-medium">{request.ownerName}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Care Type:</p>
+                          <p className="text-[#6b7280]">Care type:</p>
                           <p className="text-[#0f2640] font-medium">
                             {getCareTypeLabel(request.careType)}
                           </p>
@@ -1593,13 +1596,13 @@ function RequestsPageContent() {
                           <p className="text-[#0f2640] font-medium">{request.location}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Start Date:</p>
+                          <p className="text-[#6b7280]">Starts:</p>
                           <p className="text-[#0f2640] font-medium">
                             {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">End Date:</p>
+                          <p className="text-[#6b7280]">Ends:</p>
                           <p className="text-[#0f2640] font-medium">
                             {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
@@ -1660,14 +1663,14 @@ function RequestsPageContent() {
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Mark as Complete'}
+                            {actioningRequestId === request.id ? 'Processing...' : 'Mark care as finished'}
                           </button>
                           <button
                             onClick={() => handleCancelAcceptedRequest(request)}
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel Job'}
+                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
                           </button>
                         </div>
                       )}
@@ -1681,7 +1684,7 @@ function RequestsPageContent() {
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel Job'}
+                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
                           </button>
                         </div>
                       )}

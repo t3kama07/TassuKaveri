@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProfile } from '@/lib/profileService';
+import { getAvailabilitySlots } from '@/lib/availabilityService';
+import { getUserPets } from '@/lib/petService';
+import { getProfile, isProfileCompleted } from '@/lib/profileService';
 import {
   getAllOpenRequests,
   getSitterRequests,
@@ -15,6 +17,28 @@ import { getWallet } from '@/lib/walletService';
 import { UserProfile } from '@/types/profile';
 import { Request } from '@/types/request';
 import { Wallet } from '@/types/wallet';
+
+type OnboardingChoice = 'need-care' | 'help-sitter' | 'both';
+
+const ONBOARDING_CHOICE_KEY = 'tassukaveri-onboarding-choice';
+
+const ONBOARDING_CHOICES: Array<{ value: OnboardingChoice; label: string; description: string }> = [
+  {
+    value: 'need-care',
+    label: 'I need pet care',
+    description: 'Add your pet, then ask nearby sitters for help.',
+  },
+  {
+    value: 'help-sitter',
+    label: 'I want to help as a sitter',
+    description: 'Complete your profile and add times you can help.',
+  },
+  {
+    value: 'both',
+    label: 'I want to do both',
+    description: 'Set up your pet and your sitter times.',
+  },
+];
 
 function formatDateLabel(date: Date): string {
   return date.toLocaleDateString([], {
@@ -47,8 +71,22 @@ export default function DashboardPage() {
   const [openItems, setOpenItems] = useState(0);
   const [nearbySitters, setNearbySitters] = useState<NearbySitter[]>([]);
   const [communityRequests, setCommunityRequests] = useState<Request[]>([]);
+  const [petCount, setPetCount] = useState(0);
+  const [availabilityCount, setAvailabilityCount] = useState(0);
+  const [onboardingChoice, setOnboardingChoice] = useState<OnboardingChoice | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const savedChoice = window.localStorage.getItem(ONBOARDING_CHOICE_KEY);
+    if (
+      savedChoice === 'need-care' ||
+      savedChoice === 'help-sitter' ||
+      savedChoice === 'both'
+    ) {
+      setOnboardingChoice(savedChoice);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -68,7 +106,7 @@ export default function DashboardPage() {
         }
 
         const userProfile = await getProfile(user.uid);
-        const [userWallet, userRequests, userSits, sitters, openRequests] = await Promise.all([
+        const [userWallet, userRequests, userSits, sitters, openRequests, userPets, slots] = await Promise.all([
           getWallet(user.uid),
           getUserRequests(user.uid),
           getSitterRequests(user.uid),
@@ -80,6 +118,8 @@ export default function DashboardPage() {
             maxDistanceKm: 15,
           }),
           getAllOpenRequests(user.uid),
+          getUserPets(user.uid),
+          getAvailabilitySlots(user.uid),
         ]);
 
         if (!active) {
@@ -104,12 +144,14 @@ export default function DashboardPage() {
         setOpenItems(activeOwnerRequests.length + activeSits.length);
         setNearbySitters(sitters.slice(0, 3));
         setCommunityRequests(getPreviewRequests(openRequests, userProfile));
+        setPetCount(userPets.length);
+        setAvailabilityCount(slots.length);
       } catch (err: unknown) {
         if (!active) {
           return;
         }
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('Failed to load home: ' + message);
+        setError('We could not load your home page right now. Please try again. ' + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -125,6 +167,65 @@ export default function DashboardPage() {
   }, [user]);
 
   const welcomeName = profile?.name.trim() || user?.email?.split('@')[0] || 'there';
+  const profileIncomplete = !profile || !isProfileCompleted(profile);
+  const hasPets = petCount > 0;
+  const hasAvailability = availabilityCount > 0;
+
+  function handleOnboardingChoice(choice: OnboardingChoice) {
+    setOnboardingChoice(choice);
+    window.localStorage.setItem(ONBOARDING_CHOICE_KEY, choice);
+  }
+
+  const checklistItems = [
+    {
+      label: 'Step 1: Complete your profile',
+      done: !profileIncomplete,
+      href: '/profile',
+      action: 'Complete your profile',
+    },
+    {
+      label: 'Step 2: Add your pet',
+      done: hasPets,
+      href: '/pets',
+      action: 'Add your first pet',
+    },
+    {
+      label: 'Step 3: Choose what you want to do',
+      done: Boolean(onboardingChoice),
+      href: '/dashboard',
+      action: 'Choose a goal',
+    },
+    {
+      label: 'Step 4: Ask for pet care or offer to help',
+      done: hasPets || hasAvailability,
+      href: hasPets ? '/exchange?tab=my-requests&create=1' : '/profile',
+      action: hasPets ? 'Ask for pet care' : 'Add times you can help',
+    },
+    {
+      label: 'Step 5: Check messages and notifications',
+      done: openItems > 0,
+      href: '/notifications',
+      action: 'Check updates',
+    },
+  ];
+
+  const nextActions = [
+    profileIncomplete
+      ? { label: 'Complete your profile', href: '/profile' }
+      : null,
+    !hasPets
+      ? { label: 'Add your first pet', href: '/pets' }
+      : null,
+    !hasAvailability
+      ? { label: 'Add times you can help', href: '/profile' }
+      : null,
+    hasPets
+      ? { label: 'Ask for pet care', href: '/exchange?tab=my-requests&create=1' }
+      : null,
+    hasAvailability
+      ? { label: 'Find requests to help with', href: '/exchange?tab=community' }
+      : null,
+  ].filter((item): item is { label: string; href: string } => item !== null);
 
   return (
     <ProtectedRoute>
@@ -139,20 +240,20 @@ export default function DashboardPage() {
                 Welcome back, {welcomeName}
               </h1>
               <p className="mt-3 max-w-2xl text-[#516173]">
-                Discover nearby sitters and current community requests in one clean place.
+                TassuKaveri helps you ask for pet care, offer help, and exchange credits with other pet owners.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/exchange"
+                  href="/exchange?tab=my-requests&create=1"
                   className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                 >
-                  Open Exchange
+                  Ask for pet care
                 </Link>
                 <Link
                   href="/sitters"
                   className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
                 >
-                  Find Sitters
+                  Find a sitter
                 </Link>
               </div>
             </div>
@@ -161,12 +262,14 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
                 <p className="text-sm text-[#6b7280]">Credits</p>
                 <p className="mt-2 text-3xl font-bold text-[#0f2640]">{wallet?.balance ?? 0}</p>
-                <p className="mt-1 text-sm text-[#6b7280]">Ready for your next exchange</p>
+                <p className="mt-1 text-sm text-[#6b7280]">
+                  Spend credits for care. Earn them by helping others.
+                </p>
               </div>
               <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                <p className="text-sm text-[#6b7280]">Upcoming Sits</p>
+                <p className="text-sm text-[#6b7280]">Active care</p>
                 <p className="mt-2 text-3xl font-bold text-[#0f2640]">{openItems}</p>
-                <p className="mt-1 text-sm text-[#6b7280]">Accepted or upcoming sitter jobs</p>
+                <p className="mt-1 text-sm text-[#6b7280]">Your open requests and accepted care jobs</p>
               </div>
             </div>
           </div>
@@ -185,11 +288,94 @@ export default function DashboardPage() {
         ) : (
           <>
             <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Start here</h2>
+                  <p className="mt-1 max-w-2xl text-sm text-[#6b7280]">
+                    Choose what you want to do first. You can change your mind later.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#ffd7be] bg-[#fffaf6] p-4 text-sm text-[#516173] lg:max-w-sm">
+                  Credits are used instead of money. You spend credits when someone cares for your pet, and you earn credits when you help others.
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {ONBOARDING_CHOICES.map((choice) => (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    onClick={() => handleOnboardingChoice(choice.value)}
+                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                      onboardingChoice === choice.value
+                        ? 'border-[#ff7a2d] bg-[#fff7ef]'
+                        : 'border-gray-200 bg-[#fcfdff] hover:border-[#ffcfb2]'
+                    }`}
+                  >
+                    <span className="block text-sm font-bold text-[#0f2640]">{choice.label}</span>
+                    <span className="mt-1 block text-sm text-[#6b7280]">{choice.description}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="space-y-3">
+                  {checklistItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-[#0f2640]">{item.label}</p>
+                        <p className="mt-1 text-xs text-[#6b7280]">
+                          {item.done ? 'Done' : 'This helps other users understand and trust you.'}
+                        </p>
+                      </div>
+                      {item.done ? (
+                        <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-xs font-semibold text-[#047857]">
+                          Done
+                        </span>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className="rounded-full bg-[#ff7a2d] px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+                        >
+                          {item.action}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-[#dbe5f0] bg-[#f8fbff] p-5">
+                  <h3 className="text-lg font-bold text-[#0f2640]">Best next action</h3>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    Follow the first button that matches what you need today.
+                  </p>
+                  <div className="mt-4 flex flex-col gap-2">
+                    {nextActions.slice(0, 4).map((action) => (
+                      <Link
+                        key={action.label}
+                        href={action.href}
+                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
+                      >
+                        {action.label}
+                      </Link>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-sm text-[#6b7280]">
+                    Chat opens after a pet-care request is accepted. Reviews appear after the care is finished.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-[#0f2640]">Available Sitters</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    A few sitters near {profile?.location || 'you'}.
+                    People near {profile?.location || 'you'} who may be able to help.
                   </p>
                 </div>
                 <Link
@@ -246,9 +432,9 @@ export default function DashboardPage() {
             <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Community Requests</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">Open pet-care requests</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    Open requests you can help with.
+                    Open pet-care requests you can offer to help with.
                   </p>
                 </div>
                 <Link
