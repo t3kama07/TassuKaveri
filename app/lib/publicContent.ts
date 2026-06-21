@@ -100,6 +100,7 @@ export const publicContent = {
             title: 'Support',
             items: [
               { label: 'FAQ', href: '/faq.html' },
+              { label: 'Blog', href: '/blog.html' },
               { label: 'Contact', href: 'mailto:info@tassukaveri.fi' },
             ],
           },
@@ -218,6 +219,7 @@ export const publicContent = {
             title: 'Tuki',
             items: [
               { label: 'UKK', href: '/faq.html' },
+              { label: 'Blogi', href: '/blog.html' },
               { label: 'Yhteystiedot', href: 'mailto:info@tassukaveri.fi' },
             ],
           },
