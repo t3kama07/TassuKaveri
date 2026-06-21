@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +15,8 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup, user } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signup, signInWithGoogle, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -58,6 +60,19 @@ export default function SignupPage() {
     }
   }
 
+  async function handleGoogleSignup() {
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`We could not start Google signup. ${message}`);
+      setGoogleLoading(false);
+    }
+  }
+
   return (
     <main className="max-w-md mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Create your account</h1>
@@ -85,7 +100,19 @@ export default function SignupPage() {
       )}
 
       {!success && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <>
+          <GoogleAuthButton
+            onClick={handleGoogleSignup}
+            disabled={loading || googleLoading}
+          />
+
+          <div className="my-6 flex items-center gap-4 text-sm text-[#6b7280]">
+            <span className="h-px flex-1 bg-gray-200" />
+            <span>or use email</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
               Name
@@ -163,7 +190,8 @@ export default function SignupPage() {
           >
             {loading ? 'Creating account...' : 'Create account'}
           </button>
-        </form>
+          </form>
+        </>
       )}
 
       <p className="mt-4 text-center text-[#6b7280]">

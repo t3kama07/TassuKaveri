@@ -4,13 +4,15 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, signInWithGoogle, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -35,6 +37,19 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGoogleLogin() {
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`We could not start Google login. ${message}`);
+      setGoogleLoading(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-lg px-4 py-14 sm:px-6">
       <h1 className="mb-2 text-4xl font-bold text-[#0f2640] sm:text-[2.75rem]">Log in</h1>
@@ -45,6 +60,17 @@ export default function LoginPage() {
           {error}
         </div>
       )}
+
+      <GoogleAuthButton
+        onClick={handleGoogleLogin}
+        disabled={loading || googleLoading}
+      />
+
+      <div className="my-6 flex items-center gap-4 text-sm text-[#6b7280]">
+        <span className="h-px flex-1 bg-gray-200" />
+        <span>or use email</span>
+        <span className="h-px flex-1 bg-gray-200" />
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
