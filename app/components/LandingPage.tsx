@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { publicContent } from '@/lib/publicContent';
 import card1Image from '@/public/images/card1.webp';
@@ -197,7 +200,9 @@ function HeroContent({
 }
 
 export default function LandingPage() {
+  const { user } = useAuth();
   const { language } = useLanguage();
+  const router = useRouter();
   const copy = publicContent[language].landing;
   const safetyIcons = [ShieldIcon, MessageIcon, StarIcon, UsersIcon] as const;
   const howItWorksVisuals = [
@@ -214,6 +219,13 @@ export default function LandingPage() {
       objectPosition: 'center',
     },
   ] as const;
+
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    }
+  }, [router, user]);
+
   const safetyEyebrow =
     language === 'en'
       ? 'BUILT TO HELP YOU CHOOSE WITH CONFIDENCE'
