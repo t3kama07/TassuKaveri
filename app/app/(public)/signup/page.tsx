@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import CitySelect from '@/components/CitySelect';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function SignupPage() {
@@ -131,12 +132,10 @@ export default function SignupPage() {
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
               City
             </label>
-            <input
-              type="text"
+            <CitySelect
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              autoComplete="address-level2"
-              placeholder="Oulu"
+              onChange={setLocation}
+              required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
             />
           </div>

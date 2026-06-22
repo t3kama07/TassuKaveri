@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, FormEvent, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import CitySelect from '@/components/CitySelect';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -869,13 +870,11 @@ function RequestsPageContent() {
                 <label className="block text-sm font-medium text-[#0f2640] mb-1">
                   Location
                 </label>
-                <p className="mb-2 text-sm text-[#6b7280]">Add the city or area where the care is needed.</p>
-                <input
-                  type="text"
+                <p className="mb-2 text-sm text-[#6b7280]">Select the city where the care is needed.</p>
+                <CitySelect
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={setLocation}
                   required
-                  placeholder="e.g., Helsinki"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
                 />
               </div>
@@ -1363,10 +1362,10 @@ function RequestsPageContent() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
-                      <input
-                        type="text"
+                      <CitySelect
                         value={cityFilter}
-                        onChange={(e) => setCityFilter(e.target.value)}
+                        onChange={setCityFilter}
+                        emptyLabel="All cities"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       />
                     </div>

@@ -1,4 +1,12 @@
-export type PetType = 'dog' | 'cat' | 'other';
+export type PetType =
+  | 'dog'
+  | 'cat'
+  | 'rabbit'
+  | 'bird'
+  | 'small-mammal'
+  | 'reptile'
+  | 'fish'
+  | 'other';
 export type PetSize = 'small' | 'medium' | 'large';
 
 export interface Pet {

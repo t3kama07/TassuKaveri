@@ -3,17 +3,17 @@
 import Image from 'next/image';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AvailabilityPlanner from '@/components/AvailabilityPlanner';
+import CitySelect from '@/components/CitySelect';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getProfile,
   isProfileCompleted,
-  sendPhoneVerificationCode,
   updateProfile,
   updateUserLocation,
-  verifyPhoneCode,
 } from '@/lib/profileService';
 import { uploadProfileImage } from '@/lib/profileImageService';
+import { getPetTypeLabel, PET_TYPE_OPTIONS } from '@/lib/petOptions';
 import { getWallet } from '@/lib/walletService';
 import { AvailabilityStatus, ExperienceLevel, UserProfile } from '@/types/profile';
 
@@ -33,11 +33,10 @@ const PROFILE_TABS: Array<{ id: ProfileTab; label: string; description: string }
   {
     id: 'settings',
     label: 'Trust and verification',
-    description: 'Phone, email, and account details.',
+    description: 'Email and account details.',
   },
 ];
 
-const PET_TYPE_OPTIONS = ['dog', 'cat'];
 const PET_SIZE_OPTIONS = ['small', 'medium', 'large'];
 
 function toggleArrayValue(values: string[], value: string): string[] {
@@ -62,6 +61,12 @@ function formatOptionLabel(value: string): string {
 
 function formatList(values: string[], emptyLabel: string): string {
   return values.length > 0 ? values.map(formatOptionLabel).join(', ') : emptyLabel;
+}
+
+function formatPetTypeList(values: string[], emptyLabel: string): string {
+  return values.length > 0
+    ? values.map((value) => getPetTypeLabel(value, true)).join(', ')
+    : emptyLabel;
 }
 
 function formatDateText(date?: Date): string {
@@ -99,14 +104,11 @@ export default function ProfilePage() {
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('beginner');
   const [petTypeExperience, setPetTypeExperience] = useState<string[]>([]);
   const [preferredPetSize, setPreferredPetSize] = useState<string[]>([]);
-  const [experienceWithDogs, setExperienceWithDogs] = useState(false);
-  const [experienceWithCats, setExperienceWithCats] = useState(false);
   const [experienceWithLargeDogs, setExperienceWithLargeDogs] = useState(false);
   const [experienceWithSeniorPets, setExperienceWithSeniorPets] = useState(false);
+  const experienceWithDogs = petTypeExperience.includes('dog');
+  const experienceWithCats = petTypeExperience.includes('cat');
 
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneCode, setPhoneCode] = useState('');
-  const [phoneProcessing, setPhoneProcessing] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -137,11 +139,8 @@ export default function ProfilePage() {
         setExperienceLevel(profileData.experienceLevel);
         setPetTypeExperience(profileData.petTypeExperience);
         setPreferredPetSize(profileData.preferredPetSize);
-        setExperienceWithDogs(profileData.experienceWithDogs);
-        setExperienceWithCats(profileData.experienceWithCats);
         setExperienceWithLargeDogs(profileData.experienceWithLargeDogs);
         setExperienceWithSeniorPets(profileData.experienceWithSeniorPets);
-        setPhoneNumber(profileData.phoneNumber || '');
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -187,15 +186,13 @@ export default function ProfilePage() {
         experienceLevel,
         petTypeExperience,
         preferredPetSize,
-        experienceWithDogs,
-        experienceWithCats,
-        experienceWithLargeDogs,
+        experienceWithDogs: petTypeExperience.includes('dog'),
+        experienceWithCats: petTypeExperience.includes('cat'),
+        experienceWithLargeDogs: petTypeExperience.includes('dog') && experienceWithLargeDogs,
         experienceWithSeniorPets,
       });
 
-      if (parsedLat === undefined || parsedLng === undefined) {
-        await updateUserLocation(user.uid, location, country);
-      }
+      await updateUserLocation(user.uid, location);
 
       setSuccess('Profile saved.');
       setIsEditing(false);
@@ -205,43 +202,6 @@ export default function ProfilePage() {
       setError('We could not save your profile right now. Please check the fields and try again. ' + message);
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleSendPhoneCode() {
-    if (!user) return;
-    setPhoneProcessing(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await sendPhoneVerificationCode(user.uid, phoneNumber);
-      setSuccess('Verification code sent. Enter it below to confirm your phone number.');
-      await loadProfile();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not send the phone code right now. Please check the number and try again. ' + message);
-    } finally {
-      setPhoneProcessing(false);
-    }
-  }
-
-  async function handleVerifyPhoneCode() {
-    if (!user) return;
-    setPhoneProcessing(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await verifyPhoneCode(user.uid, phoneCode);
-      setSuccess('Phone number verified.');
-      setPhoneCode('');
-      await loadProfile();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not verify this code. Please check it and try again. ' + message);
-    } finally {
-      setPhoneProcessing(false);
     }
   }
 
@@ -283,12 +243,8 @@ export default function ProfilePage() {
     setExperienceLevel(profile.experienceLevel);
     setPetTypeExperience(profile.petTypeExperience);
     setPreferredPetSize(profile.preferredPetSize);
-    setExperienceWithDogs(profile.experienceWithDogs);
-    setExperienceWithCats(profile.experienceWithCats);
     setExperienceWithLargeDogs(profile.experienceWithLargeDogs);
     setExperienceWithSeniorPets(profile.experienceWithSeniorPets);
-    setPhoneNumber(profile.phoneNumber || '');
-    setPhoneCode('');
     setIsEditing(false);
     setError('');
     setSuccess('');
@@ -332,12 +288,22 @@ export default function ProfilePage() {
       || experienceLevel !== profile.experienceLevel
       || !sameStringArray(petTypeExperience, profile.petTypeExperience)
       || !sameStringArray(preferredPetSize, profile.preferredPetSize)
-      || experienceWithDogs !== profile.experienceWithDogs
-      || experienceWithCats !== profile.experienceWithCats
-      || experienceWithLargeDogs !== profile.experienceWithLargeDogs
+      || petTypeExperience.includes('dog') !== profile.experienceWithDogs
+      || petTypeExperience.includes('cat') !== profile.experienceWithCats
+      || (petTypeExperience.includes('dog') && experienceWithLargeDogs) !== profile.experienceWithLargeDogs
       || experienceWithSeniorPets !== profile.experienceWithSeniorPets
     )
   );
+
+  function handlePetTypeToggle(value: string) {
+    const removingDog = value === 'dog' && petTypeExperience.includes('dog');
+    setPetTypeExperience((currentValues) => toggleArrayValue(currentValues, value));
+
+    if (removingDog) {
+      setPreferredPetSize([]);
+      setExperienceWithLargeDogs(false);
+    }
+  }
   const profileName = profile?.name.trim() || user?.email?.split('@')[0] || 'Your profile';
   const profileLocation = profile ? `${profile.location}, ${profile.country}` : 'Location not added yet';
   const heroBio =
@@ -354,7 +320,6 @@ export default function ProfilePage() {
     { label: 'Short bio added', done: Boolean(bio.trim()) },
     { label: 'Pet experience added', done: Boolean(petExperience.trim()) },
     { label: 'Pet types added', done: petTypeExperience.length > 0 },
-    { label: 'Phone verified', done: Boolean(profile?.phoneVerified) },
   ];
   const checklistDoneCount = checklistItems.filter((item) => item.done).length;
   const checklistProgress = Math.round((checklistDoneCount / checklistItems.length) * 100);
@@ -462,11 +427,10 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Your location</label>
-                    <input
-                      type="text"
+                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
+                    <CitySelect
                       value={location}
-                      onChange={(e) => setLocation(e.target.value)}
+                      onChange={setLocation}
                       required
                       className={inputClassName}
                     />
@@ -476,7 +440,8 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       value={country}
-                      onChange={(e) => setCountry(e.target.value)}
+                      readOnly
+                      aria-readonly="true"
                       className={inputClassName}
                     />
                   </div>
@@ -508,7 +473,10 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-white p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Care preferences</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">Care experience and preferences</h3>
+                <p className="mt-1 text-sm text-[#6b7280]">
+                  Be specific about the animals and care you are comfortable providing. Owners use these details when choosing a sitter.
+                </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[#0f2640]">Can you help now?</label>
@@ -537,34 +505,34 @@ export default function ProfilePage() {
 
                 <div className="mt-4 space-y-4">
                   <div>
-                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Pet types you know</p>
+                    <p className="mb-1 text-sm font-medium text-[#0f2640]">Animals you can care for</p>
+                    <p className="mb-3 text-sm text-[#6b7280]">Select every type you can care for confidently.</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_TYPE_OPTIONS.map((option) => {
-                        const selected = petTypeExperience.includes(option);
+                        const selected = petTypeExperience.includes(option.value);
 
                         return (
                           <button
-                            key={option}
+                            key={option.value}
                             type="button"
-                            onClick={() =>
-                              setPetTypeExperience((currentValues) =>
-                                toggleArrayValue(currentValues, option)
-                              )
-                            }
+                            onClick={() => handlePetTypeToggle(option.value)}
+                            aria-pressed={selected}
                             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                               selected
                                 ? 'bg-[#ff7a2d] text-white'
                                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-[#f7fafc]'
                             }`}
                           >
-                            {formatOptionLabel(option)}
+                            {option.pluralLabel}
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-[#0f2640]">Pet sizes you prefer</p>
+                  {petTypeExperience.includes('dog') && (
+                  <div className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-4">
+                    <p className="mb-1 text-sm font-medium text-[#0f2640]">Dog sizes you are comfortable with</p>
+                    <p className="mb-3 text-sm text-[#6b7280]">Select all sizes you are prepared to handle safely.</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_SIZE_OPTIONS.map((option) => {
                         const selected = preferredPetSize.includes(option);
@@ -590,69 +558,30 @@ export default function ProfilePage() {
                       })}
                     </div>
                   </div>
+                  )}
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
-                    <input
-                      type="checkbox"
-                      checked={experienceWithDogs}
-                      onChange={(e) => setExperienceWithDogs(e.target.checked)}
-                    />
-                    Experience with dogs
-                  </label>
-                  <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
-                    <input
-                      type="checkbox"
-                      checked={experienceWithCats}
-                      onChange={(e) => setExperienceWithCats(e.target.checked)}
-                    />
-                    Experience with cats
-                  </label>
+                <div className="mt-5">
+                  <p className="mb-3 text-sm font-medium text-[#0f2640]">Additional care experience</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                  {petTypeExperience.includes('dog') && (
                   <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
                     <input
                       type="checkbox"
                       checked={experienceWithLargeDogs}
                       onChange={(e) => setExperienceWithLargeDogs(e.target.checked)}
                     />
-                    Experience with large dogs
+                    Confident handling large dogs
                   </label>
+                  )}
                   <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
                     <input
                       type="checkbox"
                       checked={experienceWithSeniorPets}
                       onChange={(e) => setExperienceWithSeniorPets(e.target.checked)}
                     />
-                    Experience with senior pets
+                    Experienced with senior pets
                   </label>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#e5edf6] bg-[#fcfdff] p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Your location</h3>
-                <p className="mt-1 text-sm text-[#6b7280]">
-                  Your location is used to show nearby sitters and requests.
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Latitude</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={latitude}
-                      onChange={(e) => setLatitude(e.target.value)}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Longitude</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={longitude}
-                      onChange={(e) => setLongitude(e.target.value)}
-                      className={inputClassName}
-                    />
                   </div>
                 </div>
               </div>
@@ -709,13 +638,15 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-sm font-semibold text-[#0f2640]">Pet types</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    {formatList(petTypeExperience, 'Not specified yet')}
+                    {formatPetTypeList(petTypeExperience, 'Not specified yet')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Preferred sizes</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">Dog size comfort</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    {formatList(preferredPetSize, 'Not specified yet')}
+                    {petTypeExperience.includes('dog')
+                      ? formatList(preferredPetSize, 'Not specified yet')
+                      : 'Not applicable'}
                   </p>
                 </div>
               </div>
@@ -850,65 +781,13 @@ export default function ProfilePage() {
             Verified information helps other users feel safer choosing you.
           </p>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mt-6 max-w-xl">
             <div className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-4">
               <p className="text-sm text-[#6b7280]">Email status</p>
               <p className="mt-2 text-lg font-bold text-[#0f2640]">
                 {profile.emailVerified ? 'Verified' : 'Pending'}
               </p>
               <p className="mt-1 text-sm text-[#6b7280]">{profile.email}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-4">
-              <p className="text-sm text-[#6b7280]">Phone status</p>
-              <p className="mt-2 text-lg font-bold text-[#0f2640]">
-                {profile.phoneVerified ? 'Verified' : phoneNumber.trim() ? 'Code pending' : 'Not added'}
-              </p>
-              <p className="mt-1 text-sm text-[#6b7280]">
-                {phoneNumber.trim() || 'Add a mobile number for verification'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-[#e5edf6] bg-[#f8fbff] p-5">
-            <h3 className="text-lg font-bold text-[#0f2640]">Phone verification</h3>
-            <p className="mt-1 text-sm text-[#6b7280]">
-              Your phone number helps with trust and safety.
-            </p>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+358401234567"
-                className={inputClassName}
-              />
-              <button
-                type="button"
-                onClick={handleSendPhoneCode}
-                disabled={phoneProcessing}
-                className="rounded-full border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc] disabled:opacity-50"
-              >
-                Send code
-              </button>
-            </div>
-
-            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-              <input
-                type="text"
-                value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-                placeholder="Enter code"
-                className={inputClassName}
-              />
-              <button
-                type="button"
-                onClick={handleVerifyPhoneCode}
-                disabled={phoneProcessing}
-                className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
-              >
-                Verify code
-              </button>
             </div>
           </div>
         </div>
@@ -1045,13 +924,6 @@ export default function ProfilePage() {
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-sm font-medium ${
-                        profile.phoneVerified ? 'bg-[#ecfdf3] text-[#047857]' : 'bg-[#f3f4f6] text-[#4b5563]'
-                      }`}
-                    >
-                      {profile.phoneVerified ? 'Phone verified' : 'Phone not verified'}
-                    </span>
-                    <span
-                      className={`rounded-full px-3 py-1 text-sm font-medium ${
                         profileComplete ? 'bg-[#ecfdf3] text-[#047857]' : 'bg-[#fff7ed] text-[#c2410c]'
                       }`}
                     >
@@ -1086,7 +958,7 @@ export default function ProfilePage() {
                     <p className="text-sm text-[#6b7280]">Trust level</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      {profile.phoneVerified ? 'Phone verified and visible.' : 'Verify your phone to strengthen trust.'}
+                      Based on your verified email, profile, completed care, and reviews.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">

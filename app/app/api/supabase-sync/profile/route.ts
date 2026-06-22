@@ -44,6 +44,10 @@ export async function POST(request: NextRequest) {
       ...profile,
       uid: profile.uid,
       email: profile.email,
+      phoneNumber: '',
+      phoneVerified: false,
+      phoneVerificationCode: undefined,
+      phoneVerificationExpires: undefined,
     });
 
     return NextResponse.json({ ok: true });

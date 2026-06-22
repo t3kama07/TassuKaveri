@@ -216,7 +216,7 @@ export default function SitterProfilePage() {
                     <p className="text-sm text-[#6b7280]">Trust level</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      {profile.phoneVerified ? 'Phone verified' : 'Phone not verified'}
+                      Based on verified email, profile quality, completed care, and reviews.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
@@ -269,11 +269,6 @@ export default function SitterProfilePage() {
                   <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-sm font-medium text-[#0f2640]">
                     {profile.availability === 'available' ? 'Open for bookings' : 'Not available'}
                   </span>
-                  {profile.phoneVerified && (
-                    <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-sm font-medium text-[#047857]">
-                      Phone verified
-                    </span>
-                  )}
                   {profile.experienceWithDogs && (
                     <span className="rounded-full bg-[#fff7ed] px-3 py-1 text-sm font-medium text-[#c2410c]">
                       Dog experience

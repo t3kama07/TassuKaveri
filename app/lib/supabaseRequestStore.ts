@@ -1,6 +1,5 @@
 import { Request, RequestApplication, RequestReview } from '@/types/request';
 import { createSupabaseAdminClient } from './supabaseAdmin';
-import { PILOT_CITY } from './platformPolicy';
 
 type DateInput = Date | string | number | null | undefined;
 type SupabaseRequestRow = {
@@ -353,7 +352,6 @@ export async function getOpenCommunityRequestsFromSupabase(
     .select('*')
     .eq('status', 'open')
     .eq('audience', 'community')
-    .eq('location', PILOT_CITY)
     .order('created_at', { ascending: false });
 
   if (excludeUserId) {

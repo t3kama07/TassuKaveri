@@ -33,18 +33,28 @@ function calculateExperienceMatchScore(
 ): number {
   let score = 0;
   const normalizedPetTypes = petTypes.map((petType) => petType.toLowerCase());
+  const sitterPetTypes = new Set(
+    profile.petTypeExperience.map((petType) => petType.trim().toLowerCase())
+  );
 
-  if (normalizedPetTypes.includes('dog') && (profile.experienceWithDogs || profile.petTypeExperience.includes('dog'))) {
-    score += 25;
+  if (profile.experienceWithDogs) {
+    sitterPetTypes.add('dog');
   }
-  if (normalizedPetTypes.includes('cat') && (profile.experienceWithCats || profile.petTypeExperience.includes('cat'))) {
-    score += 25;
+  if (profile.experienceWithCats) {
+    sitterPetTypes.add('cat');
   }
-  if (petSize && profile.preferredPetSize.includes(petSize)) {
+
+  const matchingPetTypeCount = normalizedPetTypes.filter((petType) =>
+    sitterPetTypes.has(petType)
+  ).length;
+  score += Math.min(matchingPetTypeCount * 25, 50);
+
+  const includesDog = normalizedPetTypes.includes('dog');
+  if (includesDog && petSize && profile.preferredPetSize.includes(petSize)) {
     score += 15;
   }
 
-  if (petSize === 'large' && profile.experienceWithLargeDogs) {
+  if (includesDog && petSize === 'large' && profile.experienceWithLargeDogs) {
     score += 20;
   }
 

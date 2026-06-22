@@ -4,6 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserPets, createPet, updatePet, deletePet } from '@/lib/petService';
+import { PET_TYPE_OPTIONS } from '@/lib/petOptions';
 import { Pet, CreatePetData, PetType, PetSize } from '@/types/pet';
 
 export default function PetsPage() {
@@ -224,9 +225,11 @@ export default function PetsPage() {
                   onChange={(e) => setType(e.target.value as PetType)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
                 >
-                  <option value="dog">Dog</option>
-                  <option value="cat">Cat</option>
-                  <option value="other">Other</option>
+                  {PET_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.singularLabel}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -18,9 +18,6 @@ export function calculateTrustScore(profile: UserProfile, completedSits: number)
   if (isProfileCompleted(profile)) {
     score += 20;
   }
-  if (profile.phoneVerified) {
-    score += 20;
-  }
   if (profile.emailVerified) {
     score += 10;
   }

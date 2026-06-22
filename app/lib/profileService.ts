@@ -1,9 +1,10 @@
 import { UserProfile, CreateProfileData, UpdateProfileData } from '@/types/profile';
-import { getPilotLocationPayload } from './platformPolicy';
+import { getCityLocationPayload } from './locations';
+import { PILOT_CITY } from './platformPolicy';
 import { syncPublicAvailabilitySummary, syncPublicProfile } from './publicProfileService';
 import { mirrorProfileToSupabase } from './supabaseMirrorClient';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
-import { calculateTrustScore, isProfileCompleted } from './trustScore';
+import { calculateTrustScore } from './trustScore';
 
 const USERS_COLLECTION = 'users';
 
@@ -22,10 +23,6 @@ function asDate(value: unknown): Date | undefined {
     }
   }
   return undefined;
-}
-
-function generateSixDigitCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 function mapProfileRecord(uid: string, data: Record<string, unknown>): UserProfile {
@@ -92,15 +89,16 @@ export async function createProfile(
   email: string,
   data: CreateProfileData
 ): Promise<void> {
-  const pilotLocation = getPilotLocationPayload();
+  const selectedLocation =
+    getCityLocationPayload(data.location) ?? getCityLocationPayload(PILOT_CITY)!;
   const now = new Date();
 
   await saveProfile({
     uid,
     email,
     name: data.name,
-    location: pilotLocation.location,
-    country: pilotLocation.country,
+    location: selectedLocation.location,
+    country: selectedLocation.country,
     photoURL: '',
     bio: '',
     petExperience: '',
@@ -115,8 +113,8 @@ export async function createProfile(
     experienceWithCats: false,
     experienceWithLargeDogs: false,
     experienceWithSeniorPets: false,
-    latitude: pilotLocation.latitude,
-    longitude: pilotLocation.longitude,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
     ratingAverage: 0,
     ratingCount: 0,
     trustScore: 0,
@@ -137,29 +135,32 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
 
 export async function updateUserLocation(
   uid: string,
-  _city: string,
-  _country: string
+  city: string
 ): Promise<{ latitude: number; longitude: number } | null> {
   const profile = await getProfile(uid);
   if (!profile) {
     throw new Error(`${USERS_COLLECTION} profile not found`);
   }
 
-  const pilotLocation = getPilotLocationPayload();
+  const selectedLocation = getCityLocationPayload(city);
+  if (!selectedLocation) {
+    throw new Error('Select a supported Finnish city');
+  }
+
   await saveProfile({
     ...profile,
-    location: pilotLocation.location,
-    country: pilotLocation.country,
-    latitude: pilotLocation.latitude,
-    longitude: pilotLocation.longitude,
+    location: selectedLocation.location,
+    country: selectedLocation.country,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
     updatedAt: new Date(),
   });
 
   await syncPublicProfile(uid);
 
   return {
-    latitude: pilotLocation.latitude,
-    longitude: pilotLocation.longitude,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
   };
 }
 
@@ -169,7 +170,6 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
     throw new Error('Profile not found');
   }
 
-  const pilotLocation = getPilotLocationPayload();
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
@@ -177,66 +177,6 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
   await saveProfile({
     ...profile,
     ...filteredData,
-    location: pilotLocation.location,
-    country: pilotLocation.country,
-    latitude: pilotLocation.latitude,
-    longitude: pilotLocation.longitude,
-    updatedAt: new Date(),
-  });
-
-  await recalculateTrustScore(uid);
-}
-
-export async function sendPhoneVerificationCode(uid: string, phoneNumber: string): Promise<string> {
-  const trimmedPhone = phoneNumber.trim();
-  if (!trimmedPhone) {
-    throw new Error('Phone number is required');
-  }
-
-  const profile = await getProfile(uid);
-  if (!profile) {
-    throw new Error('Profile not found');
-  }
-
-  const code = generateSixDigitCode();
-  await saveProfile({
-    ...profile,
-    phoneNumber: trimmedPhone,
-    phoneVerified: false,
-    phoneVerificationCode: code,
-    phoneVerificationExpires: new Date(Date.now() + 10 * 60 * 1000),
-    updatedAt: new Date(),
-  });
-
-  await syncPublicProfile(uid);
-  return code;
-}
-
-export async function verifyPhoneCode(uid: string, code: string): Promise<void> {
-  const profile = await getProfile(uid);
-  if (!profile) {
-    throw new Error('Profile not found');
-  }
-
-  const storedCode = profile.phoneVerificationCode || '';
-  const expiresAt = profile.phoneVerificationExpires;
-  const submittedCode = code.trim();
-
-  if (!storedCode || !expiresAt) {
-    throw new Error('No active phone verification code');
-  }
-  if (expiresAt.getTime() < Date.now()) {
-    throw new Error('Phone verification code has expired');
-  }
-  if (storedCode !== submittedCode) {
-    throw new Error('Invalid verification code');
-  }
-
-  await saveProfile({
-    ...profile,
-    phoneVerified: true,
-    phoneVerificationCode: undefined,
-    phoneVerificationExpires: undefined,
     updatedAt: new Date(),
   });
 
@@ -285,18 +225,22 @@ export async function setEmailVerifiedStatus(uid: string, emailVerified: boolean
   await recalculateTrustScore(uid);
 }
 
-export async function ensurePilotLocation(uid: string): Promise<void> {
+export async function ensureSupportedLocation(uid: string): Promise<void> {
   const profile = await getProfile(uid);
   if (!profile) {
     return;
   }
 
-  const pilotLocation = getPilotLocationPayload();
+  const selectedLocation = getCityLocationPayload(profile.location);
+  if (!selectedLocation) {
+    return;
+  }
+
   const needsPilotLocation =
-    profile.location !== pilotLocation.location ||
-    profile.country !== pilotLocation.country ||
-    profile.latitude !== pilotLocation.latitude ||
-    profile.longitude !== pilotLocation.longitude;
+    profile.location !== selectedLocation.location ||
+    profile.country !== selectedLocation.country ||
+    profile.latitude !== selectedLocation.latitude ||
+    profile.longitude !== selectedLocation.longitude;
 
   if (!needsPilotLocation) {
     return;
@@ -304,10 +248,10 @@ export async function ensurePilotLocation(uid: string): Promise<void> {
 
   await saveProfile({
     ...profile,
-    location: pilotLocation.location,
-    country: pilotLocation.country,
-    latitude: pilotLocation.latitude,
-    longitude: pilotLocation.longitude,
+    location: selectedLocation.location,
+    country: selectedLocation.country,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
     updatedAt: new Date(),
   });
 

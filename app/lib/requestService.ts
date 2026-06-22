@@ -22,7 +22,8 @@ import {
 import { fetchSupabaseReadJson } from './supabaseReadClient';
 import { getCurrentAuthUser } from './supabaseAuthClient';
 import { escrowCredits, refundEscrow, releaseEscrow } from './walletService';
-import { assertNoMoneyLanguage, getPilotLocationPayload } from './platformPolicy';
+import { getCityLocationPayload } from './locations';
+import { assertNoMoneyLanguage } from './platformPolicy';
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
@@ -294,7 +295,10 @@ export async function createRequest(
     audience,
     requestedSitterId: data.requestedSitterId,
   });
-  const pilotLocation = getPilotLocationPayload();
+  const selectedLocation = getCityLocationPayload(data.location || ownerProfile.location);
+  if (!selectedLocation) {
+    throw new Error('Select a supported Finnish city');
+  }
   const requestId = generateRequestId();
   const now = new Date();
   const request: Request = {
@@ -306,9 +310,9 @@ export async function createRequest(
     careType: data.careType,
     startDate: data.startDate,
     endDate: data.endDate,
-    location: pilotLocation.location,
-    locationLat: pilotLocation.latitude,
-    locationLng: pilotLocation.longitude,
+    location: selectedLocation.location,
+    locationLat: selectedLocation.latitude,
+    locationLng: selectedLocation.longitude,
     creditsOffered: calculateCreditsForRequestWindow(data.startDate, data.endDate),
     status: 'open',
     audience,
@@ -417,7 +421,10 @@ export async function updateRequest(
     audience,
     requestedSitterId: data.requestedSitterId ?? request.requestedSitterId,
   });
-  const pilotLocation = getPilotLocationPayload();
+  const selectedLocation = getCityLocationPayload(data.location ?? request.location);
+  if (!selectedLocation) {
+    throw new Error('Select a supported Finnish city');
+  }
 
   await saveRequest(
     {
@@ -427,9 +434,9 @@ export async function updateRequest(
       careType: data.careType ?? request.careType,
       startDate: effectiveStartDate,
       endDate: effectiveEndDate,
-      location: pilotLocation.location,
-      locationLat: pilotLocation.latitude,
-      locationLng: pilotLocation.longitude,
+      location: selectedLocation.location,
+      locationLat: selectedLocation.latitude,
+      locationLng: selectedLocation.longitude,
       creditsOffered: calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate),
       audience,
       requestedSitterId: requestedSitter.requestedSitterId,

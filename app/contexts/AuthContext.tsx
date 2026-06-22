@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import {
   createProfile,
-  ensurePilotLocation,
+  ensureSupportedLocation,
   getProfile,
   profileExists,
   setEmailVerifiedStatus,
@@ -230,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      await ensurePilotLocation(authUser.uid);
+      await ensureSupportedLocation(authUser.uid);
       await initializeWallet(authUser.uid);
       await setEmailVerifiedStatus(authUser.uid, authUser.emailVerified);
       return getProfile(authUser.uid);
