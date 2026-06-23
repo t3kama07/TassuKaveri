@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description:
     'Read the basic rules for using TassuKaveri, including member responsibilities, credits, exchanges, and community conduct.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/terms-of-service.html',
+    canonical: '/terms-of-service.html',
   },
 };
 

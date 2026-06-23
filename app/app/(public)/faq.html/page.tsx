@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Answers about how TassuKaveri works, how credits are earned, and how the community pet care model fits pet owners in Finland.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/faq.html',
+    canonical: '/faq.html',
   },
 };
 

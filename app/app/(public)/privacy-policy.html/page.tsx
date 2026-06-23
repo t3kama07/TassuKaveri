@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description:
     'Read how TassuKaveri handles profile information, messages, requests, and community activity on the platform.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/privacy-policy.html',
+    canonical: '/privacy-policy.html',
   },
 };
 

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Etsitkö lemmikinhoitoa Oulussa? Lue parhaat vaihtoehdot koiran ja kissan hoitoon Oulussa sekä yhteisölliset ratkaisut.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/blog/lemmikinhoito-oulussa.html',
+    canonical: '/blog/lemmikinhoito-oulussa.html',
   },
 };
 

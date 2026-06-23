@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Onko ilmainen lemmikinhoito mahdollista? Lue realistiset vaihtoehdot ja yhteisölliset ratkaisut lemmikin hoitoon ilman suuria kustannuksia.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/blog/ilmainen-lemmikinhoito.html',
+    canonical: '/blog/ilmainen-lemmikinhoito.html',
   },
 };
 

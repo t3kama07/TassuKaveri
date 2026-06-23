@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'Trusted Community Pet Care in Finland | TassuKaveri',
   description:
     'Exchange pet care using credits, not money. Find reliable community-powered pet care across Finland with TassuKaveri.',
+  alternates: {
+    canonical: '/',
+  },
 };
 
 export default function Home() {

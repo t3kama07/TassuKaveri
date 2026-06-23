@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Read TassuKaveri articles about finding pet care, planning around holidays, and building a more local, community-based pet care routine in Finland.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/blog.html',
+    canonical: '/blog.html',
   },
 };
 

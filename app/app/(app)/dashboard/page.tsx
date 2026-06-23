@@ -405,11 +405,6 @@ export default function DashboardPage() {
                           <h3 className="text-lg font-bold text-[#0f2640]">{entry.profile.name}</h3>
                           <p className="text-sm text-[#6b7280]">{entry.profile.location}</p>
                         </div>
-                        {entry.distanceKm !== undefined && (
-                          <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-xs font-medium text-[#0f2640]">
-                            {entry.distanceKm.toFixed(1)} km
-                          </span>
-                        )}
                       </div>
                       <p className="mt-3 line-clamp-2 text-sm text-[#6b7280]">
                         {entry.profile.bio || 'Friendly sitter profile available to view.'}

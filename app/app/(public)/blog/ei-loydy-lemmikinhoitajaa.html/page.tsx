@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Lemmikinhoitajaa ei löydy? Lue käytännön ratkaisut ja vinkit koiran ja kissan hoitoon kiireellisissä tilanteissa.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/blog/ei-loydy-lemmikinhoitajaa.html',
+    canonical: '/blog/ei-loydy-lemmikinhoitajaa.html',
   },
 };
 

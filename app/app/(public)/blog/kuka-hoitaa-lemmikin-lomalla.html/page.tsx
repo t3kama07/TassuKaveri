@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Loman suunnittelu tuo lemmikinomistajalle huolen: kuka hoitaa lemmikin lomalla? Lue parhaat ratkaisut koiran ja kissan hoitoon matkustamisen aikana.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/blog/kuka-hoitaa-lemmikin-lomalla.html',
+    canonical: '/blog/kuka-hoitaa-lemmikin-lomalla.html',
   },
 };
 

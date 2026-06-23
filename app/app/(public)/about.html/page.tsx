@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Learn how TassuKaveri brings together trust, credits, and local community to make pet care feel more human across Finland.',
   alternates: {
-    canonical: 'https://tassukaveri.fi/about.html',
+    canonical: '/about.html',
   },
 };
 
