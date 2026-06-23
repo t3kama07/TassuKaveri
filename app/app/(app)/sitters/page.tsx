@@ -185,8 +185,9 @@ export default function SittersPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
+              <label htmlFor="sitter-search-city" className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
               <CitySelect
+                id="sitter-search-city"
                 value={city}
                 onChange={setCity}
                 emptyLabel="All cities"
@@ -194,8 +195,9 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Care starts</label>
+              <label htmlFor="sitter-search-start" className="block text-sm font-medium text-[#0f2640] mb-1">Care starts</label>
               <input
+                id="sitter-search-start"
                 type="datetime-local"
                 value={requestedStartAt}
                 onChange={(e) => setRequestedStartAt(e.target.value)}
@@ -203,8 +205,9 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Care ends</label>
+              <label htmlFor="sitter-search-end" className="block text-sm font-medium text-[#0f2640] mb-1">Care ends</label>
               <input
+                id="sitter-search-end"
                 type="datetime-local"
                 value={requestedEndAt}
                 onChange={(e) => setRequestedEndAt(e.target.value)}
@@ -212,8 +215,9 @@ export default function SittersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Pet Type</label>
+              <label htmlFor="sitter-search-pet-type" className="block text-sm font-medium text-[#0f2640] mb-1">Pet Type</label>
               <select
+                id="sitter-search-pet-type"
                 value={petType}
                 onChange={(e) => {
                   setPetType(e.target.value);
@@ -233,8 +237,9 @@ export default function SittersPage() {
             </div>
             {petType === 'dog' && (
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Dog Size</label>
+              <label htmlFor="sitter-search-dog-size" className="block text-sm font-medium text-[#0f2640] mb-1">Dog Size</label>
               <select
+                id="sitter-search-dog-size"
                 value={petSize}
                 onChange={(e) => setPetSize(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -247,8 +252,9 @@ export default function SittersPage() {
             </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-[#0f2640] mb-1">Experience</label>
+              <label htmlFor="sitter-search-experience" className="block text-sm font-medium text-[#0f2640] mb-1">Experience</label>
               <select
+                id="sitter-search-experience"
                 value={requiredExperienceLevel}
                 onChange={(e) => setRequiredExperienceLevel(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"

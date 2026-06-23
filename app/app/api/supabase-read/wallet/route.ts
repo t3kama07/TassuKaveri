@@ -1,41 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
-import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import {
   getWalletFromSupabase,
   getWalletTransactionsFromSupabase,
 } from '@/lib/supabaseWalletStore';
-
-async function canActorReadWalletForRequest(
-  actorId: string,
-  userId: string,
-  requestId: string
-): Promise<boolean> {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('requests')
-    .select('owner_uid, sitter_uid, requested_sitter_uid')
-    .eq('id', requestId)
-    .maybeSingle<{
-      owner_uid: string;
-      sitter_uid: string | null;
-      requested_sitter_uid: string | null;
-    }>();
-
-  if (error || !data) {
-    return false;
-  }
-
-  const actorIsParticipant =
-    actorId === data.owner_uid ||
-    actorId === data.sitter_uid ||
-    actorId === data.requested_sitter_uid;
-
-  const targetWalletBelongsToParticipant =
-    userId === data.owner_uid || userId === data.sitter_uid;
-
-  return actorIsParticipant && targetWalletBelongsToParticipant;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,15 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
     if (userId !== sessionUser.uid) {
-      const requestId = request.nextUrl.searchParams.get('requestId');
-      if (!requestId) {
-        return NextResponse.json({ error: 'Forbidden wallet read target' }, { status: 403 });
-      }
-
-      const allowed = await canActorReadWalletForRequest(sessionUser.uid, userId, requestId);
-      if (!allowed) {
-        return NextResponse.json({ error: 'Forbidden wallet read target' }, { status: 403 });
-      }
+      return NextResponse.json({ error: 'Forbidden wallet read target' }, { status: 403 });
     }
 
     const includeTransactions = request.nextUrl.searchParams.get('includeTransactions') === 'true';

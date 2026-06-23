@@ -18,7 +18,7 @@ test.describe('Owner Onboarding', () => {
       experienceLevel: 'intermediate',
       petTypes: ['Dog'],
       preferredSizes: ['Medium'],
-      experienceFlags: ['Experience with dogs'],
+      experienceFlags: [],
     });
 
     await page.reload();

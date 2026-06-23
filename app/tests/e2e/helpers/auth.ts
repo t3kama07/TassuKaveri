@@ -8,15 +8,17 @@ export async function login(page: Page, user: Pick<E2EUserAccount, 'email' | 'pa
   const form = page.locator('form');
   await fieldByLabel(form, 'Email').fill(user.email);
   await fieldByLabel(form, 'Password').fill(user.password);
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
+  await page.getByRole('button', { name: 'Log in', exact: true }).click();
 
-  await expect(page.getByRole('button', { name: 'Logout', exact: true })).toBeVisible();
-  await expect(page).not.toHaveURL(/\/login$/);
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Logout', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 export async function logout(page: Page) {
   await page.getByRole('button', { name: 'Logout', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Login', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/(?:login)?$/);
 }
 
@@ -34,7 +36,7 @@ export async function signUp(
 
   const form = page.locator('form');
   await fieldByLabel(form, 'Name').fill(values.name);
-  await fieldByLabel(form, 'Location (City)').fill(values.location);
+  await fieldByLabel(form, 'City').selectOption(values.location);
   await fieldByLabel(form, 'Email').fill(values.email);
 
   const passwords = form.locator('input[type="password"]');

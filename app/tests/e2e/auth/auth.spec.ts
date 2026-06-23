@@ -7,7 +7,7 @@ test.describe('Authentication', () => {
   test('redirects guests away from protected pages', async ({ page }) => {
     await page.goto('/profile');
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('heading', { name: 'Login', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
   });
 
   test('shows validation and creates a new user account', async ({ page }) => {
@@ -22,13 +22,13 @@ test.describe('Authentication', () => {
       confirmPassword: `${password}x`,
     });
 
-    await page.getByRole('button', { name: 'Sign Up', exact: true }).click();
-    await expect(page.getByText('Passwords do not match')).toBeVisible();
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await expect(page.getByText('The passwords do not match.')).toBeVisible();
 
     const form = page.locator('form');
     const passwords = form.locator('input[type="password"]');
     await passwords.nth(1).fill(password);
-    await page.getByRole('button', { name: 'Sign Up', exact: true }).click();
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     const reachedDashboard = await page
       .waitForURL(/\/dashboard$/, { timeout: 10000 })
@@ -42,7 +42,7 @@ test.describe('Authentication', () => {
 
     await expect(page).toHaveURL(/\/signup$/);
     const rateLimitError = page.getByText(
-      /Failed to create account: Too many signup emails were sent recently\./i
+      /Too many signup emails were sent recently\./i
     );
 
     if (await rateLimitError.isVisible()) {
@@ -76,9 +76,9 @@ test.describe('Authentication', () => {
     const form = page.locator('form');
     await fieldByLabel(form, 'Email').fill(appUsers.accessMember.email);
     await fieldByLabel(form, 'Password').fill('DefinitelyWrong123!');
-    await page.getByRole('button', { name: 'Login', exact: true }).click();
+    await page.getByRole('button', { name: 'Log in', exact: true }).click();
 
-    await expect(page.getByText(/Failed to login:/i)).toBeVisible();
+    await expect(page.getByText(/We could not log you in\./i)).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 });

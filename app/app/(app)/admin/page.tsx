@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProfile } from '@/lib/profileService';
@@ -25,11 +25,7 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -56,7 +52,11 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   async function handleFreezeAccount() {
     if (!user || !targetUserId.trim()) return;

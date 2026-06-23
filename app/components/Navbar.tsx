@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage, type Language } from '@/contexts/LanguageContext';
@@ -73,25 +73,24 @@ export default function Navbar() {
   const { user, profile, logout } = useAuth();
   const { language, setLanguage } = useLanguage();
   const router = useRouter();
-  const pathname = usePathname();
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationSummary, setNotificationSummary] = useState({ userId: '', count: 0 });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const publicNavCopy = publicContent[language].nav;
   const isAdmin = profile?.role === 'admin';
+  const unreadNotifications =
+    user?.uid === notificationSummary.userId ? notificationSummary.count : 0;
 
   useEffect(() => {
     if (!user) {
-      setUnreadNotifications(0);
       return;
     }
 
-    const unsubscribe = subscribeUnreadNotificationCount(user.uid, setUnreadNotifications);
+    const userId = user.uid;
+    const unsubscribe = subscribeUnreadNotificationCount(userId, (count) => {
+      setNotificationSummary({ userId, count });
+    });
     return () => unsubscribe();
   }, [user]);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname, user]);
 
   async function handleLogout() {
     try {

@@ -115,10 +115,11 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#0f2640] mb-1">
+            <label htmlFor="signup-name" className="block text-sm font-medium text-[#0f2640] mb-1">
               Name
             </label>
             <input
+              id="signup-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -129,10 +130,11 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0f2640] mb-1">
+            <label htmlFor="signup-city" className="block text-sm font-medium text-[#0f2640] mb-1">
               City
             </label>
             <CitySelect
+              id="signup-city"
               value={location}
               onChange={setLocation}
               required
@@ -141,10 +143,11 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0f2640] mb-1">
+            <label htmlFor="signup-email" className="block text-sm font-medium text-[#0f2640] mb-1">
               Email
             </label>
             <input
+              id="signup-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -155,10 +158,11 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0f2640] mb-1">
+            <label htmlFor="signup-password" className="block text-sm font-medium text-[#0f2640] mb-1">
               Password
             </label>
             <input
+              id="signup-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -169,10 +173,11 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0f2640] mb-1">
+            <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-[#0f2640] mb-1">
               Confirm password
             </label>
             <input
+              id="signup-confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

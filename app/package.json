@@ -5,9 +5,9 @@
     "scripts": {
         "dev": "cross-env BROWSERSLIST_IGNORE_OLD_DATA=true next dev",
         "build": "cross-env BROWSERSLIST_IGNORE_OLD_DATA=true next build",
-        "postinstall": "node scripts/patch-next-browserslist-warning.mjs",
         "start": "next start",
         "lint": "eslint",
+        "typecheck": "tsc --noEmit",
         "db:run-sql": "node scripts/run-supabase-sql.mjs",
         "db:audit-integrity": "node scripts/audit-supabase-integrity.mjs",
         "storage:ensure-bucket": "node scripts/ensure-supabase-storage-bucket.mjs",
@@ -18,7 +18,7 @@
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.103.0",
-        "next": "16.0.10",
+        "next": "^16.2.9",
         "pg": "^8.20.0",
         "react": "19.2.1",
         "react-dom": "19.2.1",
@@ -28,14 +28,19 @@
         "@playwright/test": "^1.59.1",
         "@tailwindcss/postcss": "^4",
         "@types/node": "^20",
+        "@types/pg": "^8.20.0",
         "@types/react": "^19",
         "@types/react-dom": "^19",
         "baseline-browser-mapping": "^2.10.16",
         "cross-env": "^10.1.0",
         "dotenv": "^17.4.1",
         "eslint": "^9",
-        "eslint-config-next": "16.0.10",
+        "eslint-config-next": "^16.2.9",
         "tailwindcss": "^4",
         "typescript": "^5"
+    },
+    "overrides": {
+        "postcss": "8.5.10",
+        "ws": "8.21.0"
     }
 }

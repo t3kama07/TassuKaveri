@@ -333,7 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [supabaseReady, supabaseSession?.user.id, supabaseSession?.user.email]);
+  }, [supabaseReady, supabaseSession?.user]);
 
   const login = async (email: string, password: string) => {
     const trimmedEmail = normalizeEmailForAuth(email);

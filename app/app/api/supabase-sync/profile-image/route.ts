@@ -5,6 +5,13 @@ import {
   uploadProfileImageToSupabase,
 } from '@/lib/supabaseProfileImageStore';
 
+const ALLOWED_PROFILE_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
+
 export async function POST(request: NextRequest) {
   try {
     const idToken = readBearerToken(request.headers);
@@ -33,8 +40,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Image file is required' }, { status: 400 });
     }
 
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Please choose an image file.' }, { status: 400 });
+    if (!ALLOWED_PROFILE_IMAGE_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: 'Please choose a JPEG, PNG, WebP, or GIF image.' },
+        { status: 400 }
+      );
     }
 
     if (file.size > MAX_PROFILE_IMAGE_BYTES) {

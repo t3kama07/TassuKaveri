@@ -100,7 +100,9 @@ export function subscribeUnreadNotificationCount(
         onCount(unreadCount);
       }
     } catch (error) {
-      console.warn('Failed to refresh unread notification count from Supabase', error);
+      if (!cancelled) {
+        console.warn('Failed to refresh unread notification count from Supabase', error);
+      }
     } finally {
       if (!cancelled) {
         timeoutId = setTimeout(refreshCount, 15000);

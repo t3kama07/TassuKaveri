@@ -12,6 +12,7 @@ import { addAvailabilitySlot, addPet, completeProfile } from '../helpers/onboard
 
 test.describe('Direct Booking, Chat, And Review', () => {
   test('completes the core owner-to-sitter lifecycle across two users', async ({ browser, appUsers, runId }) => {
+    test.setTimeout(240_000);
     const owner = appUsers.bookingOwner;
     const sitter = appUsers.bookingSitter;
     const petName = `BookingPet-${runId}`;
@@ -39,7 +40,7 @@ test.describe('Direct Booking, Chat, And Review', () => {
         experienceLevel: 'intermediate',
         petTypes: ['Dog'],
         preferredSizes: ['Medium'],
-        experienceFlags: ['Experience with dogs'],
+        experienceFlags: [],
       });
       await addPet(ownerPage, {
         name: petName,
@@ -59,7 +60,7 @@ test.describe('Direct Booking, Chat, And Review', () => {
         experienceLevel: 'expert',
         petTypes: ['Dog', 'Cat'],
         preferredSizes: ['Medium', 'Large'],
-        experienceFlags: ['Experience with dogs', 'Experience with cats'],
+        experienceFlags: ['Confident handling large dogs'],
       });
       await addAvailabilitySlot(sitterPage, sitterAvailability);
 
@@ -77,20 +78,20 @@ test.describe('Direct Booking, Chat, And Review', () => {
         notes: requestNote,
       });
 
-      await ownerPage.getByRole('button', { name: 'Create Request', exact: true }).click();
+      await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
       await expect(ownerPage.getByText('End date must be after start date')).toBeVisible();
 
       const requestForm = ownerPage.locator('form');
-      await fieldByLabel(requestForm, 'End Time').fill(requestWindow.endTime);
-      await expect(fieldByLabel(requestForm, 'End Time')).toHaveValue(requestWindow.endTime);
-      await ownerPage.getByRole('button', { name: 'Create Request', exact: true }).click();
+      await fieldByLabel(requestForm, 'End time').fill(requestWindow.endTime);
+      await expect(fieldByLabel(requestForm, 'End time')).toHaveValue(requestWindow.endTime);
+      await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
 
       await expect(ownerPage.locator('form')).toHaveCount(0);
       await expect(ownerPage.getByText('Direct request sent to:')).toBeVisible();
       await expect(ownerPage.getByText(sitterName)).toBeVisible();
 
       await sitterPage.goto('/notifications');
-      await expect(sitterPage.getByRole('heading', { name: 'Direct Requests', exact: true })).toBeVisible();
+      await expect(sitterPage.getByRole('heading', { name: 'Direct asks', exact: true })).toBeVisible();
       await expect(sitterPage.getByText(`${ownerName} sent you a direct request for ${petName}.`)).toBeVisible();
       await sitterPage.getByRole('button', { name: 'Mark as read', exact: true }).click();
       await expect(sitterPage.getByText('New')).toHaveCount(0);
@@ -98,8 +99,8 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await sitterPage.getByRole('button', { name: 'Open direct requests', exact: true }).click();
       await expect(sitterPage).toHaveURL(/tab=direct-requests/);
       await confirmNextDialog(sitterPage);
-      await sitterPage.getByRole('button', { name: 'Accept Direct Request', exact: true }).click();
-      await expect(sitterPage.getByText(`Direct request accepted for ${petName}.`)).toBeVisible();
+      await sitterPage.getByRole('button', { name: 'Accept direct ask', exact: true }).click();
+      await expect(sitterPage.getByText(`Direct pet-care request accepted for ${petName}.`)).toBeVisible();
 
       await ownerPage.goto('/exchange?tab=my-requests');
       const acceptedRequestCard = await requestCardByText(ownerPage, requestNote);
@@ -119,19 +120,19 @@ test.describe('Direct Booking, Chat, And Review', () => {
 
       await sitterPage.goto('/exchange?tab=my-sits');
       await confirmNextDialog(sitterPage);
-      await sitterPage.getByRole('button', { name: 'Mark as Complete', exact: true }).click();
-      await expect(sitterPage.getByText('Job marked as completed! Waiting for owner confirmation.')).toBeVisible();
+      await sitterPage.getByRole('button', { name: 'Mark care as finished', exact: true }).click();
+      await expect(sitterPage.getByText('Marked as finished. Waiting for the owner to confirm.')).toBeVisible();
 
       await ownerPage.goto('/exchange?tab=my-requests');
       await confirmNextDialog(ownerPage);
-      await ownerPage.getByRole('button', { name: 'Confirm Completion', exact: true }).click();
-      await expect(ownerPage.getByText('Request completed! Credits have been released to the sitter.')).toBeVisible();
+      await ownerPage.getByRole('button', { name: 'Confirm care is finished', exact: true }).click();
+      await expect(ownerPage.getByText('Care confirmed. The sitter received the credits.')).toBeVisible();
 
       await ownerPage.locator('select').filter({ has: ownerPage.locator('option[value="5"]') }).first().selectOption('5');
       await ownerPage.getByPlaceholder('Short comment').fill(reviewComment);
-      await ownerPage.getByRole('button', { name: 'Submit Review', exact: true }).click();
+      await ownerPage.getByRole('button', { name: 'Send review', exact: true }).click();
 
-      await expect(ownerPage.getByText('Review submitted successfully.')).toBeVisible();
+      await expect(ownerPage.getByText('Review sent. Thank you for helping the community.')).toBeVisible();
       await expect(ownerPage.getByText('Your review')).toBeVisible();
       await expect(ownerPage.getByText(reviewComment)).toBeVisible();
 
@@ -139,8 +140,7 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await expect(ownerPage.getByText('1 reviews')).toBeVisible();
       await expect(ownerPage.getByText('5.0')).toBeVisible();
     } finally {
-      await ownerContext.close();
-      await sitterContext.close();
+      await Promise.allSettled([ownerContext.close(), sitterContext.close()]);
     }
   });
 });

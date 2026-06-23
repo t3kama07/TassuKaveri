@@ -3,6 +3,7 @@
 import { findSupportedCity, SUPPORTED_FINLAND_CITIES } from '@/lib/locations';
 
 type CitySelectProps = {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   className?: string;
@@ -11,6 +12,7 @@ type CitySelectProps = {
 };
 
 export default function CitySelect({
+  id,
   value,
   onChange,
   className = '',
@@ -21,6 +23,7 @@ export default function CitySelect({
 
   return (
     <select
+      id={id}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       required={required}

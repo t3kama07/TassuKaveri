@@ -16,6 +16,7 @@ export default defineConfig({
     ['html', { open: 'never' }],
   ],
   globalSetup: './tests/e2e/global.setup.ts',
+  globalTeardown: './tests/e2e/global.teardown.ts',
   timeout: 90_000,
   expect: {
     timeout: 10_000,

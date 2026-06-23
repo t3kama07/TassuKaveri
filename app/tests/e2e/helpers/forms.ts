@@ -6,5 +6,8 @@ export function fieldByLabel(scope: Scope, labelText: string): Locator {
   return scope
     .locator('label')
     .filter({ hasText: labelText })
-    .locator('xpath=following-sibling::*[1][self::input or self::textarea or self::select]');
+    .first()
+    .locator('xpath=..')
+    .locator('input, textarea, select')
+    .first();
 }

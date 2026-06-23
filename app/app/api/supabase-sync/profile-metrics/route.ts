@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { getProfileFromSupabase } from '@/lib/supabaseProfileStore';
-import { getCompletedSitsCountFromSupabase } from '@/lib/supabaseRequestStore';
+import {
+  getCompletedSitsCountFromSupabase,
+  getRequestByIdOnlyFromSupabase,
+  getSitterRequestsFromSupabase,
+} from '@/lib/supabaseRequestStore';
 import { calculateTrustScore } from '@/lib/trustScore';
 
 type ProfileMetricsPayload = {
@@ -101,6 +105,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only admins can change frozen status' }, { status: 403 });
     }
 
+    let verifiedRatingMetrics: { ratingAverage: number; ratingCount: number } | undefined;
+    const includesClientMetrics =
+      typeof payload.ratingAverage === 'number' ||
+      typeof payload.ratingCount === 'number' ||
+      typeof payload.trustScore === 'number';
+
+    if (!actorIsAdmin && includesClientMetrics) {
+      if (!payload.relatedRequestId) {
+        return NextResponse.json({ error: 'Server-owned profile metrics cannot be set directly' }, { status: 403 });
+      }
+
+      const relatedRequest = await getRequestByIdOnlyFromSupabase(payload.relatedRequestId);
+      if (
+        !relatedRequest ||
+        relatedRequest.status !== 'completed' ||
+        relatedRequest.ownerId !== payload.actorId ||
+        relatedRequest.sitterId !== payload.targetUserId
+      ) {
+        return NextResponse.json({ error: 'Invalid request for profile metrics update' }, { status: 403 });
+      }
+
+      const completedRequests = await getSitterRequestsFromSupabase(payload.targetUserId);
+      const ratings = completedRequests
+        .filter((entry) => entry.status === 'completed')
+        .map((entry) => entry.ownerReview ?? entry.review)
+        .filter((review): review is NonNullable<typeof review> => Boolean(review))
+        .map((review) => review.rating)
+        .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+      verifiedRatingMetrics = {
+        ratingCount: ratings.length,
+        ratingAverage:
+          ratings.length > 0
+            ? ratings.reduce((total, rating) => total + rating, 0) / ratings.length
+            : 0,
+      };
+    }
+
     const profileUpdates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -108,16 +149,18 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (typeof payload.ratingAverage === 'number' && Number.isFinite(payload.ratingAverage)) {
-      profileUpdates.rating_average = payload.ratingAverage;
-      publicProfileUpdates.rating_average = payload.ratingAverage;
+    const resolvedRatingAverage = verifiedRatingMetrics?.ratingAverage ?? payload.ratingAverage;
+    const resolvedRatingCount = verifiedRatingMetrics?.ratingCount ?? payload.ratingCount;
+    if (typeof resolvedRatingAverage === 'number' && Number.isFinite(resolvedRatingAverage)) {
+      profileUpdates.rating_average = resolvedRatingAverage;
+      publicProfileUpdates.rating_average = resolvedRatingAverage;
     }
-    if (typeof payload.ratingCount === 'number' && Number.isFinite(payload.ratingCount)) {
-      profileUpdates.rating_count = payload.ratingCount;
-      publicProfileUpdates.rating_count = payload.ratingCount;
+    if (typeof resolvedRatingCount === 'number' && Number.isFinite(resolvedRatingCount)) {
+      profileUpdates.rating_count = resolvedRatingCount;
+      publicProfileUpdates.rating_count = resolvedRatingCount;
     }
     let resolvedTrustScore: number | undefined;
-    if (typeof payload.trustScore === 'number' && Number.isFinite(payload.trustScore)) {
+    if (actorIsAdmin && typeof payload.trustScore === 'number' && Number.isFinite(payload.trustScore)) {
       resolvedTrustScore = payload.trustScore;
     } else if (payload.recalculateTrustScore) {
       const targetProfile = await getProfileFromSupabase(payload.targetUserId);
@@ -129,14 +172,8 @@ export async function POST(request: NextRequest) {
       resolvedTrustScore = calculateTrustScore(
         {
           ...targetProfile,
-          ratingAverage:
-            typeof payload.ratingAverage === 'number' && Number.isFinite(payload.ratingAverage)
-              ? payload.ratingAverage
-              : targetProfile.ratingAverage,
-          ratingCount:
-            typeof payload.ratingCount === 'number' && Number.isFinite(payload.ratingCount)
-              ? payload.ratingCount
-              : targetProfile.ratingCount,
+          ratingAverage: resolvedRatingAverage ?? targetProfile.ratingAverage,
+          ratingCount: resolvedRatingCount ?? targetProfile.ratingCount,
         },
         completedSits
       );

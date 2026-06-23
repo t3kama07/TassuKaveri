@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { replaceWalletStateInSupabase } from '@/lib/supabaseWalletStore';
+import { getTodayKey } from '@/lib/platformPolicy';
+import { getRequestByIdOnlyFromSupabase } from '@/lib/supabaseRequestStore';
+import {
+  getWalletFromSupabase,
+  getWalletTransactionsFromSupabase,
+  replaceWalletStateInSupabase,
+} from '@/lib/supabaseWalletStore';
+import type { Transaction, Wallet } from '@/types/wallet';
 
 type WalletSyncPayload = {
   actorId?: string;
@@ -46,6 +53,24 @@ async function canActorSyncWalletForRequest(
   return actorIsParticipant && targetWalletBelongsToParticipant;
 }
 
+function buildTransaction(params: {
+  type: Transaction['type'];
+  amount: number;
+  requestId?: string;
+  reference: string;
+  balanceAfter: number;
+}): Transaction {
+  return {
+    id: crypto.randomUUID(),
+    type: params.type,
+    amount: params.amount,
+    requestId: params.requestId,
+    reference: params.reference,
+    balanceAfter: params.balanceAfter,
+    timestamp: new Date(),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const idToken = readBearerToken(request.headers);
@@ -73,14 +98,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Actor mismatch for wallet sync' }, { status: 403 });
     }
 
-    if (payload.userId !== payload.actorId) {
-      if (typeof payload.requestId !== 'string') {
-        return NextResponse.json(
-          { error: 'requestId is required when syncing another user wallet' },
-          { status: 403 }
-        );
+    const currentWallet = await getWalletFromSupabase(payload.userId);
+    if (!currentWallet) {
+      if (payload.userId !== payload.actorId || payload.requestId) {
+        return NextResponse.json({ error: 'Only a user can initialize their own wallet' }, { status: 403 });
       }
 
+      const now = new Date();
+      const starterBalance = 5;
+      await replaceWalletStateInSupabase({
+        userId: payload.userId,
+        wallet: {
+          balance: starterBalance,
+          lastRequestId: '',
+          lastRequestOwnerId: '',
+          dailyEarnedDate: undefined,
+          dailyEarnedCredits: 0,
+          lastWalletAction: 'starter_bonus',
+          createdAt: now,
+          updatedAt: now,
+        },
+        transactions: [
+          buildTransaction({
+            type: 'starter_bonus',
+            amount: starterBalance,
+            reference: 'Starter bonus',
+            balanceAfter: starterBalance,
+          }),
+        ],
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (typeof payload.requestId !== 'string') {
+      return NextResponse.json(
+        { error: 'Existing wallets can be changed only by a pet-care request' },
+        { status: 403 }
+      );
+    }
+
+    if (payload.userId !== payload.actorId) {
       const allowed = await canActorSyncWalletForRequest(
         payload.actorId,
         payload.userId,
@@ -92,10 +149,97 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const relatedRequest = await getRequestByIdOnlyFromSupabase(payload.requestId);
+    if (!relatedRequest) {
+      return NextResponse.json({ error: 'Related request not found' }, { status: 404 });
+    }
+
+    const requestedAction = (payload.wallet as Partial<Wallet>).lastWalletAction;
+    const transactions = await getWalletTransactionsFromSupabase(payload.userId);
+    const actionConfig =
+      requestedAction === 'escrow_hold'
+        ? {
+            transactionType: 'escrow' as const,
+            allowed:
+              payload.userId === relatedRequest.ownerId &&
+              relatedRequest.status === 'accepted' &&
+              relatedRequest.escrowStatus === 'held' &&
+              (payload.actorId === relatedRequest.ownerId || payload.actorId === relatedRequest.sitterId),
+            balanceDelta: -relatedRequest.creditsOffered,
+            reference: `Escrow for request ${payload.requestId}`,
+          }
+        : requestedAction === 'escrow_release'
+          ? {
+              transactionType: 'escrow-release' as const,
+              allowed:
+                payload.userId === relatedRequest.sitterId &&
+                payload.actorId === relatedRequest.ownerId &&
+                relatedRequest.status === 'completed' &&
+                relatedRequest.escrowStatus === 'released',
+              balanceDelta: relatedRequest.creditsOffered,
+              reference: `Reward completed for request ${payload.requestId}`,
+            }
+          : requestedAction === 'escrow_refund'
+            ? {
+                transactionType: 'escrow-refund' as const,
+                allowed:
+                  payload.userId === relatedRequest.ownerId &&
+                  relatedRequest.status === 'cancelled' &&
+                  relatedRequest.escrowStatus === 'refunded' &&
+                  (payload.actorId === relatedRequest.ownerId || payload.actorId === relatedRequest.sitterId),
+                balanceDelta: relatedRequest.creditsOffered,
+                reference: `Refund for cancelled request ${payload.requestId}`,
+              }
+            : null;
+
+    if (!actionConfig?.allowed || relatedRequest.creditsOffered <= 0) {
+      return NextResponse.json({ error: 'Invalid wallet operation for request state' }, { status: 403 });
+    }
+
+    if (
+      transactions.some(
+        (transaction) =>
+          transaction.requestId === payload.requestId && transaction.type === actionConfig.transactionType
+      )
+    ) {
+      return NextResponse.json({ ok: true });
+    }
+
+    const nextBalance = currentWallet.balance + actionConfig.balanceDelta;
+    if (nextBalance < 0) {
+      return NextResponse.json({ error: 'Insufficient credits' }, { status: 409 });
+    }
+
+    const now = new Date();
     await replaceWalletStateInSupabase({
       userId: payload.userId,
-      wallet: payload.wallet as never,
-      transactions: payload.transactions as never,
+      wallet: {
+        ...currentWallet,
+        balance: nextBalance,
+        lastRequestId: payload.requestId,
+        lastRequestOwnerId:
+          requestedAction === 'escrow_release' ? '' : relatedRequest.ownerId,
+        dailyEarnedCredits:
+          requestedAction === 'escrow_release'
+            ? (currentWallet.dailyEarnedCredits ?? 0) + relatedRequest.creditsOffered
+            : currentWallet.dailyEarnedCredits,
+        dailyEarnedDate:
+          requestedAction === 'escrow_release'
+            ? getTodayKey(now)
+            : currentWallet.dailyEarnedDate,
+        lastWalletAction: requestedAction,
+        updatedAt: now,
+      },
+      transactions: [
+        buildTransaction({
+          type: actionConfig.transactionType,
+          amount: relatedRequest.creditsOffered,
+          requestId: payload.requestId,
+          reference: actionConfig.reference,
+          balanceAfter: nextBalance,
+        }),
+        ...transactions,
+      ],
     });
 
     return NextResponse.json({ ok: true });

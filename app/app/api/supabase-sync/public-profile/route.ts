@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
-import { upsertPublicProfileInSupabase } from '@/lib/supabasePublicProfileStore';
+import { getProfileFromSupabase } from '@/lib/supabaseProfileStore';
+import {
+  getPublicProfileFromSupabase,
+  upsertPublicProfileInSupabase,
+} from '@/lib/supabasePublicProfileStore';
 
 function isPublicProfilePayload(
   value: unknown
@@ -40,9 +44,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden public profile sync target' }, { status: 403 });
     }
 
+    const [privateProfile, existingPublicProfile] = await Promise.all([
+      getProfileFromSupabase(publicProfile.uid),
+      getPublicProfileFromSupabase(publicProfile.uid),
+    ]);
+    if (!privateProfile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
     await upsertPublicProfileInSupabase({
       ...publicProfile,
       uid: publicProfile.uid,
+      phoneVerified: false,
+      ratingAverage: privateProfile.ratingAverage,
+      ratingCount: privateProfile.ratingCount,
+      trustScore: privateProfile.trustScore,
+      createdAt: existingPublicProfile?.createdAt ?? new Date(),
+      updatedAt: new Date(),
     });
 
     return NextResponse.json({ ok: true });

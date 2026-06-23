@@ -1361,8 +1361,9 @@ function RequestsPageContent() {
                 <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
+                      <label htmlFor="community-requests-city" className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
                       <CitySelect
+                        id="community-requests-city"
                         value={cityFilter}
                         onChange={setCityFilter}
                         emptyLabel="All cities"
@@ -1370,8 +1371,9 @@ function RequestsPageContent() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#0f2640] mb-1">Max Distance (km)</label>
+                      <label htmlFor="community-requests-distance" className="block text-sm font-medium text-[#0f2640] mb-1">Max Distance (km)</label>
                       <input
+                        id="community-requests-distance"
                         type="number"
                         min="1"
                         value={maxDistanceKm}

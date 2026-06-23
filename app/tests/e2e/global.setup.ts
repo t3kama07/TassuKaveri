@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createTestUsers } from '../../lib/testUserService';
+import { deletePlaywrightTestUsers, listPlaywrightAuthUsers } from './helpers/cleanup';
 import { loadE2EEnv } from './helpers/env';
 import {
   type E2ERunUsersFile,
@@ -21,6 +22,21 @@ const USER_ALIASES: E2EUserAlias[] = [
 
 export default async function globalSetup() {
   loadE2EEnv();
+
+  const previousRunIds = await readFile(runtimeUsersFile, 'utf8')
+    .then((contents) => {
+      const previousRun = JSON.parse(contents) as E2ERunUsersFile;
+      return Object.values(previousRun.users).map((user) => user.uid);
+    })
+    .catch(() => [] as string[]);
+  const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
+  const staleUsers = (await listPlaywrightAuthUsers()).filter(
+    (user) => new Date(user.createdAt).getTime() < staleBefore
+  );
+  await deletePlaywrightTestUsers([
+    ...previousRunIds,
+    ...staleUsers.map((user) => user.id),
+  ]);
 
   const runId = Date.now().toString(36);
   const password = process.env.PLAYWRIGHT_TEST_PASSWORD || 'Playwright123!';

@@ -29,10 +29,8 @@ test.describe('Sitter Onboarding', () => {
       petTypes: ['Dog', 'Cat'],
       preferredSizes: ['Medium', 'Large'],
       experienceFlags: [
-        'Experience with dogs',
-        'Experience with cats',
-        'Experience with large dogs',
-        'Experience with senior pets',
+        'Confident handling large dogs',
+        'Experienced with senior pets',
       ],
     });
 

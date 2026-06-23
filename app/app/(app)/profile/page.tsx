@@ -417,8 +417,9 @@ export default function ProfilePage() {
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Name</label>
+                    <label htmlFor="profile-name" className="mb-1 block text-sm font-medium text-[#0f2640]">Name</label>
                     <input
+                      id="profile-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -427,8 +428,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
+                    <label htmlFor="profile-city" className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
                     <CitySelect
+                      id="profile-city"
                       value={location}
                       onChange={setLocation}
                       required
@@ -436,8 +438,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Country</label>
+                    <label htmlFor="profile-country" className="mb-1 block text-sm font-medium text-[#0f2640]">Country</label>
                     <input
+                      id="profile-country"
                       type="text"
                       value={country}
                       readOnly
@@ -452,8 +455,9 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-bold text-[#0f2640]">About you</h3>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Short intro</label>
+                    <label htmlFor="profile-bio" className="mb-1 block text-sm font-medium text-[#0f2640]">Short intro</label>
                     <textarea
+                      id="profile-bio"
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
@@ -461,8 +465,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Pet care experience</label>
+                    <label htmlFor="profile-pet-experience" className="mb-1 block text-sm font-medium text-[#0f2640]">Pet care experience</label>
                     <textarea
+                      id="profile-pet-experience"
                       value={petExperience}
                       onChange={(e) => setPetExperience(e.target.value)}
                       rows={4}
@@ -479,8 +484,9 @@ export default function ProfilePage() {
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Can you help now?</label>
+                    <label htmlFor="profile-availability" className="mb-1 block text-sm font-medium text-[#0f2640]">Can you help now?</label>
                     <select
+                      id="profile-availability"
                       value={availability}
                       onChange={(e) => setAvailability(e.target.value as AvailabilityStatus)}
                       className={inputClassName}
@@ -490,8 +496,9 @@ export default function ProfilePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-[#0f2640]">Experience level</label>
+                    <label htmlFor="profile-experience-level" className="mb-1 block text-sm font-medium text-[#0f2640]">Experience level</label>
                     <select
+                      id="profile-experience-level"
                       value={experienceLevel}
                       onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
                       className={inputClassName}
@@ -835,7 +842,7 @@ export default function ProfilePage() {
               <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
                 <p className="text-sm font-semibold text-[#0f2640]">Best next step</p>
                 <p className="mt-2 text-sm text-[#516173]">
-                  Finish your details, verify your phone, and add a few times you can help.
+                  Finish your details, keep your email verified, and add a few times you can help.
                 </p>
               </div>
             </div>

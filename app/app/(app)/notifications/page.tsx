@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -133,11 +133,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    void loadNotifications();
-  }, [user]);
-
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
       setLoading(false);
@@ -155,7 +151,11 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [loadNotifications]);
 
   async function handleMarkRead(notificationId: string) {
     try {

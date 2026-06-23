@@ -13,13 +13,13 @@ export async function completeProfile(
     petExperience: string;
     availability: 'available' | 'unavailable';
     experienceLevel: 'beginner' | 'intermediate' | 'expert';
-    petTypes: Array<'Dog' | 'Cat'>;
+    petTypes: Array<
+      'Dog' | 'Cat' | 'Rabbit' | 'Bird' | 'Small mammal' | 'Reptile' | 'Fish' | 'Other'
+    >;
     preferredSizes: Array<'Small' | 'Medium' | 'Large'>;
     experienceFlags?: Array<
-      | 'Experience with dogs'
-      | 'Experience with cats'
-      | 'Experience with large dogs'
-      | 'Experience with senior pets'
+      | 'Confident handling large dogs'
+      | 'Experienced with senior pets'
     >;
   }
 ) {
@@ -32,15 +32,24 @@ export async function completeProfile(
 
   const form = page.locator('form');
   await fieldByLabel(form, 'Name').fill(details.name);
-  await fieldByLabel(form, 'Location (City)').fill('Oulu');
-  await fieldByLabel(form, 'Country').fill('Finland');
-  await fieldByLabel(form, 'Short Bio').fill(details.bio);
-  await fieldByLabel(form, 'Pet Experience').fill(details.petExperience);
-  await fieldByLabel(form, 'Availability').selectOption(details.availability);
-  await fieldByLabel(form, 'Experience Level').selectOption(details.experienceLevel);
+  await fieldByLabel(form, 'City').selectOption('Oulu');
+  await fieldByLabel(form, 'Short intro').fill(details.bio);
+  await fieldByLabel(form, 'Pet care experience').fill(details.petExperience);
+  await fieldByLabel(form, 'Can you help now?').selectOption(details.availability);
+  await fieldByLabel(form, 'Experience level').selectOption(details.experienceLevel);
 
   for (const petType of details.petTypes) {
-    await form.getByRole('button', { name: petType, exact: true }).click();
+    const pluralLabel: Record<typeof petType, string> = {
+      Dog: 'Dogs',
+      Cat: 'Cats',
+      Rabbit: 'Rabbits',
+      Bird: 'Birds',
+      'Small mammal': 'Small mammals',
+      Reptile: 'Reptiles',
+      Fish: 'Fish',
+      Other: 'Other pets',
+    };
+    await form.getByRole('button', { name: pluralLabel[petType], exact: true }).click();
   }
 
   for (const preferredSize of details.preferredSizes) {
@@ -52,13 +61,13 @@ export async function completeProfile(
   }
 
   await page.getByRole('button', { name: 'Save Changes', exact: true }).click();
-  await expect(page.getByText('Profile updated successfully')).toBeVisible();
+  await expect(page.getByText('Profile saved.')).toBeVisible();
 }
 
 export async function openAvailabilityPlanner(page: Page) {
   await page.goto('/profile');
-  await page.getByRole('button', { name: /Availability Planner/i }).first().click();
-  await expect(page.getByText('Your time slots')).toBeVisible();
+  await page.getByRole('button', { name: /^Times I can help/ }).first().click();
+  await expect(page.getByText('Your saved times')).toBeVisible();
 }
 
 export async function addAvailabilitySlot(
@@ -71,7 +80,7 @@ export async function addAvailabilitySlot(
   }
 ) {
   await openAvailabilityPlanner(page);
-  await page.getByRole('button', { name: 'Add Slot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add time', exact: true }).click();
 
   await page.getByLabel('Start Date', { exact: true }).fill(window.startDate);
   await page.getByLabel('End Date', { exact: true }).fill(window.endDate);
@@ -91,7 +100,7 @@ export async function expectAvailabilityOverlapError(
     endTime: string;
   }
 ) {
-  await page.getByRole('button', { name: 'Add Slot', exact: true }).click();
+  await page.getByRole('button', { name: 'Add time', exact: true }).click();
   await page.getByLabel('Start Date', { exact: true }).fill(window.startDate);
   await page.getByLabel('End Date', { exact: true }).fill(window.endDate);
   await page.getByLabel('Start Time', { exact: true }).fill(window.startTime);
@@ -115,27 +124,27 @@ export async function addPet(
   }
 ) {
   await page.goto('/pets');
-  await page.getByRole('button', { name: 'Add Pet', exact: true }).click();
+  await page.getByRole('button', { name: /Add (?:your first )?pet/i }).first().click();
 
   const form = page.locator('form');
-  await fieldByLabel(form, 'Name').fill(pet.name);
-  await fieldByLabel(form, 'Type').selectOption(pet.type);
+  await fieldByLabel(form, 'Pet name').fill(pet.name);
+  await fieldByLabel(form, 'Pet type').selectOption(pet.type);
   await fieldByLabel(form, 'Breed').fill(pet.breed);
   await fieldByLabel(form, 'Age (years)').fill(String(pet.age));
   await fieldByLabel(form, 'Size').selectOption(pet.size);
-  await fieldByLabel(form, 'Notes').fill(pet.notes);
+  await fieldByLabel(form, 'Notes for the sitter').fill(pet.notes);
 
   if (pet.behaviour) {
     await fieldByLabel(form, 'Behaviour').fill(pet.behaviour);
   }
 
   if (pet.vaccinationStatus) {
-    await fieldByLabel(form, 'Vaccination Status').fill(pet.vaccinationStatus);
+    await fieldByLabel(form, 'Vaccination status').fill(pet.vaccinationStatus);
   }
 
   await checkboxByText(form, 'Friendly with dogs').check();
-  await page.getByRole('button', { name: 'Add Pet', exact: true }).click();
-  await expect(page.getByText('Pet added successfully')).toBeVisible();
+  await page.getByRole('button', { name: 'Add pet', exact: true }).click();
+  await expect(page.getByText('Pet added.')).toBeVisible();
 }
 
 export async function editPetNotes(page: Page, petName: string, updatedNotes: string) {
@@ -154,8 +163,8 @@ export async function editPetNotes(page: Page, petName: string, updatedNotes: st
   await petCard.getByRole('button', { name: 'Edit', exact: true }).click();
 
   const form = page.locator('form');
-  await fieldByLabel(form, 'Notes').fill(updatedNotes);
-  await page.getByRole('button', { name: 'Update Pet', exact: true }).click();
+  await fieldByLabel(form, 'Notes for the sitter').fill(updatedNotes);
+  await page.getByRole('button', { name: 'Save pet', exact: true }).click();
 
-  await expect(page.getByText('Pet updated successfully')).toBeVisible();
+  await expect(page.getByText('Pet saved.')).toBeVisible();
 }

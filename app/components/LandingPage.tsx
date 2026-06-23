@@ -251,13 +251,13 @@ export default function LandingPage() {
   const safetyFeatureDescriptions =
     language === 'en'
       ? [
-          "Every member completes identity verification, so you know who you're connecting with.",
+          "Members verify their email and build public profiles, so you can make a more informed choice.",
           'Chat easily and securely within the platform before making any arrangements.',
           'See honest feedback from other pet owners to help you decide.',
           'We set clear guidelines and actively moderate to keep the community respectful.',
         ]
       : [
-          'Kaikki käyttäjät vahvistavat henkilöllisyytensä ennen kuin voivat pyytää tai tarjota hoitoapua.',
+          'Käyttäjät vahvistavat sähköpostinsa ja rakentavat julkisen profiilin, jotta voit tehdä harkitumman valinnan.',
           'Keskustele turvallisesti sovelluksessa ja ilmoita helposti kaikesta, mikä tuntuu väärältä.',
           'Näe aidot arviot ja tähtiarviot muilta lemmikinomistajilta ennen kuin valitset hoitajan.',
           'Valvomme yhteisöä aktiivisesti, jotta TassuKaveri pysyy ystävällisenä ja turvallisena.',

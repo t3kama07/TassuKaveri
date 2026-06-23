@@ -146,7 +146,7 @@ export async function mirrorWalletStateToSupabase(params: {
   actorId: string;
   userId: string;
   requestId?: string;
-  wallet: Wallet;
+  wallet: Wallet | Pick<Wallet, 'lastWalletAction'>;
   transactions: Transaction[];
 }): Promise<void> {
   await postMirrorRequest('/api/supabase-sync/wallet', params.actorId, params);

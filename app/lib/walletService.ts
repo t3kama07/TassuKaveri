@@ -70,10 +70,25 @@ async function saveWalletState(params: {
   actorId: string;
   userId: string;
   requestId?: string;
-  wallet: Wallet;
+  wallet: Wallet | Pick<Wallet, 'lastWalletAction'>;
   transactions: Transaction[];
 }): Promise<void> {
   await mirrorWalletStateToSupabase(params);
+}
+
+async function applyRequestWalletAction(params: {
+  actorId: string;
+  userId: string;
+  requestId: string;
+  action: NonNullable<Wallet['lastWalletAction']>;
+}): Promise<void> {
+  await saveWalletState({
+    actorId: params.actorId,
+    userId: params.userId,
+    requestId: params.requestId,
+    wallet: { lastWalletAction: params.action },
+    transactions: [],
+  });
 }
 
 export async function getAllTransactions(
@@ -314,45 +329,18 @@ export async function escrowCredits(
   ownerId: string,
   amount: number,
   requestId: string,
-  reference: string,
+  _reference: string,
   actorId: string = ownerId
 ): Promise<void> {
   if (amount <= 0) {
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(ownerId, requestId);
-  if (!wallet) {
-    throw new Error('Wallet not found');
-  }
-  if (wallet.balance < amount) {
-    throw new Error(
-      `Insufficient credits. You have ${wallet.balance} credits but need ${amount}.`
-    );
-  }
-
-  const transactions = await getAllTransactions(ownerId, requestId);
-  const newBalance = wallet.balance - amount;
-  await saveWalletState({
+  await applyRequestWalletAction({
     actorId,
     userId: ownerId,
     requestId,
-    wallet: buildWalletUpdate(wallet, {
-      balance: newBalance,
-      lastRequestId: requestId,
-      lastRequestOwnerId: ownerId,
-      lastWalletAction: 'escrow_hold',
-    }),
-    transactions: [
-      buildTransaction({
-        type: 'escrow',
-        amount,
-        reference,
-        requestId,
-        balanceAfter: newBalance,
-      }),
-      ...transactions,
-    ],
+    action: 'escrow_hold',
   });
 }
 
@@ -360,42 +348,18 @@ export async function releaseEscrow(
   sitterId: string,
   amount: number,
   requestId: string,
-  reference: string,
+  _reference: string,
   actorId: string = sitterId
 ): Promise<void> {
   if (amount <= 0) {
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(sitterId, requestId);
-  if (!wallet) {
-    throw new Error('Sitter wallet not found');
-  }
-
-  const transactions = await getAllTransactions(sitterId, requestId);
-  const newBalance = wallet.balance + amount;
-  await saveWalletState({
+  await applyRequestWalletAction({
     actorId,
     userId: sitterId,
     requestId,
-    wallet: buildWalletUpdate(wallet, {
-      balance: newBalance,
-      dailyEarnedDate: getTodayKey(),
-      dailyEarnedCredits: (wallet.dailyEarnedCredits ?? 0) + amount,
-      lastRequestId: requestId,
-      lastRequestOwnerId: '',
-      lastWalletAction: 'escrow_release',
-    }),
-    transactions: [
-      buildTransaction({
-        type: 'escrow-release',
-        amount,
-        reference,
-        requestId,
-        balanceAfter: newBalance,
-      }),
-      ...transactions,
-    ],
+    action: 'escrow_release',
   });
 }
 
@@ -403,40 +367,18 @@ export async function refundEscrow(
   ownerId: string,
   amount: number,
   requestId: string,
-  reference: string,
+  _reference: string,
   actorId: string = ownerId
 ): Promise<void> {
   if (amount <= 0) {
     throw new Error('Amount must be positive');
   }
 
-  const wallet = await getWallet(ownerId, requestId);
-  if (!wallet) {
-    throw new Error('Owner wallet not found');
-  }
-
-  const transactions = await getAllTransactions(ownerId, requestId);
-  const newBalance = wallet.balance + amount;
-  await saveWalletState({
+  await applyRequestWalletAction({
     actorId,
     userId: ownerId,
     requestId,
-    wallet: buildWalletUpdate(wallet, {
-      balance: newBalance,
-      lastRequestId: requestId,
-      lastRequestOwnerId: ownerId,
-      lastWalletAction: 'escrow_refund',
-    }),
-    transactions: [
-      buildTransaction({
-        type: 'escrow-refund',
-        amount,
-        reference,
-        requestId,
-        balanceAfter: newBalance,
-      }),
-      ...transactions,
-    ],
+    action: 'escrow_refund',
   });
 }
 

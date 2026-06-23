@@ -327,6 +327,21 @@ export async function getRequestByIdFromSupabase(
   return data ? mapSupabaseRequestRow(data) : null;
 }
 
+export async function getRequestByIdOnlyFromSupabase(requestId: string): Promise<Request | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('requests')
+    .select('*')
+    .eq('id', requestId)
+    .maybeSingle<SupabaseRequestRow>();
+
+  if (error) {
+    throw new Error(`Failed to read request from Supabase: ${error.message}`);
+  }
+
+  return data ? mapSupabaseRequestRow(data) : null;
+}
+
 export async function getUserRequestsFromSupabase(ownerId: string): Promise<Request[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase

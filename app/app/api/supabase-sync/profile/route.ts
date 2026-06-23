@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
-import { upsertProfileInSupabase } from '@/lib/supabaseProfileStore';
+import { getProfileFromSupabase, upsertProfileInSupabase } from '@/lib/supabaseProfileStore';
 
 function isProfilePayload(
   value: unknown
@@ -40,14 +40,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden profile sync target' }, { status: 403 });
     }
 
+    const existingProfile = await getProfileFromSupabase(profile.uid);
+
     await upsertProfileInSupabase({
       ...profile,
       uid: profile.uid,
-      email: profile.email,
+      email: sessionUser.email || existingProfile?.email || profile.email,
+      emailVerified: sessionUser.emailVerified,
       phoneNumber: '',
       phoneVerified: false,
       phoneVerificationCode: undefined,
       phoneVerificationExpires: undefined,
+      ratingAverage: existingProfile?.ratingAverage ?? 0,
+      ratingCount: existingProfile?.ratingCount ?? 0,
+      trustScore: existingProfile?.trustScore ?? 0,
+      role: existingProfile?.role ?? 'user',
+      frozen: existingProfile?.frozen ?? false,
+      createdAt: existingProfile?.createdAt ?? new Date(),
+      updatedAt: new Date(),
     });
 
     return NextResponse.json({ ok: true });

@@ -20,7 +20,7 @@ test.describe('Sitter Search And Discovery', () => {
       experienceLevel: 'expert',
       petTypes: ['Dog', 'Cat'],
       preferredSizes: ['Medium', 'Large'],
-      experienceFlags: ['Experience with dogs', 'Experience with cats'],
+      experienceFlags: ['Confident handling large dogs'],
     });
     await addAvailabilitySlot(page, window);
     await logout(page);
@@ -28,20 +28,20 @@ test.describe('Sitter Search And Discovery', () => {
     await login(page, owner);
     await page.goto('/sitters');
 
-    await fieldByLabel(page, 'Need Care From').fill(window.startDateTimeLocal);
-    await fieldByLabel(page, 'Need Care Until').fill(window.endDateTimeLocal);
+    await fieldByLabel(page, 'Care starts').fill(window.startDateTimeLocal);
+    await fieldByLabel(page, 'Care ends').fill(window.endDateTimeLocal);
     await fieldByLabel(page, 'Pet Type').selectOption('dog');
     await fieldByLabel(page, 'Experience').selectOption('expert');
-    await page.getByRole('button', { name: 'Find Sitters', exact: true }).click();
+    await page.getByRole('button', { name: 'Find sitters', exact: true }).click();
 
     await expect(page.getByText(sitterName)).toBeVisible();
 
-    await fieldByLabel(page, 'City').fill('Tampere');
-    await page.getByRole('button', { name: 'Find Sitters', exact: true }).click();
-    await expect(page.getByText(/No sitters are open for bookings/i)).toBeVisible();
+    await fieldByLabel(page, 'City').selectOption('Tampere');
+    await page.getByRole('button', { name: 'Find sitters', exact: true }).click();
+    await expect(page.getByText(/No sitters found for this search/i)).toBeVisible();
 
-    await fieldByLabel(page, 'City').fill('Oulu');
-    await page.getByRole('button', { name: 'Browse All', exact: true }).click();
+    await fieldByLabel(page, 'City').selectOption('Oulu');
+    await page.getByRole('button', { name: 'Browse all', exact: true }).click();
     await expect(page.getByText(sitterName)).toBeVisible();
 
     const sitterProfileLink = page.locator(`a[href="/sitters/${sitter.uid}"]`).first();

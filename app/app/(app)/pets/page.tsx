@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useCallback, useState, useEffect, FormEvent } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserPets, createPet, updatePet, deletePet } from '@/lib/petService';
@@ -34,11 +34,7 @@ export default function PetsPage() {
   const [emergencyVetContact, setEmergencyVetContact] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadPets();
-  }, [user]);
-
-  async function loadPets() {
+  const loadPets = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -51,7 +47,11 @@ export default function PetsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadPets();
+  }, [loadPets]);
 
   function handleAddNew() {
     setEditingPet(null);

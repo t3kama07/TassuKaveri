@@ -21,18 +21,18 @@ export async function createDirectRequestFromProfile(
   }
 ) {
   await page.goto(`/sitters/${values.sitterUid}`);
-  await page.getByRole('link', { name: 'Create Request', exact: true }).click();
+  await page.getByRole('link', { name: 'Ask this sitter', exact: true }).click();
 
   const form = page.locator('form');
   const petCheckbox = form.getByLabel(new RegExp(values.petName, 'i'));
   await petCheckbox.check();
   await expect(petCheckbox).toBeChecked();
-  await fieldByLabel(form, 'Start Date').fill(values.startDate);
-  await fieldByLabel(form, 'Start Time').fill(values.startTime);
-  await fieldByLabel(form, 'End Date').fill(values.endDate);
-  await fieldByLabel(form, 'End Time').fill(values.endTime);
-  await fieldByLabel(form, 'Location (City)').fill(values.location);
-  await fieldByLabel(form, 'Notes (optional)').fill(values.notes);
+  await fieldByLabel(form, 'Start date').fill(values.startDate);
+  await fieldByLabel(form, 'Start time').fill(values.startTime);
+  await fieldByLabel(form, 'End date').fill(values.endDate);
+  await fieldByLabel(form, 'End time').fill(values.endTime);
+  await fieldByLabel(form, 'Location').selectOption(values.location);
+  await fieldByLabel(form, 'Notes for the sitter').fill(values.notes);
 }
 
 export async function openExchangeTab(

@@ -350,8 +350,8 @@ export const privacyPolicyPageContent = {
       },
       paragraphs: [
         {
-          en: 'This can include account and profile details such as your name, email address, phone verification details, location, pet information, profile description, availability, and photos.',
-          fi: 'Tähän voi kuulua tili- ja profiilitietoja, kuten nimesi, sähköpostiosoitteesi, puhelinvarmennuksen tiedot, sijainti, lemmikkitiedot, profiilikuvaus, saatavuus ja kuvat.',
+          en: 'This can include account and profile details such as your name, email address, email verification status, location, pet information, profile description, availability, and photos.',
+          fi: 'Tähän voi kuulua tili- ja profiilitietoja, kuten nimesi, sähköpostiosoitteesi, sähköpostin vahvistustila, sijainti, lemmikkitiedot, profiilikuvaus, saatavuus ja kuvat.',
         },
         {
           en: 'It can also include information you create inside the service, such as requests, sitter offers, messages, reviews, credit activity, and moderation reports.',

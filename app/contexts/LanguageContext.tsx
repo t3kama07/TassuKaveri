@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from 'react';
 
 export type Language = 'en' | 'fi';
 
@@ -10,31 +10,35 @@ type LanguageContextType = {
 };
 
 const STORAGE_KEY = 'tassukaveri-language';
+const LANGUAGE_CHANGE_EVENT = 'tassukaveri-language-change';
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
-  const [hasLoadedStoredLanguage, setHasLoadedStoredLanguage] = useState(false);
+  const language = useSyncExternalStore<Language>(
+    (onStoreChange) => {
+      window.addEventListener('storage', onStoreChange);
+      window.addEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+      return () => {
+        window.removeEventListener('storage', onStoreChange);
+        window.removeEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+      };
+    },
+    () => {
+      const storedLanguage = window.localStorage.getItem(STORAGE_KEY);
+      return storedLanguage === 'fi' ? 'fi' : 'en';
+    },
+    () => 'en'
+  );
 
-  useEffect(() => {
-    const storedLanguage = window.localStorage.getItem(STORAGE_KEY);
-
-    if (storedLanguage === 'fi' || storedLanguage === 'en') {
-      setLanguage(storedLanguage);
-    }
-
-    setHasLoadedStoredLanguage(true);
+  const setLanguage = useCallback((nextLanguage: Language) => {
+    window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
   }, []);
 
   useEffect(() => {
-    if (!hasLoadedStoredLanguage) {
-      return;
-    }
-
-    window.localStorage.setItem(STORAGE_KEY, language);
     document.documentElement.lang = language;
-  }, [hasLoadedStoredLanguage, language]);
+  }, [language]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage }}>

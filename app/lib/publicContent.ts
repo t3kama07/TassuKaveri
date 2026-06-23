@@ -50,7 +50,7 @@ export const publicContent = {
         body:
           'TassuKaveri is a safe platform for exchanging pet care with peace of mind.',
         features: [
-          'Verified users (phone verification)',
+          'Verified email and profiles',
           'Safe messaging & reporting',
           'Reviews & ratings system',
           'Community moderation',
@@ -150,7 +150,7 @@ export const publicContent = {
           {
             title: '1. Luo profiili',
             description:
-              'Rekisteröidy ja vahvista puhelinnumerosi. Kerro itsestäsi ja lemmikistäsi.',
+              'Rekisteröidy, vahvista sähköpostisi ja kerro itsestäsi sekä lemmikistäsi.',
           },
           {
             title: '2. Selaa pyyntöjä',
@@ -169,7 +169,7 @@ export const publicContent = {
         body:
           'TassuKaveri on turvallinen alusta lemmikkihoidon vaihtamiseen hyvillä mielin.',
         features: [
-          'Varmennetut käyttäjät (puhelinvarmennus)',
+          'Vahvistetut sähköpostit ja profiilit',
           'Turvalliset viestit ja ilmoitukset',
           'Arvostelu- ja tähtijärjestelmä',
           'Yhteisön moderointi',

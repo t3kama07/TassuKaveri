@@ -33,6 +33,10 @@ function isTestUsersPayload(value: unknown): value is TestUsersPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     if (!isLocalHost(request.headers.get('host'))) {
       return NextResponse.json({ error: 'This endpoint is only available on localhost.' }, { status: 403 });
     }

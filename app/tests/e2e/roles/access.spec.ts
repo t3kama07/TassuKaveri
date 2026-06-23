@@ -7,6 +7,6 @@ test.describe('Role-based Access', () => {
     await page.goto('/admin');
 
     await expect(page.getByRole('heading', { name: 'Admin Tools', exact: true })).toBeVisible();
-    await expect(page.getByText('Admin access required.')).toBeVisible();
+    await expect(page.getByText('This page is only for admins.')).toBeVisible();
   });
 });
