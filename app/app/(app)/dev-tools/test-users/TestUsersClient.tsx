@@ -34,7 +34,7 @@ function summarizeResults(results: TestUserSeedResult[]): string {
 
 export default function TestUsersClient() {
   const [prefix, setPrefix] = useState('user');
-  const [domain, setDomain] = useState('gmail.com');
+  const [domain, setDomain] = useState('example.com');
   const [count, setCount] = useState(5);
   const [startAt, setStartAt] = useState(1);
   const [password, setPassword] = useState(DEMO_USER_PASSWORD);
@@ -221,7 +221,7 @@ export default function TestUsersClient() {
               value={domain}
               onChange={(event) => setDomain(event.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              placeholder="gmail.com"
+              placeholder="example.com"
             />
           </div>
 
@@ -300,7 +300,7 @@ export default function TestUsersClient() {
             </button>
             <p className="text-sm text-[#6b7280]">
               Example output: {prefix || 'user'}
-              {startAt}@{domain || 'gmail.com'}
+              {startAt}@{domain || 'example.com'}
             </p>
           </div>
         </form>

@@ -338,6 +338,8 @@ export async function createRequest(
       type: 'direct_request_received',
       relatedRequestId: requestId,
       message: `${ownerProfile.name} sent you a direct request for ${request.petNames.join(', ')}.`,
+    }).catch((error) => {
+      console.warn('Failed to create direct request notification', error);
     });
   }
 

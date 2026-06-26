@@ -43,7 +43,3 @@ export function readRunUsers(): E2ERunUsersFile {
   cachedUsers = JSON.parse(fs.readFileSync(runtimeUsersFile, 'utf8')) as E2ERunUsersFile;
   return cachedUsers;
 }
-
-export function uniqueUiSignupEmail(prefix: string): string {
-  return `${prefix}-${Date.now()}@gmail.com`;
-}

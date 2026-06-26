@@ -27,12 +27,12 @@ export async function createDirectRequestFromProfile(
   const petCheckbox = form.getByLabel(new RegExp(values.petName, 'i'));
   await petCheckbox.check();
   await expect(petCheckbox).toBeChecked();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await fieldByLabel(form, 'Start date').fill(values.startDate);
   await fieldByLabel(form, 'Start time').fill(values.startTime);
   await fieldByLabel(form, 'End date').fill(values.endDate);
   await fieldByLabel(form, 'End time').fill(values.endTime);
   await fieldByLabel(form, 'Location').selectOption(values.location);
-  await fieldByLabel(form, 'Notes for the sitter').fill(values.notes);
 }
 
 export async function openExchangeTab(

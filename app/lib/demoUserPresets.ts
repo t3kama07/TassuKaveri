@@ -59,7 +59,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
 
   return [
     {
-      email: 'user1@gmail.com',
+      email: 'user1@example.com',
       name: 'Anna Virtanen',
       location: 'Helsinki',
       country: 'Finland',
@@ -108,7 +108,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       ],
     },
     {
-      email: 'user2@gmail.com',
+      email: 'user2@example.com',
       name: 'Mikko Laine',
       location: 'Espoo',
       country: 'Finland',
@@ -160,7 +160,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       ],
     },
     {
-      email: 'user3@gmail.com',
+      email: 'user3@example.com',
       name: 'Sofia Niemi',
       location: 'Vantaa',
       country: 'Finland',
@@ -230,7 +230,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       ],
     },
     {
-      email: 'user4@gmail.com',
+      email: 'user4@example.com',
       name: 'Elina Koskinen',
       location: 'Helsinki',
       country: 'Finland',
@@ -264,7 +264,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       pets: [],
     },
     {
-      email: 'user5@gmail.com',
+      email: 'user5@example.com',
       name: 'Joonas Saari',
       location: 'Espoo',
       country: 'Finland',
@@ -297,7 +297,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       pets: [],
     },
     {
-      email: 'user6@gmail.com',
+      email: 'user6@example.com',
       name: 'Laura Maki',
       location: 'Vantaa',
       country: 'Finland',
@@ -330,7 +330,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       pets: [],
     },
     {
-      email: 'user7@gmail.com',
+      email: 'user7@example.com',
       name: 'Teemu Korpela',
       location: 'Oulu',
       country: 'Finland',
@@ -363,7 +363,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       pets: [],
     },
     {
-      email: 'user8@gmail.com',
+      email: 'user8@example.com',
       name: 'Aino Salonen',
       location: 'Tampere',
       country: 'Finland',
@@ -430,7 +430,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       ],
     },
     {
-      email: 'user9@gmail.com',
+      email: 'user9@example.com',
       name: 'Petri Hakkinen',
       location: 'Turku',
       country: 'Finland',
@@ -463,7 +463,7 @@ export function getDetailedDemoUsers(): DetailedDemoUser[] {
       pets: [],
     },
     {
-      email: 'user10@gmail.com',
+      email: 'user10@example.com',
       name: 'Noora Lehtinen',
       location: 'Jyvaskyla',
       country: 'Finland',

@@ -12,6 +12,7 @@ export interface PlaywrightAuthUser {
 function isPlaywrightTestEmail(email: string): boolean {
   return (
     /^pw[a-z0-9]+user\d+@example\.com$/i.test(email) ||
+    /^playwright-signup@example\.invalid$/i.test(email) ||
     /^playwright-signup-\d+@gmail\.com$/i.test(email)
   );
 }

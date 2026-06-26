@@ -26,17 +26,17 @@ const ONBOARDING_CHOICES: Array<{ value: OnboardingChoice; label: string; descri
   {
     value: 'need-care',
     label: 'I need pet care',
-    description: 'Add your pet, then ask nearby sitters for help.',
+    description: 'Find a trusted sitter for your pet.',
   },
   {
     value: 'help-sitter',
-    label: 'I want to help as a sitter',
-    description: 'Complete your profile and add times you can help.',
+    label: 'I want to help',
+    description: 'Care for pets nearby and earn credits.',
   },
   {
     value: 'both',
-    label: 'I want to do both',
-    description: 'Set up your pet and your sitter times.',
+    label: 'A bit of both',
+    description: 'Find care and help others too.',
   },
 ];
 
@@ -49,6 +49,49 @@ function formatDateLabel(date: Date): string {
 
 function formatDateRange(startDate: Date, endDate: Date): string {
   return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'TK';
+}
+
+function OnboardingIcon({ type }: { type: OnboardingChoice }) {
+  if (type === 'need-care') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z" />
+        <path d="M9.5 12.5 11 14l3.5-4" />
+      </svg>
+    );
+  }
+
+  if (type === 'help-sitter') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
+        <path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7L6.8 19l1-5.8-4.2-4.1 5.8-.8L12 3Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4">
+      <path d="m6 12 4 4 8-8" />
+    </svg>
+  );
 }
 
 function getPreviewRequests(requests: Request[], profile: UserProfile | null): Request[] {
@@ -213,45 +256,49 @@ export default function DashboardPage() {
     profileIncomplete
       ? { label: 'Complete your profile', href: '/profile' }
       : null,
-    !hasPets
+    onboardingChoice !== 'help-sitter' && !hasPets
       ? { label: 'Add your first pet', href: '/pets' }
       : null,
     !hasAvailability
       ? { label: 'Add times you can help', href: '/profile' }
       : null,
-    hasPets
+    onboardingChoice !== 'help-sitter' && hasPets
       ? { label: 'Ask for pet care', href: '/exchange?tab=my-requests&create=1' }
       : null,
-    hasAvailability
-      ? { label: 'Find requests to help with', href: '/exchange?tab=community' }
+    (onboardingChoice === 'help-sitter' || onboardingChoice === 'both') && hasAvailability
+      ? { label: 'Find requests to help with', href: '/exchange?tab=community&view=all' }
       : null,
   ].filter((item): item is { label: string; href: string } => item !== null);
+  const completedSetupCount = checklistItems.filter((item) => item.done).length;
+  const setupProgressPercent = Math.round((completedSetupCount / checklistItems.length) * 100);
+  const primaryNextAction =
+    nextActions[0] || { label: 'View notifications', href: '/notifications' };
 
   return (
     <ProtectedRoute>
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-[28px] border border-[#dbe5f0] bg-[linear-gradient(135deg,#fff7ef_0%,#ffffff_42%,#eef5ff_100%)] p-6 sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+      <div className="mx-auto max-w-[1180px] space-y-7 px-4 py-8 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-[26px] border border-[#ded3c2] bg-white p-6 shadow-sm sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_360px] lg:items-end">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
+              <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#e96b2c]">
                 Home
               </p>
-              <h1 className="mt-3 text-3xl font-bold text-[#0f2640] sm:text-4xl">
+              <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-[#0f2640] sm:text-4xl">
                 Welcome back, {welcomeName}
               </h1>
-              <p className="mt-3 max-w-2xl text-[#516173]">
-                TassuKaveri helps you ask for pet care, offer help, and exchange credits with other pet owners.
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#425266] sm:text-base">
+                TassuKaveri helps you find trusted sitters, help nearby pet owners, and exchange credits without money changing hands.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/exchange?tab=my-requests&create=1"
-                  className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+                  className="rounded-full bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23]"
                 >
                   Ask for pet care
                 </Link>
                 <Link
                   href="/sitters"
-                  className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
+                  className="rounded-full border border-[#d8cbbb] bg-[#fffdf9] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef]"
                 >
                   Find a sitter
                 </Link>
@@ -259,17 +306,17 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                <p className="text-sm text-[#6b7280]">Credits</p>
-                <p className="mt-2 text-3xl font-bold text-[#0f2640]">{wallet?.balance ?? 0}</p>
-                <p className="mt-1 text-sm text-[#6b7280]">
+              <div className="rounded-[18px] border border-[#e3d7c7] bg-[#fffaf6] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Credits</p>
+                <p className="mt-2 text-4xl font-bold text-[#0f2640]">{wallet?.balance ?? 0}</p>
+                <p className="mt-2 text-sm leading-5 text-[#6b7280]">
                   Spend credits for care. Earn them by helping others.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                <p className="text-sm text-[#6b7280]">Active care</p>
-                <p className="mt-2 text-3xl font-bold text-[#0f2640]">{openItems}</p>
-                <p className="mt-1 text-sm text-[#6b7280]">Your open requests and accepted care jobs</p>
+              <div className="rounded-[18px] border border-[#e3d7c7] bg-[#fffaf6] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Active care</p>
+                <p className="mt-2 text-4xl font-bold text-[#0f2640]">{openItems}</p>
+                <p className="mt-2 text-sm leading-5 text-[#6b7280]">Open requests and accepted care jobs</p>
               </div>
             </div>
           </div>
@@ -282,63 +329,100 @@ export default function DashboardPage() {
         )}
 
         {loading ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="rounded-[18px] border border-[#ded3c2] bg-white p-6">
             <p className="text-[#6b7280]">Loading home...</p>
           </div>
         ) : (
           <>
-            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Start here</h2>
-                  <p className="mt-1 max-w-2xl text-sm text-[#6b7280]">
-                    Choose what you want to do first. You can change your mind later.
-                  </p>
+            <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_390px]">
+              <div className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Get set up</h2>
+                    <p className="mt-1 text-sm text-[#425266]">
+                      A few quick steps so sitters know and trust you.
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-bold text-[#b94f1d]">
+                    {completedSetupCount} of {checklistItems.length} done
+                  </span>
                 </div>
-                <div className="rounded-2xl border border-[#ffd7be] bg-[#fffaf6] p-4 text-sm text-[#516173] lg:max-w-sm">
-                  Credits are used instead of money. You spend credits when someone cares for your pet, and you earn credits when you help others.
+
+                <div className="mt-4 h-2 rounded-full bg-[#eee8de]">
+                  <div
+                    className="h-2 rounded-full bg-[#e96b2c] transition-all"
+                    style={{ width: `${setupProgressPercent}%` }}
+                  />
                 </div>
-              </div>
 
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {ONBOARDING_CHOICES.map((choice) => (
-                  <button
-                    key={choice.value}
-                    type="button"
-                    onClick={() => handleOnboardingChoice(choice.value)}
-                    className={`rounded-2xl border p-4 text-left transition-colors ${
-                      onboardingChoice === choice.value
-                        ? 'border-[#ff7a2d] bg-[#fff7ef]'
-                        : 'border-gray-200 bg-[#fcfdff] hover:border-[#ffcfb2]'
-                    }`}
-                  >
-                    <span className="block text-sm font-bold text-[#0f2640]">{choice.label}</span>
-                    <span className="mt-1 block text-sm text-[#6b7280]">{choice.description}</span>
-                  </button>
-                ))}
-              </div>
+                <p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-[#7a8794]">
+                  What do you want to do?
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {ONBOARDING_CHOICES.map((choice) => {
+                    const selected = onboardingChoice === choice.value;
 
-              <div className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="space-y-3">
+                    return (
+                      <button
+                        key={choice.value}
+                        type="button"
+                        onClick={() => handleOnboardingChoice(choice.value)}
+                        className={`relative rounded-2xl border p-4 text-left transition-colors ${
+                          selected
+                            ? 'border-[#e96b2c] bg-[#fff4ec]'
+                            : 'border-[#e3d7c7] bg-[#fffdf9] hover:border-[#ffcfb2]'
+                        }`}
+                      >
+                        <span
+                          className={`mb-8 inline-flex h-10 w-10 items-center justify-center rounded-xl ${
+                            selected
+                              ? 'bg-[#e96b2c] text-white'
+                              : 'bg-[#f2efe9] text-[#607080]'
+                          }`}
+                        >
+                          <OnboardingIcon type={choice.value} />
+                        </span>
+                        {selected && (
+                          <span className="absolute right-4 top-4 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#e96b2c] text-white">
+                            <CheckIcon />
+                          </span>
+                        )}
+                        <span className="block text-base font-bold text-[#0f2640]">{choice.label}</span>
+                        <span className="mt-1 block text-sm leading-5 text-[#7a8794]">{choice.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-5 space-y-3">
                   {checklistItems.map((item) => (
                     <div
                       key={item.label}
-                      className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] p-4 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-3 rounded-2xl border border-[#e3d7c7] bg-[#fffdf9] p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-[#0f2640]">{item.label}</p>
-                        <p className="mt-1 text-xs text-[#6b7280]">
-                          {item.done ? 'Done' : 'This helps other users understand and trust you.'}
-                        </p>
-                      </div>
-                      {item.done ? (
-                        <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-xs font-semibold text-[#047857]">
-                          Done
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+                            item.done
+                              ? 'border-[#d9efe3] bg-[#e8f3ec] text-[#2f7d62]'
+                              : 'border-[#d8cbbb] bg-white text-transparent'
+                          }`}
+                        >
+                          {item.done && <CheckIcon />}
                         </span>
-                      ) : (
+                        <div>
+                          <p className="text-sm font-bold text-[#0f2640]">
+                            {item.label.replace(/^Step \d+: /, '')}
+                          </p>
+                          <p className="mt-1 text-xs text-[#7a8794]">
+                            {item.done ? 'Done' : 'This helps other users understand and trust you.'}
+                          </p>
+                        </div>
+                      </div>
+                      {!item.done && (
                         <Link
                           href={item.href}
-                          className="rounded-full bg-[#ff7a2d] px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+                          className="rounded-full bg-[#fff1e7] px-4 py-2 text-center text-sm font-bold text-[#b94f1d] transition-colors hover:bg-[#ffe3d2]"
                         >
                           {item.action}
                         </Link>
@@ -346,34 +430,50 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-[#dbe5f0] bg-[#f8fbff] p-5">
-                  <h3 className="text-lg font-bold text-[#0f2640]">Best next action</h3>
-                  <p className="mt-1 text-sm text-[#6b7280]">
-                    Follow the first button that matches what you need today.
+              <div className="space-y-4">
+                <div className="rounded-[22px] border border-[#f0d8c8] bg-[#fff1e7] p-6">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#e96b2c]">
+                    <span className="h-3 w-3 rounded-full bg-[#e96b2c]" />
+                  </span>
+                  <h3 className="mt-6 text-lg font-bold text-[#0f2640]">How credits work</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#7c3b19]">
+                    Credits replace money. You spend them when someone cares for your pet, and earn them back when you help others. No cash, no pressure.
                   </p>
-                  <div className="mt-4 flex flex-col gap-2">
-                    {nextActions.slice(0, 4).map((action) => (
-                      <Link
-                        key={action.label}
-                        href={action.href}
-                        className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
-                      >
-                        {action.label}
-                      </Link>
-                    ))}
-                  </div>
-                  <p className="mt-4 text-sm text-[#6b7280]">
-                    Chat opens after a pet-care request is accepted. Reviews appear after the care is finished.
+                </div>
+
+                <div className="rounded-[22px] bg-[#203344] p-6 text-white">
+                  <h3 className="text-xl font-bold">Your next step</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#dbe5ef]">
+                    {profileIncomplete
+                      ? 'Finish your profile so sitters can trust who they are helping.'
+                      : onboardingChoice !== 'help-sitter' && !hasPets
+                        ? 'Add your pet so sitters know who needs care.'
+                        : !onboardingChoice
+                          ? 'Choose whether you need care, want to help, or both.'
+                          : (onboardingChoice === 'help-sitter' || onboardingChoice === 'both') && !hasAvailability
+                            ? 'Add the times you can help so nearby pet owners know when to contact you.'
+                            : onboardingChoice === 'help-sitter'
+                              ? 'Browse open pet-care requests and offer help when the time works for you.'
+                              : hasPets
+                            ? 'Pick a sitter profile and send your first care request.'
+                            : 'Add times you can help so owners can find you.'}
                   </p>
+                  <Link
+                    href={primaryNextAction.href}
+                    className="mt-5 block rounded-full bg-white px-5 py-3 text-center text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef]"
+                  >
+                    {primaryNextAction.label}
+                  </Link>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Available Sitters</h2>
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Available sitters</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
                     People near {profile?.location || 'you'} who may be able to help.
                   </p>
@@ -388,7 +488,7 @@ export default function DashboardPage() {
 
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 {nearbySitters.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-5 md:col-span-3">
+                  <div className="rounded-2xl border border-dashed border-[#d8cbbb] bg-[#fffdf9] p-5 md:col-span-3">
                     <p className="text-sm text-[#6b7280]">
                       No sitters to preview right now. Open the sitters page to browse more.
                     </p>
@@ -398,9 +498,21 @@ export default function DashboardPage() {
                     <Link
                       key={entry.profile.uid}
                       href={`/sitters/${entry.profile.uid}`}
-                      className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
+                      className="rounded-2xl border border-[#ded3c2] bg-white p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[#0f2640] ${
+                            entry.profile.photoURL ? 'bg-cover bg-center' : 'bg-[#efe3ee]'
+                          }`}
+                          style={
+                            entry.profile.photoURL
+                              ? { backgroundImage: `url(${entry.profile.photoURL})` }
+                              : undefined
+                          }
+                        >
+                          {!entry.profile.photoURL && getInitials(entry.profile.name)}
+                        </div>
                         <div>
                           <h3 className="text-lg font-bold text-[#0f2640]">{entry.profile.name}</h3>
                           <p className="text-sm text-[#6b7280]">{entry.profile.location}</p>
@@ -417,41 +529,42 @@ export default function DashboardPage() {
                             )}`
                           : 'Open for bookings'}
                       </p>
-                      <p className="mt-4 text-sm font-semibold text-[#ff7a2d]">View full profile</p>
+                      <p className="mt-4 text-sm font-bold text-[#e96b2c]">View full profile</p>
                     </Link>
                   ))
                 )}
               </div>
             </section>
 
-            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Open pet-care requests</h2>
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Requests to help with</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    Open pet-care requests you can offer to help with.
+                    Pet owners looking for help. Offer only when the time works for you.
                   </p>
                 </div>
                 <Link
-                  href="/exchange?tab=community"
+                  href="/exchange?tab=community&view=all"
                   className="text-sm font-semibold text-[#ff7a2d] hover:underline"
                 >
-                  See all requests
+                  Find open requests
                 </Link>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 {communityRequests.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-5 md:col-span-3">
+                  <div className="rounded-2xl border border-dashed border-[#d8cbbb] bg-[#fffdf9] p-5 md:col-span-3">
                     <p className="text-sm text-[#6b7280]">
                       No community requests to preview right now.
                     </p>
                   </div>
                 ) : (
                   communityRequests.map((request) => (
-                    <div
+                    <Link
                       key={`${request.ownerId}-${request.id}`}
-                      className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-5"
+                      href={`/exchange?tab=community&requestId=${encodeURIComponent(request.id)}`}
+                      className="block rounded-2xl border border-[#ded3c2] bg-[#fffdf9] p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fff7ef]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -473,7 +586,10 @@ export default function DashboardPage() {
                       <p className="mt-4 text-sm font-medium text-[#0f2640]">
                         {request.notes || 'Open request from the community'}
                       </p>
-                    </div>
+                      <p className="mt-4 text-sm font-bold text-[#e96b2c]">
+                        View and offer help
+                      </p>
+                    </Link>
                   ))
                 )}
               </div>

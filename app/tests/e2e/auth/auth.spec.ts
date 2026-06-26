@@ -1,7 +1,6 @@
 import { expect, test } from '../fixtures/app.fixtures';
 import { login, logout, signUp } from '../helpers/auth';
 import { fieldByLabel } from '../helpers/forms';
-import { uniqueUiSignupEmail } from '../helpers/runtime';
 
 test.describe('Authentication', () => {
   test('redirects guests away from protected pages', async ({ page }) => {
@@ -10,8 +9,8 @@ test.describe('Authentication', () => {
     await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
   });
 
-  test('shows validation and creates a new user account', async ({ page }) => {
-    const email = uniqueUiSignupEmail('playwright-signup');
+  test('shows signup validation without sending auth emails', async ({ page }) => {
+    const email = 'playwright-signup@example.invalid';
     const password = 'Playwright123!';
 
     await signUp(page, {
@@ -24,35 +23,7 @@ test.describe('Authentication', () => {
 
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await expect(page.getByText('The passwords do not match.')).toBeVisible();
-
-    const form = page.locator('form');
-    const passwords = form.locator('input[type="password"]');
-    await passwords.nth(1).fill(password);
-    await page.getByRole('button', { name: 'Create account', exact: true }).click();
-
-    const reachedDashboard = await page
-      .waitForURL(/\/dashboard$/, { timeout: 10000 })
-      .then(() => true)
-      .catch(() => false);
-
-    if (reachedDashboard) {
-      await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
-      return;
-    }
-
     await expect(page).toHaveURL(/\/signup$/);
-    const rateLimitError = page.getByText(
-      /Too many signup emails were sent recently\./i
-    );
-
-    if (await rateLimitError.isVisible()) {
-      await expect(rateLimitError).toBeVisible();
-      return;
-    }
-
-    await expect(
-      page.getByText(/Account created for .*Check your email to confirm it, then log in\./i)
-    ).toBeVisible();
   });
 
   test('supports logout and login roundtrip for a confirmed account', async ({ page, appUsers }) => {

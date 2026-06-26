@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, FormEvent, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CitySelect from '@/components/CitySelect';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -26,11 +26,41 @@ import {
 } from '@/lib/requestService';
 import { getUserPets } from '@/lib/petService';
 import { reportRequest } from '@/lib/moderationService';
-import { getProfile } from '@/lib/profileService';
 import { Request, CreateRequestData, CareType, RequestApplication } from '@/types/request';
 import { Pet } from '@/types/pet';
 
 type ExchangeTab = 'my-requests' | 'direct-requests' | 'community' | 'my-sits';
+type RequestWizardStep = 1 | 2 | 3 | 4;
+
+const requestWizardSteps: Array<{ step: RequestWizardStep; label: string }> = [
+  { step: 1, label: 'Your pet' },
+  { step: 2, label: 'Dates & place' },
+  { step: 3, label: 'Care details' },
+  { step: 4, label: 'Review' },
+];
+
+const careTypeOptions: Array<{ value: CareType; label: string; description: string }> = [
+  {
+    value: 'overnight',
+    label: 'Overnight',
+    description: 'Care that includes an overnight stay.',
+  },
+  {
+    value: 'daily-visit',
+    label: 'Home visits',
+    description: 'Short visits for feeding, play, cleaning, or check-ins.',
+  },
+  {
+    value: 'walking',
+    label: 'Dog walks',
+    description: 'Walks and outdoor time for dogs.',
+  },
+  {
+    value: 'boarding',
+    label: 'Boarding',
+    description: 'Pet care at the sitter\'s place, when agreed.',
+  },
+];
 
 function resolveInitialTab(value: string | null): ExchangeTab {
   switch (value) {
@@ -44,18 +74,6 @@ function resolveInitialTab(value: string | null): ExchangeTab {
     default:
       return 'my-requests';
   }
-}
-
-function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
 }
 
 function parseFormDateTime(date: string, time: string): Date | null {
@@ -92,10 +110,14 @@ function RequestsPageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const wizardAdvanceLockRef = useRef(false);
+  const wizardStepRef = useRef<RequestWizardStep>(1);
   const tabParam = searchParams.get('tab');
   const createParam = searchParams.get('create');
   const requestedSitterId = searchParams.get('sitterId');
   const requestedSitterName = searchParams.get('sitterName') || '';
+  const highlightedRequestId = searchParams.get('requestId') || '';
+  const showAllCommunityRequests = searchParams.get('view') === 'all';
   const [requests, setRequests] = useState<Request[]>([]);
   const [directRequests, setDirectRequests] = useState<Request[]>([]);
   const [communityRequests, setCommunityRequests] = useState<Request[]>([]);
@@ -113,10 +135,6 @@ function RequestsPageContent() {
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
   const [applicationMessages, setApplicationMessages] = useState<Record<string, string>>({});
   const [cityFilter, setCityFilter] = useState('');
-  const [maxDistanceKm, setMaxDistanceKm] = useState(10);
-  const [userLatitude, setUserLatitude] = useState<number | undefined>(undefined);
-  const [userLongitude, setUserLongitude] = useState<number | undefined>(undefined);
-  const [useDistanceFilter, setUseDistanceFilter] = useState(true);
 
   // Form fields
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -133,6 +151,9 @@ function RequestsPageContent() {
   const [sleepInstructions, setSleepInstructions] = useState('');
   const [specialWarnings, setSpecialWarnings] = useState('');
   const [saving, setSaving] = useState(false);
+  const [requestWizardStep, setRequestWizardStep] = useState<RequestWizardStep>(1);
+  const [careDetailsConfirmed, setCareDetailsConfirmed] = useState(false);
+  const [reviewStepReady, setReviewStepReady] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -140,24 +161,18 @@ function RequestsPageContent() {
     try {
       setLoading(true);
       setError('');
-      const [userRequests, userPets, sitterRequests, directSitterRequests, openRequests, profile] = await Promise.all([
+      const [userRequests, userPets, sitterRequests, directSitterRequests, openRequests] = await Promise.all([
         getUserRequests(user.uid),
         getUserPets(user.uid),
         getSitterRequests(user.uid),
         getDirectRequestsForSitter(user.uid),
         getAllOpenRequests(user.uid),
-        getProfile(user.uid),
       ]);
       setRequests(userRequests);
       setPets(userPets);
       setSitterJobs(sitterRequests);
       setDirectRequests(directSitterRequests);
       setCommunityRequests(openRequests);
-      if (profile) {
-        setCityFilter(profile.location || '');
-        setUserLatitude(profile.latitude);
-        setUserLongitude(profile.longitude);
-      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError('We could not load your requests right now. Please try again. ' + message);
@@ -175,22 +190,18 @@ function RequestsPageContent() {
   }, [tabParam]);
 
   useEffect(() => {
+    if (tabParam !== 'community' || !showAllCommunityRequests) {
+      return;
+    }
+
+    setCityFilter('');
+  }, [showAllCommunityRequests, tabParam]);
+
+  useEffect(() => {
     if (createParam !== '1') {
       return;
     }
 
-    setActiveTab('my-requests');
-    setEditingRequest(null);
-    setShowForm(true);
-  }, [createParam, requestedSitterId]);
-
-  function selectTab(tab: ExchangeTab) {
-    setActiveTab(tab);
-    setShowForm(false);
-    setEditingRequest(null);
-  }
-
-  function handleAddNew() {
     setActiveTab('my-requests');
     setEditingRequest(null);
     setSelectedPetIds([]);
@@ -206,6 +217,45 @@ function RequestsPageContent() {
     setMedicationInstructions('');
     setSleepInstructions('');
     setSpecialWarnings('');
+    setShowForm(true);
+    setRequestWizardStep(1);
+    wizardStepRef.current = 1;
+    setCareDetailsConfirmed(false);
+    setReviewStepReady(false);
+  }, [createParam, requestedSitterId]);
+
+  function selectTab(tab: ExchangeTab) {
+    setActiveTab(tab);
+    setShowForm(false);
+    setEditingRequest(null);
+    setError('');
+    setSuccess('');
+    router.push(`/exchange?tab=${tab}${tab === 'community' ? '&view=all' : ''}`, {
+      scroll: false,
+    });
+  }
+
+  function handleAddNew() {
+    router.push('/exchange?tab=my-requests&create=1', { scroll: false });
+    setActiveTab('my-requests');
+    setEditingRequest(null);
+    setSelectedPetIds([]);
+    setCareType('daily-visit');
+    setStartDate('');
+    setStartTime('09:00');
+    setEndDate('');
+    setEndTime('18:00');
+    setLocation('');
+    setNotes('');
+    setFeedingSchedule('');
+    setWalkSchedule('');
+    setMedicationInstructions('');
+    setSleepInstructions('');
+    setSpecialWarnings('');
+    setRequestWizardStep(1);
+    wizardStepRef.current = 1;
+    setCareDetailsConfirmed(false);
+    setReviewStepReady(false);
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -232,6 +282,10 @@ function RequestsPageContent() {
     setMedicationInstructions(request.medicationInstructions || '');
     setSleepInstructions(request.sleepInstructions || '');
     setSpecialWarnings(request.specialWarnings || '');
+    setRequestWizardStep(1);
+    wizardStepRef.current = 1;
+    setCareDetailsConfirmed(false);
+    setReviewStepReady(false);
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -242,11 +296,20 @@ function RequestsPageContent() {
     setEditingRequest(null);
     setError('');
     setSuccess('');
+    if (createParam === '1') {
+      router.replace('/exchange?tab=my-requests', { scroll: false });
+    }
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleFinalSubmit() {
     if (!user) return;
+    if (wizardStepRef.current !== 4 || requestWizardStep !== 4 || !reviewStepReady) {
+      setError('Review your request before sending it.');
+      return;
+    }
+    if (!validateRequestBeforeSubmit()) {
+      return;
+    }
 
     setError('');
     setSuccess('');
@@ -291,7 +354,15 @@ function RequestsPageContent() {
       setShowForm(false);
       setEditingRequest(null);
       setActiveTab('my-requests');
+      if (createParam === '1') {
+        router.replace('/exchange?tab=my-requests', { scroll: false });
+      }
       await loadData();
+      setShowForm(false);
+      setEditingRequest(null);
+      setRequestWizardStep(1);
+      wizardStepRef.current = 1;
+      setReviewStepReady(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError('We could not save this request right now. Please check the fields and try again. ' + message);
@@ -539,6 +610,127 @@ function RequestsPageContent() {
     );
   }
 
+  function hasCareDetails(): boolean {
+    return [
+      notes,
+      feedingSchedule,
+      walkSchedule,
+      medicationInstructions,
+      sleepInstructions,
+      specialWarnings,
+    ].some((value) => value.trim().length > 0);
+  }
+
+  function validateCurrentWizardStep(): boolean {
+    setError('');
+
+    if (requestWizardStep === 1) {
+      if (pets.length === 0) {
+        setError('Add your first pet before you ask for care.');
+        return false;
+      }
+      if (selectedPetIds.length === 0) {
+        setError('Choose at least one pet that needs care.');
+        return false;
+      }
+    }
+
+    if (requestWizardStep === 2) {
+      const parsedStartDate = parseFormDateTime(startDate, startTime);
+      const parsedEndDate = parseFormDateTime(endDate, endTime);
+
+      if (!parsedStartDate || !parsedEndDate) {
+        setError('Please choose a start and end date with times.');
+        return false;
+      }
+      if (parsedEndDate.getTime() <= parsedStartDate.getTime()) {
+        setError('End date must be after start date');
+        return false;
+      }
+      if (!location.trim()) {
+        setError('Select the city where the care is needed.');
+        return false;
+      }
+    }
+
+    if (requestWizardStep === 3) {
+      if (!hasCareDetails() && !careDetailsConfirmed) {
+        setError('Add a short care note, or confirm that no extra care notes are needed.');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function validateRequestBeforeSubmit(): boolean {
+    if (selectedPetIds.length === 0) {
+      setError('Choose at least one pet that needs care.');
+      wizardStepRef.current = 1;
+      setRequestWizardStep(1);
+      setReviewStepReady(false);
+      return false;
+    }
+
+    const parsedStartDate = parseFormDateTime(startDate, startTime);
+    const parsedEndDate = parseFormDateTime(endDate, endTime);
+    if (!parsedStartDate || !parsedEndDate || parsedEndDate.getTime() <= parsedStartDate.getTime() || !location.trim()) {
+      setError('Check the dates, times, and city before sending.');
+      wizardStepRef.current = 2;
+      setRequestWizardStep(2);
+      setReviewStepReady(false);
+      return false;
+    }
+
+    if (!hasCareDetails() && !careDetailsConfirmed) {
+      setError('Add a short care note, or confirm that no extra care notes are needed.');
+      wizardStepRef.current = 3;
+      setRequestWizardStep(3);
+      setReviewStepReady(false);
+      return false;
+    }
+
+    return true;
+  }
+
+  function goToNextWizardStep() {
+    if (wizardAdvanceLockRef.current) {
+      return;
+    }
+    const currentStep = wizardStepRef.current;
+    if (currentStep !== requestWizardStep) {
+      return;
+    }
+    if (!validateCurrentWizardStep()) {
+      return;
+    }
+
+    wizardAdvanceLockRef.current = true;
+    const nextStep = Math.min(currentStep + 1, 4) as RequestWizardStep;
+    wizardStepRef.current = nextStep;
+    setRequestWizardStep(nextStep);
+    setReviewStepReady(false);
+    if (nextStep === 4) {
+      setTimeout(() => {
+        if (wizardStepRef.current === 4) {
+          setReviewStepReady(true);
+        }
+      }, 700);
+    }
+    setTimeout(() => {
+      wizardAdvanceLockRef.current = false;
+    }, 300);
+  }
+
+  function goToPreviousWizardStep() {
+    setError('');
+    wizardAdvanceLockRef.current = false;
+    const previousStep = Math.max(wizardStepRef.current - 1, 1) as RequestWizardStep;
+    wizardStepRef.current = previousStep;
+    setRequestWizardStep(previousStep);
+    setReviewStepReady(false);
+  }
+
   function getStatusColor(status: string) {
     switch (status) {
       case 'open':
@@ -583,6 +775,16 @@ function RequestsPageContent() {
     return labels[careType] || careType;
   }
 
+  function handleBrowseAllCommunityRequests() {
+    setCityFilter('');
+    router.push('/exchange?tab=community&view=all');
+    void loadData();
+  }
+
+  const selectedCommunityRequest = highlightedRequestId
+    ? communityRequests.find((request) => request.id === highlightedRequestId)
+    : undefined;
+
   const filteredCommunityRequests = communityRequests.filter((request) => {
     const cityMatches =
       cityFilter.trim() === '' ||
@@ -591,24 +793,21 @@ function RequestsPageContent() {
       return false;
     }
 
-    if (!useDistanceFilter) {
-      return true;
-    }
-
-    if (
-      userLatitude === undefined ||
-      userLongitude === undefined ||
-      request.locationLat === undefined ||
-      request.locationLng === undefined
-    ) {
-      return true;
-    }
-
-    return (
-      distanceKm(userLatitude, userLongitude, request.locationLat, request.locationLng) <=
-      maxDistanceKm
-    );
+    return true;
   });
+
+  const visibleCommunityRequests = selectedCommunityRequest
+    ? [selectedCommunityRequest]
+    : filteredCommunityRequests;
+
+  useEffect(() => {
+    if (activeTab !== 'community' || !highlightedRequestId || loading) {
+      return;
+    }
+
+    const target = document.getElementById(`request-${highlightedRequestId}`);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [activeTab, highlightedRequestId, loading, visibleCommunityRequests.length]);
 
   const formStartAt = parseFormDateTime(startDate, startTime);
   const formEndAt = parseFormDateTime(endDate, endTime);
@@ -622,10 +821,33 @@ function RequestsPageContent() {
   const requestDurationLabel = hasValidRequestWindow
     ? formatRequestDuration(formStartAt!, formEndAt!)
     : '';
+  const selectedPets = pets.filter((pet) => selectedPetIds.includes(pet.id));
+  const selectedPetNames = selectedPets.map((pet) => pet.name);
+  const selectedPetLabel =
+    selectedPetNames.length > 0 ? selectedPetNames.join(', ') : 'your pet';
+  const requestFormTitle =
+    !editingRequest && requestedSitterName
+      ? `Ask ${requestedSitterName} to care for ${selectedPetLabel}`
+      : editingRequest
+        ? 'Edit pet-care request'
+        : 'Ask for pet care';
+  const selectedCareTypeLabel = getCareTypeLabel(careType);
+  const requestDateSummary =
+    hasValidRequestWindow && formStartAt && formEndAt
+      ? `${formStartAt.toLocaleDateString()} - ${formEndAt.toLocaleDateString()}`
+      : 'Dates not selected';
+  const showRequestWizard = activeTab === 'my-requests' && showForm && !success;
 
   return (
     <ProtectedRoute>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div
+        className={
+          showRequestWizard
+            ? 'min-h-[calc(100vh-72px)] bg-[#f4eee5] px-4 py-6 sm:px-6 lg:px-8'
+            : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12'
+        }
+      >
+        {!showRequestWizard && (
         <div className="rounded-[28px] border border-[#dbe5f0] bg-[linear-gradient(135deg,#fff7ef_0%,#ffffff_42%,#eef5ff_100%)] p-6 sm:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -660,7 +882,7 @@ function RequestsPageContent() {
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{directRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Open requests</p>
+              <p className="text-sm text-[#6b7280]">Requests to help</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{communityRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
@@ -673,7 +895,9 @@ function RequestsPageContent() {
             </div>
           </div>
         </div>
+        )}
 
+        {!showRequestWizard && (
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             onClick={() => selectTab('my-requests')}
@@ -703,7 +927,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Open requests
+            Requests to help
           </button>
           <button
             onClick={() => selectTab('my-sits')}
@@ -716,15 +940,24 @@ function RequestsPageContent() {
             Care I give
           </button>
         </div>
+        )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mt-6 mb-4">
+          <div
+            className={`bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mt-6 mb-4 ${
+              showRequestWizard ? 'mx-auto max-w-[1050px]' : ''
+            }`}
+          >
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
+          <div
+            className={`bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4 ${
+              showRequestWizard ? 'mx-auto max-w-[1050px]' : ''
+            }`}
+          >
             {success}
           </div>
         )}
@@ -735,267 +968,521 @@ function RequestsPageContent() {
           </div>
         )}
 
-        {activeTab === 'my-requests' && showForm ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-xl font-bold text-[#0f2640] mb-4">
-              {editingRequest ? 'Edit pet-care request' : 'Ask for pet care'}
+        {showRequestWizard ? (
+          <section className="mx-auto max-w-[1050px]">
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={saving}
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#425266] hover:text-[#0f2640] disabled:opacity-50"
+            >
+              <span aria-hidden="true">&larr;</span>
+              Cancel request
+            </button>
+
+            <h2 className="mt-6 text-3xl font-bold tracking-[-0.03em] text-[#0f2640]">
+              {requestFormTitle}
             </h2>
-            {!editingRequest && requestedSitterId && requestedSitterName && (
-              <div className="mb-4 rounded-2xl border border-[#ffd7bf] bg-[#fff7ef] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">
-                  Asking {requestedSitterName} directly
-                </p>
-                <p className="mt-1 text-sm text-[#516173]">
-                  Direct requests are sent to one sitter only. Chat opens after the request is accepted.
-                </p>
-              </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-2">
-                  Pet that needs care
-                </label>
-                <p className="mb-2 text-sm text-[#6b7280]">Choose the pet that needs care.</p>
-                {pets.length > 0 ? (
-                  <div className="space-y-2">
-                    {pets.map((pet) => (
-                      <label key={pet.id} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedPetIds.includes(pet.id)}
-                          onChange={() => togglePetSelection(pet.id)}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-[#0f2640]">
-                          {pet.name} ({pet.type})
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-400 cursor-not-allowed">
-                      You have not added any pets yet.
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-4">
+              {requestWizardSteps.map((item) => {
+                const isActive = requestWizardStep === item.step;
+                const isComplete = requestWizardStep > item.step;
+
+                return (
+                  <button
+                    key={item.step}
+                    type="button"
+                    onClick={() => {
+                      if (item.step < requestWizardStep) {
+                        wizardStepRef.current = item.step;
+                        setRequestWizardStep(item.step);
+                        setReviewStepReady(false);
+                      }
+                    }}
+                    className="flex items-center gap-3 text-left"
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        isActive
+                          ? 'bg-[#e96b2c] text-white'
+                          : isComplete
+                            ? 'bg-[#2f7d62] text-white'
+                            : 'bg-white text-[#8a97a3]'
+                      }`}
+                    >
+                      {item.step}
+                    </span>
+                    <span
+                      className={`text-sm font-semibold ${
+                        isActive ? 'text-[#0f2640]' : 'text-[#7a8794]'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                    <span className="hidden h-px flex-1 bg-[#ded6ca] sm:block" />
+                  </button>
+                );
+              })}
+            </div>
+
+            <form
+              onSubmit={(event) => event.preventDefault()}
+              className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,600px)_400px]"
+            >
+              <div className="rounded-[18px] border border-[#ded3c2] bg-white p-7 shadow-sm">
+                {requestWizardStep === 1 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-xl font-bold tracking-[-0.02em] text-[#0f2640]">
+                        Who needs care, and what kind?
+                      </h3>
+                      <p className="mt-2 text-sm text-[#516173]">
+                        Choose your pet and the type of care you are looking for.
+                      </p>
                     </div>
-                    <div className="mt-3 flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-sm text-blue-800 font-medium">
-                          Add your first pet before you ask for care.
+
+                    <div>
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
+                        Your pet
+                      </p>
+                      {pets.length > 0 ? (
+                        <div className="space-y-3">
+                          {pets.map((pet) => {
+                            const selected = selectedPetIds.includes(pet.id);
+
+                            return (
+                              <label
+                                key={pet.id}
+                                className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                                  selected
+                                    ? 'border-[#e96b2c] bg-[#fff4ec]'
+                                    : 'border-[#e3d7c7] bg-white hover:bg-[#fffaf6]'
+                                }`}
+                              >
+                                <span className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => togglePetSelection(pet.id)}
+                                    className="sr-only"
+                                  />
+                                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-sm font-bold uppercase text-[#e96b2c] shadow-sm">
+                                    {pet.type.slice(0, 1)}
+                                  </span>
+                                  <span>
+                                    <span className="block font-semibold text-[#0f2640]">
+                                      {pet.name}
+                                    </span>
+                                    <span className="text-sm capitalize text-[#6b7280]">
+                                      {pet.type}
+                                      {pet.breed ? ` - ${pet.breed}` : ''}
+                                      {pet.age ? ` - ${pet.age} yrs` : ''}
+                                    </span>
+                                  </span>
+                                </span>
+                                {selected && (
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e96b2c] text-xs font-bold text-white">
+                                    &#10003;
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                          <p className="text-sm font-semibold text-blue-900">
+                            Add your first pet before you ask for care.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => router.push('/pets')}
+                            className="mt-3 rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e66a1f]"
+                          >
+                            Add your first pet
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
+                        Type of care
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-4">
+                        {careTypeOptions.map((option) => {
+                          const selected = careType === option.value;
+
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setCareType(option.value)}
+                              className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition-colors ${
+                                selected
+                                  ? 'border-[#e96b2c] bg-[#e96b2c] text-white'
+                                  : 'border-[#e3d7c7] bg-white text-[#0f2640] hover:bg-[#fffaf6]'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {requestWizardStep === 2 && (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="text-xl font-bold text-[#0f2640]">When and where?</h3>
+                      <p className="mt-2 text-sm text-[#516173]">
+                        Pick the dates, times, and city where the care is needed.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Start date
+                        </label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Start time
+                        </label>
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          End date
+                        </label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          End time
+                        </label>
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                        Location
+                      </label>
+                      <CitySelect
+                        value={location}
+                        onChange={setLocation}
+                        required
+                        className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl bg-[#fff1e7] p-4 text-sm text-[#7c3b19]">
+                      {hasValidRequestWindow ? (
+                        <span>
+                          {requestDurationLabel} = {autoCalculatedCredits} credits, reserved until the care is finished.
+                        </span>
+                      ) : (
+                        <span>Select valid start and end times to calculate credits.</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {requestWizardStep === 3 && (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="text-xl font-bold text-[#0f2640]">
+                        Care notes for {selectedPetLabel}
+                      </h3>
+                      <p className="mt-2 text-sm text-[#516173]">
+                        Add only what the sitter needs to know. These details can be short.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                        Notes for the sitter
+                      </label>
+                      <textarea
+                        value={notes}
+                        onChange={(e) => {
+                          setNotes(e.target.value);
+                          setCareDetailsConfirmed(false);
+                        }}
+                        rows={3}
+                        className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        placeholder="Feeding, walking, medicine, behavior, or anything important."
+                      />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Feeding
+                        </label>
+                        <textarea
+                          value={feedingSchedule}
+                          onChange={(e) => {
+                            setFeedingSchedule(e.target.value);
+                            setCareDetailsConfirmed(false);
+                          }}
+                          rows={2}
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                          placeholder="Times and food portions"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Walks
+                        </label>
+                        <textarea
+                          value={walkSchedule}
+                          onChange={(e) => {
+                            setWalkSchedule(e.target.value);
+                            setCareDetailsConfirmed(false);
+                          }}
+                          rows={2}
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                          placeholder="Walk times and duration"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Medicine
+                        </label>
+                        <textarea
+                          value={medicationInstructions}
+                          onChange={(e) => {
+                            setMedicationInstructions(e.target.value);
+                            setCareDetailsConfirmed(false);
+                          }}
+                          rows={2}
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                          placeholder="Medicine dose and timing"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                          Sleep
+                        </label>
+                        <textarea
+                          value={sleepInstructions}
+                          onChange={(e) => {
+                            setSleepInstructions(e.target.value);
+                            setCareDetailsConfirmed(false);
+                          }}
+                          rows={2}
+                          className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                          placeholder="Where and how the pet should sleep"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
+                        Important warnings
+                      </label>
+                      <textarea
+                        value={specialWarnings}
+                        onChange={(e) => {
+                          setSpecialWarnings(e.target.value);
+                          setCareDetailsConfirmed(false);
+                        }}
+                        rows={2}
+                        className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+                        placeholder="Anything the sitter must avoid or watch closely"
+                      />
+                    </div>
+
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm transition-colors ${
+                        careDetailsConfirmed
+                          ? 'border-[#9cc9b2] bg-[#e8f3ec] text-[#245d45]'
+                          : 'border-[#e3d7c7] bg-[#fcfbf8] text-[#516173]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={careDetailsConfirmed}
+                        onChange={(e) => setCareDetailsConfirmed(e.target.checked)}
+                        className="mt-1 h-4 w-4"
+                      />
+                      <span>
+                        <span className="block font-semibold text-[#0f2640]">
+                          No extra care notes needed
+                        </span>
+                        <span className="mt-1 block">
+                          Choose this only if the sitter does not need feeding, walking,
+                          medicine, sleep, or warning details yet.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {requestWizardStep === 4 && (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="text-xl font-bold text-[#0f2640]">Review your request</h3>
+                      <p className="mt-2 text-sm text-[#516173]">
+                        Check the details, then send it.
+                      </p>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-[#e3d7c7]">
+                      {[
+                        ['Pet', selectedPetLabel],
+                        ['Care type', selectedCareTypeLabel],
+                        ['Dates', `${requestDateSummary} - ${requestDurationLabel || 'Duration not set'}`],
+                        ['Where', location || 'Location not selected'],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="flex items-center justify-between gap-4 border-b border-[#eee4d8] px-4 py-3 last:border-b-0"
+                        >
+                          <span className="text-sm font-medium text-[#7a8794]">{label}</span>
+                          <span className="text-right text-sm font-semibold text-[#0f2640]">
+                            {value}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between gap-4 bg-[#fff1e7] px-4 py-3">
+                        <span className="text-sm font-bold text-[#7c3b19]">Credits reserved</span>
+                        <span className="text-sm font-bold text-[#d96522]">
+                          {hasValidRequestWindow ? `${autoCalculatedCredits} credits` : '--'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(notes || feedingSchedule || walkSchedule || medicationInstructions || sleepInstructions || specialWarnings) && (
+                      <div className="rounded-2xl border border-[#e3d7c7] bg-[#fcfbf8] p-4">
+                        <p className="text-sm font-bold text-[#0f2640]">Care notes included</p>
+                        <p className="mt-1 text-sm text-[#6b7280]">
+                          The sitter will see your notes after you send this request.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => router.push('/pets')}
-                        className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm whitespace-nowrap"
-                      >
-                        Add your first pet
-                      </button>
+                    )}
+
+                    <div className="rounded-2xl bg-[#e8f3ec] p-4 text-sm text-[#245d45]">
+                      Your credits are reserved only after the sitter accepts, and released after you confirm the care is finished.
                     </div>
-                  </>
+                  </div>
                 )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Type of care
-                </label>
-                <p className="mb-2 text-sm text-[#6b7280]">Choose what kind of help your pet needs.</p>
-                <select
-                  value={careType}
-                  onChange={(e) => setCareType(e.target.value as CareType)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                >
-                  <option value="daily-visit">Daily Visit</option>
-                  <option value="overnight">Overnight</option>
-                  <option value="boarding">Boarding</option>
-                  <option value="walking">Walking</option>
-                </select>
-              </div>
+                <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={requestWizardStep === 1 ? handleCancel : goToPreviousWizardStep}
+                    disabled={saving}
+                    className="rounded-full px-4 py-2 text-sm font-semibold text-[#0f2640] hover:bg-[#f7fafc] disabled:opacity-50"
+                  >
+                    {requestWizardStep === 1 ? 'Cancel' : 'Back'}
+                  </button>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Start date
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Start time
-                  </label>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  />
+                  {requestWizardStep < 4 ? (
+                    <button
+                      type="button"
+                      onClick={goToNextWizardStep}
+                      disabled={saving || pets.length === 0}
+                      className="rounded-full bg-[#ff7a2d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
+                    >
+                      Continue
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleFinalSubmit}
+                      disabled={saving || pets.length === 0 || !reviewStepReady}
+                      className="rounded-full bg-[#ff7a2d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
+                    >
+                      {saving
+                        ? 'Saving...'
+                        : !reviewStepReady
+                          ? 'Review first'
+                          : editingRequest
+                            ? 'Update request'
+                            : 'Ask for pet care'}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    End date
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    End time
-                  </label>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Location
-                </label>
-                <p className="mb-2 text-sm text-[#6b7280]">Select the city where the care is needed.</p>
-                <CitySelect
-                  value={location}
-                  onChange={setLocation}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                />
-              </div>
-
-              <div className="rounded-2xl border border-[#ffd7be] bg-[#fff8f2] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <aside className="rounded-[18px] border border-[#ded3c2] bg-white p-6 shadow-sm lg:sticky lg:top-6 lg:self-start">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
+                  {requestedSitterName ? 'Your sitter' : 'Request summary'}
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff1e7] text-lg font-bold text-[#d96522]">
+                    {(requestedSitterName || 'TK').slice(0, 1).toUpperCase()}
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-[#0f2640]">Credit cost</p>
-                    <p className="mt-1 text-sm text-[#6b7280]">
-                      Credits are used instead of money. You spend credits when someone cares for your pet.
+                    <p className="font-bold text-[#0f2640]">
+                      {requestedSitterName || 'Community request'}
+                    </p>
+                    <p className="text-sm text-[#6b7280]">
+                      {requestedSitterName ? 'Selected sitter' : 'Visible to available sitters'}
                     </p>
                   </div>
-                  <div className="sm:text-right">
-                    <p className="text-3xl font-bold text-[#ff7a2d]">
+                </div>
+
+                {requestedSitterName && (
+                  <div className="mt-4 inline-flex rounded-full bg-[#e8f3ec] px-3 py-2 text-xs font-bold text-[#245d45]">
+                    Direct request
+                  </div>
+                )}
+
+                <div className="mt-5 border-t border-[#eee4d8] pt-5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#516173]">
+                      {requestDurationLabel || 'Duration'}
+                    </span>
+                    <span className="font-bold text-[#0f2640]">
                       {hasValidRequestWindow ? autoCalculatedCredits : '--'}
-                    </p>
-                    <p className="mt-1 text-sm text-[#6b7280]">
-                      {hasValidRequestWindow
-                        ? `${requestDurationLabel} total`
-                        : 'Select valid start and end times'}
-                    </p>
+                    </span>
                   </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="font-bold text-[#0f2640]">Total reserved</span>
+                    <span className="text-2xl font-bold text-[#ff7a2d]">
+                      {hasValidRequestWindow ? autoCalculatedCredits : '--'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-[#6b7280]">
+                    No money changes hands. Credits are only released after the owner confirms the care is finished.
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Notes for the sitter
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  placeholder="Feeding, walking, medicine, behavior, or anything important."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Feeding
-                  </label>
-                  <textarea
-                    value={feedingSchedule}
-                    onChange={(e) => setFeedingSchedule(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                    placeholder="Times and food portions"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Walks
-                  </label>
-                  <textarea
-                    value={walkSchedule}
-                    onChange={(e) => setWalkSchedule(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                    placeholder="Walk times and duration"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Medicine
-                  </label>
-                  <textarea
-                    value={medicationInstructions}
-                    onChange={(e) => setMedicationInstructions(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                    placeholder="Medicine dose and timing"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                    Sleep
-                  </label>
-                  <textarea
-                    value={sleepInstructions}
-                    onChange={(e) => setSleepInstructions(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                    placeholder="Where and how the pet should sleep"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#0f2640] mb-1">
-                  Important warnings
-                </label>
-                <textarea
-                  value={specialWarnings}
-                  onChange={(e) => setSpecialWarnings(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                  placeholder="Anything the sitter must avoid or watch closely"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={saving || pets.length === 0}
-                  className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : editingRequest ? 'Update request' : 'Ask for pet care'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="px-4 py-2 border border-gray-300 text-[#0f2640] rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
+              </aside>
             </form>
-          </div>
+          </section>
         ) : null}
 
         {loading ? (
@@ -1358,72 +1845,103 @@ function RequestsPageContent() {
 
             {activeTab === 'community' && (
               <div>
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div>
-                      <label htmlFor="community-requests-city" className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
-                      <CitySelect
-                        id="community-requests-city"
-                        value={cityFilter}
-                        onChange={setCityFilter}
-                        emptyLabel="All cities"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="community-requests-distance" className="block text-sm font-medium text-[#0f2640] mb-1">Max Distance (km)</label>
-                      <input
-                        id="community-requests-distance"
-                        type="number"
-                        min="1"
-                        value={maxDistanceKm}
-                        onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <label className="inline-flex items-center gap-2 text-sm text-[#0f2640]">
-                        <input
-                          type="checkbox"
-                          checked={useDistanceFilter}
-                          onChange={(e) => setUseDistanceFilter(e.target.checked)}
-                        />
-                        Use distance filter
-                      </label>
-                    </div>
-                    <div className="flex items-end">
-                      <button
-                        onClick={() => loadData()}
-                        className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-[#6b7280]">
-                    Open requests can be seen by available sitters. Offer to help only when the time works for you.
-                  </p>
-                </div>
-
-                {filteredCommunityRequests.length === 0 ? (
-                  <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                    <p className="text-[#6b7280]">No open pet-care requests found.</p>
-                    <p className="mt-2 text-sm text-[#6b7280]">Try changing the city or distance.</p>
+                {highlightedRequestId ? (
+                  <div className="mb-6 rounded-2xl border border-[#ded3c2] bg-white p-5">
+                    <button
+                      type="button"
+                      onClick={handleBrowseAllCommunityRequests}
+                      className="text-sm font-semibold text-[#425266] hover:text-[#0f2640]"
+                    >
+                      &larr; Browse all requests
+                    </button>
+                    <h2 className="mt-4 text-2xl font-bold text-[#0f2640]">Request details</h2>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      This is the request you selected from your dashboard.
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredCommunityRequests.map((request) => {
-                      const applied = isAppliedByCurrentUser(request);
+                  <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                      <div className="w-full md:max-w-sm">
+                        <label htmlFor="community-requests-city" className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
+                        <CitySelect
+                          id="community-requests-city"
+                          value={cityFilter}
+                          onChange={setCityFilter}
+                          emptyLabel="All cities"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <button
+                        onClick={handleBrowseAllCommunityRequests}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-[#0f2640] transition-colors hover:bg-gray-50"
+                      >
+                        Browse all
+                      </button>
+                    </div>
+                    <p className="mt-3 text-sm text-[#6b7280]">
+                      These are pet-care requests from owners. Offer to help only when the time works for you.
+                    </p>
+                  </div>
+                )}
 
-                      return (
-                        <div
-                          key={`${request.ownerId}-${request.id}`}
-                          className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-                        >
+                {visibleCommunityRequests.length === 0 ? (
+                  <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                    <p className="text-[#6b7280]">
+                      {highlightedRequestId
+                        ? 'This request could not be found or is no longer open.'
+                        : 'No open pet-care requests found.'}
+                    </p>
+                    <p className="mt-2 text-sm text-[#6b7280]">
+                      {highlightedRequestId
+                        ? 'Browse all open requests to see what is currently available.'
+                        : 'Try changing the city.'}
+                    </p>
+                    {highlightedRequestId && (
+                      <button
+                        type="button"
+                        onClick={handleBrowseAllCommunityRequests}
+                        className="mt-4 rounded-full bg-[#ff7a2d] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
+                      >
+                        Browse all requests
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {!highlightedRequestId && (
+                      <p className="text-sm font-semibold text-[#425266]">
+                        Showing {visibleCommunityRequests.length} open request{visibleCommunityRequests.length === 1 ? '' : 's'}.
+                      </p>
+                    )}
+                    <div className={highlightedRequestId ? 'max-w-2xl' : 'grid gap-6 md:grid-cols-2 xl:grid-cols-3'}>
+                      {visibleCommunityRequests.map((request) => {
+                        const applied = isAppliedByCurrentUser(request);
+                        const isHighlighted = request.id === highlightedRequestId;
+
+                        return (
+                          <div
+                            id={`request-${request.id}`}
+                            key={`${request.ownerId}-${request.id}`}
+                            className={`scroll-mt-28 bg-white rounded-2xl border p-6 hover:shadow-lg transition-shadow ${
+                              isHighlighted
+                                ? 'border-[#e96b2c] ring-2 ring-[#ffd7be]'
+                                : 'border-gray-200'
+                            }`}
+                          >
+                          {isHighlighted && (
+                            <p className="mb-3 inline-flex rounded-full bg-[#fff1e7] px-3 py-1 text-xs font-bold text-[#b94f1d]">
+                              Selected request
+                            </p>
+                          )}
                           <div className="flex items-start justify-between gap-3 mb-4">
                             <div>
-                              <h3 className="text-lg font-bold text-[#0f2640]">{request.petNames.join(', ')}</h3>
-                              <p className="text-sm text-[#6b7280]">Owner: {request.ownerName}</p>
+                              <h3 className="text-lg font-bold text-[#0f2640]">
+                                {request.ownerName || 'Pet owner'}
+                              </h3>
+                              <p className="text-sm text-[#6b7280]">
+                                {request.petNames.join(', ') || 'Pet care request'}
+                              </p>
                             </div>
                             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                               {getStatusText(request.status)}
@@ -1533,9 +2051,10 @@ function RequestsPageContent() {
                           >
                             Report request
                           </button>
-                        </div>
-                      );
-                    })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1547,7 +2066,7 @@ function RequestsPageContent() {
                 {sitterJobs.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <p className="text-[#6b7280]">
-                      You are not helping with any pet care yet. Check Direct asks or browse Open requests.
+                      You are not helping with any pet care yet. Check Direct asks or browse Requests to help.
                     </p>
                   </div>
                 ) : (

@@ -282,7 +282,7 @@ export default function LandingPage() {
       : copy.safety.testimonialTitle.toUpperCase();
 
   return (
-    <main className="bg-white text-[#0f2640]">
+    <main className="bg-[#f4eee5] text-[#0f2640]">
       <section className="relative flex min-h-[480px] items-center overflow-hidden lg:min-h-[600px] max-sm:min-h-[640px]">
         <div className="absolute inset-0">
           <Image

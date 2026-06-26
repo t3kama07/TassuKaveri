@@ -33,7 +33,7 @@ export default function PublicPageShell({
   const { language } = useLanguage();
 
   return (
-    <div className="bg-[#f8fafc] text-[#0f2640]">
+    <div className="bg-[#f4eee5] text-[#0f2640]">
       <section className="border-b border-[#e5ebf3] bg-[linear-gradient(135deg,#fff7ef_0%,#ffffff_42%,#eef5ff_100%)]">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
           <div className="max-w-4xl">

@@ -78,12 +78,15 @@ test.describe('Direct Booking, Chat, And Review', () => {
         notes: requestNote,
       });
 
-      await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
+      await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(ownerPage.getByText('End date must be after start date')).toBeVisible();
 
       const requestForm = ownerPage.locator('form');
       await fieldByLabel(requestForm, 'End time').fill(requestWindow.endTime);
       await expect(fieldByLabel(requestForm, 'End time')).toHaveValue(requestWindow.endTime);
+      await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
+      await fieldByLabel(requestForm, 'Notes for the sitter').fill(requestNote);
+      await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
       await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
 
       await expect(ownerPage.locator('form')).toHaveCount(0);

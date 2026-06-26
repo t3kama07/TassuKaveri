@@ -37,6 +37,25 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
+function BellIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M15 17H9" />
+      <path d="M18 10a6 6 0 0 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </svg>
+  );
+}
+
 function LanguageSwitcher({
   language,
   setLanguage,
@@ -156,11 +175,17 @@ export default function Navbar() {
               ))}
               <Link
                 href="/notifications"
-                className="inline-flex items-center gap-2 font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
+                aria-label={
+                  unreadNotifications > 0
+                    ? `${unreadNotifications} unread notifications`
+                    : 'Notifications'
+                }
+                title="Notifications"
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e3e9f0] bg-white text-[#0f2640] shadow-[0_4px_12px_rgba(15,38,64,0.05)] transition-colors hover:bg-[#fff7ef] hover:text-[#ff7a2d]"
               >
-                <span>Alerts</span>
+                <BellIcon />
                 {unreadNotifications > 0 && (
-                  <span className="inline-flex min-w-[1.45rem] items-center justify-center rounded-full bg-[#ff7a2d] px-2 py-0.5 text-xs font-semibold text-white">
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#ff7a2d] px-1.5 py-0.5 text-[0.68rem] font-bold leading-none text-white ring-2 ring-white">
                     {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </span>
                 )}
@@ -266,9 +291,17 @@ export default function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="inline-flex items-center justify-between rounded-2xl px-3 py-2.5 text-[1.02rem] font-medium text-[#0f2640] transition-colors hover:bg-[#fff7ef] hover:text-[#ff7a2d]"
                   >
-                    <span>Alerts</span>
+                    <span className="inline-flex items-center gap-3">
+                      <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#e3e9f0] bg-white text-[#0f2640]">
+                        <BellIcon />
+                        {unreadNotifications > 0 && (
+                          <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#ff7a2d] ring-2 ring-white" />
+                        )}
+                      </span>
+                      Notifications
+                    </span>
                     {unreadNotifications > 0 && (
-                      <span className="inline-flex min-w-[1.45rem] items-center justify-center rounded-full bg-[#ff7a2d] px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="text-sm font-semibold text-[#ff7a2d]">
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}

@@ -35,6 +35,47 @@ function formatRequestedWindow(startAtValue: string, endAtValue: string): string
   return formatAvailabilityWindow(startAt, endAt);
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'TK';
+}
+
+function getExperienceLabel(level: string): string {
+  switch (level) {
+    case 'expert':
+      return 'Expert sitter';
+    case 'intermediate':
+      return 'Experienced sitter';
+    default:
+      return 'New sitter';
+  }
+}
+
+function getMatchLabel(matchScore: number): string {
+  if (matchScore >= 80) {
+    return 'Strong match';
+  }
+
+  if (matchScore >= 60) {
+    return 'Good match';
+  }
+
+  return 'Possible match';
+}
+
+interface SitterSearchFilters {
+  city?: string;
+  requestedStartAt?: string;
+  requestedEndAt?: string;
+  petType?: string;
+  petSize?: string;
+  requiredExperienceLevel?: string;
+}
+
 export default function SittersPage() {
   const { user } = useAuth();
   const [sitters, setSitters] = useState<NearbySitter[]>([]);
@@ -84,16 +125,20 @@ export default function SittersPage() {
     })();
   }, [user]);
 
-  async function runSearch(
-    nextCity: string = city,
-    nextRequestedStartAt: string = requestedStartAt,
-    nextRequestedEndAt: string = requestedEndAt
-  ) {
+  async function runSearch(filters: SitterSearchFilters = {}) {
     if (!user) return;
 
     try {
       setLoading(true);
       setError('');
+
+      const nextCity = filters.city ?? city;
+      const nextRequestedStartAt = filters.requestedStartAt ?? requestedStartAt;
+      const nextRequestedEndAt = filters.requestedEndAt ?? requestedEndAt;
+      const nextPetType = filters.petType ?? petType;
+      const nextPetSize = filters.petSize ?? petSize;
+      const nextRequiredExperienceLevel =
+        filters.requiredExperienceLevel ?? requiredExperienceLevel;
 
       const hasStart = nextRequestedStartAt.trim().length > 0;
       const hasEnd = nextRequestedEndAt.trim().length > 0;
@@ -123,9 +168,9 @@ export default function SittersPage() {
       const results = await getAvailableSitters({
         excludeUserId: user.uid,
         city: nextCity,
-        petTypes: petType ? [petType] : [],
-        petSize: petSize || undefined,
-        requiredExperienceLevel: requiredExperienceLevel || undefined,
+        petTypes: nextPetType ? [nextPetType] : [],
+        petSize: nextPetSize || undefined,
+        requiredExperienceLevel: nextRequiredExperienceLevel || undefined,
         requestedStartAt: parsedRequestedStartAt,
         requestedEndAt: parsedRequestedEndAt,
       });
@@ -168,54 +213,65 @@ export default function SittersPage() {
 
   return (
     <ProtectedRoute>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="min-h-[calc(100vh-72px)] bg-[#f4eee5] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1180px]">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Find a sitter</h1>
-          <p className="text-[#6b7280]">
-            Find someone in your city who can care for your pet. Results may depend on the sitter&apos;s saved times.
+          <h1 className="text-3xl font-bold tracking-[-0.03em] text-[#0f2640] sm:text-4xl">
+            Find a sitter
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm text-[#425266] sm:text-base">
+            Calm, trusted people near you. Read profiles, then send a request from the sitter page.
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
             {error}
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="mb-6 rounded-[18px] border border-[#ded3c2] bg-white p-4 shadow-sm sm:p-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[1.15fr_1fr_1fr_1fr_auto]">
             <div>
-              <label htmlFor="sitter-search-city" className="block text-sm font-medium text-[#0f2640] mb-1">City</label>
+              <label htmlFor="sitter-search-city" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                City
+              </label>
               <CitySelect
                 id="sitter-search-city"
                 value={city}
                 onChange={setCity}
                 emptyLabel="All cities"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               />
             </div>
             <div>
-              <label htmlFor="sitter-search-start" className="block text-sm font-medium text-[#0f2640] mb-1">Care starts</label>
+              <label htmlFor="sitter-search-start" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                Care starts
+              </label>
               <input
                 id="sitter-search-start"
                 type="datetime-local"
                 value={requestedStartAt}
                 onChange={(e) => setRequestedStartAt(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               />
             </div>
             <div>
-              <label htmlFor="sitter-search-end" className="block text-sm font-medium text-[#0f2640] mb-1">Care ends</label>
+              <label htmlFor="sitter-search-end" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                Care ends
+              </label>
               <input
                 id="sitter-search-end"
                 type="datetime-local"
                 value={requestedEndAt}
                 onChange={(e) => setRequestedEndAt(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               />
             </div>
             <div>
-              <label htmlFor="sitter-search-pet-type" className="block text-sm font-medium text-[#0f2640] mb-1">Pet Type</label>
+              <label htmlFor="sitter-search-pet-type" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                Pet type
+              </label>
               <select
                 id="sitter-search-pet-type"
                 value={petType}
@@ -225,7 +281,7 @@ export default function SittersPage() {
                     setPetSize('');
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               >
                 <option value="">Any</option>
                 {PET_TYPE_OPTIONS.map((option) => (
@@ -235,14 +291,27 @@ export default function SittersPage() {
                 ))}
               </select>
             </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => runSearch()}
+                className="w-full rounded-xl bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23]"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]">
             {petType === 'dog' && (
             <div>
-              <label htmlFor="sitter-search-dog-size" className="block text-sm font-medium text-[#0f2640] mb-1">Dog Size</label>
+              <label htmlFor="sitter-search-dog-size" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                Dog size
+              </label>
               <select
                 id="sitter-search-dog-size"
                 value={petSize}
                 onChange={(e) => setPetSize(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               >
                 <option value="">Any</option>
                 <option value="small">Small</option>
@@ -252,12 +321,14 @@ export default function SittersPage() {
             </div>
             )}
             <div>
-              <label htmlFor="sitter-search-experience" className="block text-sm font-medium text-[#0f2640] mb-1">Experience</label>
+              <label htmlFor="sitter-search-experience" className="mb-1 block text-xs font-semibold text-[#0f2640]">
+                Experience
+              </label>
               <select
                 id="sitter-search-experience"
                 value={requiredExperienceLevel}
                 onChange={(e) => setRequiredExperienceLevel(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full rounded-xl border border-[#d8cbbb] bg-[#fffdf9] px-3 py-3 text-sm font-semibold text-[#0f2640] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
               >
                 <option value="">Any</option>
                 <option value="beginner">Beginner+</option>
@@ -266,33 +337,44 @@ export default function SittersPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <div className="flex w-full gap-2">
-                <button
-                  onClick={() => runSearch()}
-                  className="flex-1 px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium text-sm"
-                >
-                  Find sitters
-                </button>
-                <button
-                  onClick={() => {
-                    setRequestedStartAt('');
-                    setRequestedEndAt('');
-                    runSearch(city, '', '');
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-[#0f2640] rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
-                >
-                  Browse all
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setCity('');
+                  setPetType('');
+                  setPetSize('');
+                  setRequiredExperienceLevel('');
+                  setRequestedStartAt('');
+                  setRequestedEndAt('');
+                  void runSearch({
+                    city: '',
+                    requestedStartAt: '',
+                    requestedEndAt: '',
+                    petType: '',
+                    petSize: '',
+                    requiredExperienceLevel: '',
+                  });
+                }}
+                className="w-full rounded-xl border border-[#d8cbbb] bg-white px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fffaf6]"
+              >
+                Browse all
+              </button>
             </div>
           </div>
-          <p className="text-xs text-[#6b7280] mt-3">
-            Choose the date and time you need help. Leave them empty to browse all sitters.
-          </p>
-          <p className="text-xs text-[#6b7280] mt-1">
-            Matching is city-level. Some sitters may not have full times listed yet.
-          </p>
-          <p className="text-sm text-[#0f2640] mt-3">
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#6b7280]">
+            <span className="font-semibold text-[#6f7b87]">Quick filters:</span>
+            <span className="rounded-full bg-[#fff1e7] px-3 py-2 font-semibold text-[#9a4b22]">
+              {city || 'All cities'}
+            </span>
+            <span className="rounded-full bg-[#f2f5f8] px-3 py-2 font-semibold text-[#425266]">
+              {petType ? PET_TYPE_OPTIONS.find((option) => option.value === petType)?.singularLabel || petType : 'Any pet'}
+            </span>
+            <span className="rounded-full bg-[#f2f5f8] px-3 py-2 font-semibold text-[#425266]">
+              {requiredExperienceLevel ? getExperienceLabel(requiredExperienceLevel) : 'Any experience'}
+            </span>
+          </div>
+
+          <p className="mt-4 text-sm text-[#0f2640]">
             {requestedWindowLabel
               ? `Showing sitters who are open for bookings around ${requestedWindowLabel}.`
               : `Showing sitters who are open for bookings${city ? ` in or near ${city}` : ''}.`}
@@ -300,11 +382,11 @@ export default function SittersPage() {
         </div>
 
         {loading ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="rounded-[18px] border border-[#ded3c2] bg-white p-6">
             <p className="text-[#6b7280]">Loading sitters...</p>
           </div>
         ) : sitters.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="rounded-[18px] border border-[#ded3c2] bg-white p-6">
             <p className="text-[#6b7280]">
               {requestedWindowLabel
                 ? 'No sitters found for this search. Try changing the date or city.'
@@ -312,79 +394,128 @@ export default function SittersPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sitters.map((entry) => (
-              <div key={entry.profile.uid} className="bg-white rounded-lg border border-gray-200 p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">{entry.profile.name}</h3>
-                <p className="text-sm text-[#6b7280]">{entry.profile.location}</p>
-                <p className="text-xs text-[#6b7280] mt-1">
-                  {entry.matchScore >= 80 ? 'Strong match' : 'Possible match'}
-                </p>
+          <>
+          <p className="mb-4 text-sm text-[#425266]">
+            <span className="font-bold text-[#0f2640]">{sitters.length} sitters</span>
+            {city ? ` open for bookings in or near ${city}` : ' open for bookings'}
+            {requestedWindowLabel ? ` for ${requestedWindowLabel}` : ''}.
+          </p>
 
-                <div className="flex flex-wrap gap-2 mt-3 mb-3">
-                  <span className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700">Open for bookings</span>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {sitters.map((entry) => (
+              <article
+                key={entry.profile.uid}
+                className="relative flex min-h-[280px] flex-col rounded-[18px] border border-[#ded3c2] bg-white p-5 shadow-sm"
+              >
+                <button
+                  onClick={() => toggleFavorite(entry.profile.uid)}
+                  aria-label={favoriteSitterIds.includes(entry.profile.uid) ? 'Remove saved sitter' : 'Save sitter'}
+                  className={`absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full border text-lg transition-colors ${
+                    favoriteSitterIds.includes(entry.profile.uid)
+                      ? 'border-[#f5c7b0] bg-[#fff1e7] text-[#e96b2c]'
+                      : 'border-[#e3d7c7] bg-white text-[#b5a999] hover:bg-[#fffaf6]'
+                  }`}
+                >
+                  {favoriteSitterIds.includes(entry.profile.uid) ? <>&#10084;</> : <>&#9825;</>}
+                </button>
+
+                <div className="flex gap-3 pr-10">
+                  <div
+                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[#0f2640] ${
+                      entry.profile.photoURL ? 'bg-cover bg-center' : 'bg-[#efe3ee]'
+                    }`}
+                    style={
+                      entry.profile.photoURL
+                        ? { backgroundImage: `url(${entry.profile.photoURL})` }
+                        : undefined
+                    }
+                  >
+                    {!entry.profile.photoURL && getInitials(entry.profile.name)}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight text-[#0f2640]">
+                      {entry.profile.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-[#7a8794]">
+                      {entry.profile.location || 'Location not added'}
+                    </p>
+                    <span className="mt-2 inline-flex rounded-full bg-[#edf3f7] px-3 py-1 text-xs font-bold text-[#456170]">
+                      {getMatchLabel(entry.matchScore)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#0f2640]">
+                  <span className="font-bold text-[#e6a323]">&#9733;</span>
+                  <span>
+                  {entry.profile.ratingCount > 0
+                    ? `${entry.profile.ratingAverage.toFixed(1)} (${entry.profile.ratingCount})`
+                    : 'No ratings'}
+                  </span>
+                  <span className="text-[#7a8794]">|</span>
+                  <span>{getExperienceLabel(entry.profile.experienceLevel)}</span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-[#e8f3ec] px-3 py-2 text-xs font-bold text-[#245d45]">
+                    Open for bookings
+                  </span>
                   <span
-                    className={`px-2 py-1 text-xs rounded ${
-                      entry.profileCompleted ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+                    className={`rounded-full px-3 py-2 text-xs font-bold ${
+                      entry.profileCompleted
+                        ? 'bg-[#e8f3ec] text-[#245d45]'
+                        : 'bg-[#f2f5f8] text-[#607080]'
                     }`}
                   >
-                    {entry.profileCompleted ? 'Profile complete' : 'Profile needs details'}
+                    {entry.profileCompleted ? 'Profile complete' : 'Needs details'}
                   </span>
                 </div>
 
-                <p className="text-sm text-[#0f2640] mb-2">
-                  Rating:{' '}
-                  {entry.profile.ratingCount > 0
-                    ? `${entry.profile.ratingAverage.toFixed(1)} / 5 (${entry.profile.ratingCount})`
-                    : 'No ratings'}
+                <p className="mt-4 text-sm leading-6 text-[#425266]">
+                  {entry.profile.bio || entry.profile.petExperience || 'No bio yet.'}
                 </p>
-                <p className="text-sm text-[#6b7280] mb-2">{entry.profile.bio || 'No bio yet.'}</p>
-                <p className="text-sm text-[#6b7280]">
-                  Experience: {entry.profile.petExperience || 'Not provided'}
-                </p>
+
                 {entry.nextAvailableSlot ? (
-                  <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                    <p className="text-sm font-medium text-blue-800">Next open time slot</p>
-                    <p className="text-sm text-blue-700">
+                  <div className="mt-4 text-sm font-semibold text-[#245d45]">
+                    <span className="mr-1">&#9711;</span>
+                    Open for bookings - next:{' '}
+                    <span className="font-normal">
                       {formatAvailabilityWindow(
                         entry.nextAvailableSlot.startAt,
                         entry.nextAvailableSlot.endAt
                       )}
-                    </p>
+                    </span>
                   </div>
                 ) : entry.hasDetailedAvailability ? (
-                  <p className="mt-3 text-sm text-[#6b7280]">
+                  <p className="mt-4 text-sm font-semibold text-[#245d45]">
                     This sitter is open for bookings, but their detailed time slots are private right now.
                   </p>
                 ) : (
-                  <p className="mt-3 text-sm text-[#6b7280]">
+                  <p className="mt-4 text-sm text-[#6b7280]">
                     This sitter has not shared a public time summary yet. You can still contact them directly.
                   </p>
                 )}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href={`/sitters/${entry.profile.uid}`}
-                    className="px-3 py-1 text-sm rounded bg-[#ff7a2d] text-white hover:bg-[#e66a1f]"
-                  >
-                    View profile
-                  </Link>
-                  <button
-                    onClick={() => toggleFavorite(entry.profile.uid)}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    {favoriteSitterIds.includes(entry.profile.uid) ? 'Saved' : 'Save sitter'}
-                  </button>
+
+                <div className="mt-auto flex items-end justify-between gap-3 border-t border-[#eee4d8] pt-4">
                   <button
                     onClick={() => handleReportSitter(entry.profile.uid)}
-                    className="px-3 py-1 text-sm border border-red-300 text-red-700 rounded hover:bg-red-50"
+                    className="text-xs font-semibold text-[#8a97a3] hover:text-red-700"
                   >
                     Report
                   </button>
+                  <Link
+                    href={`/sitters/${entry.profile.uid}`}
+                    className="rounded-full bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23]"
+                  >
+                    View profile
+                  </Link>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
+          </>
         )}
+        </div>
       </div>
     </ProtectedRoute>
   );
