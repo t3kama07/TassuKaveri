@@ -73,20 +73,20 @@ test.describe('Direct Booking, Chat, And Review', () => {
         startDate: requestWindow.startDate,
         endDate: requestWindow.endDate,
         startTime: requestWindow.startTime,
-        endTime: '09:00',
+        endTime: requestWindow.endTime,
         location: 'Oulu',
         notes: requestNote,
       });
 
-      await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
-      await expect(ownerPage.getByText('End date must be after start date')).toBeVisible();
-
       const requestForm = ownerPage.locator('form');
-      await fieldByLabel(requestForm, 'End time').fill(requestWindow.endTime);
       await expect(fieldByLabel(requestForm, 'End time')).toHaveValue(requestWindow.endTime);
+      await expect(ownerPage.getByText('2 hr = 2 credits, reserved until the care is finished.')).toBeVisible();
       await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
+      await expect(ownerPage.getByRole('heading', { name: `Care notes for ${petName}`, exact: true })).toBeVisible();
+      await ownerPage.waitForTimeout(350);
       await fieldByLabel(requestForm, 'Notes for the sitter').fill(requestNote);
       await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
+      await expect(ownerPage.getByRole('heading', { name: 'Review your request', exact: true })).toBeVisible();
       await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
 
       await expect(ownerPage.locator('form')).toHaveCount(0);

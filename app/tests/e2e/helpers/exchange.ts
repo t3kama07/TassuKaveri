@@ -25,9 +25,11 @@ export async function createDirectRequestFromProfile(
 
   const form = page.locator('form');
   const petCheckbox = form.getByLabel(new RegExp(values.petName, 'i'));
-  await petCheckbox.check();
+  await form.getByText(values.petName, { exact: true }).click();
   await expect(petCheckbox).toBeChecked();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'When and where?', exact: true })).toBeVisible();
+  await page.waitForTimeout(350);
   await fieldByLabel(form, 'Start date').fill(values.startDate);
   await fieldByLabel(form, 'Start time').fill(values.startTime);
   await fieldByLabel(form, 'End date').fill(values.endDate);

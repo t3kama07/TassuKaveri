@@ -32,12 +32,12 @@ test.describe('Sitter Search And Discovery', () => {
     await fieldByLabel(page, 'Care ends').fill(window.endDateTimeLocal);
     await fieldByLabel(page, 'Pet Type').selectOption('dog');
     await fieldByLabel(page, 'Experience').selectOption('expert');
-    await page.getByRole('button', { name: 'Find sitters', exact: true }).click();
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
 
     await expect(page.getByText(sitterName)).toBeVisible();
 
     await fieldByLabel(page, 'City').selectOption('Tampere');
-    await page.getByRole('button', { name: 'Find sitters', exact: true }).click();
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(page.getByText(/No sitters found for this search/i)).toBeVisible();
 
     await fieldByLabel(page, 'City').selectOption('Oulu');
