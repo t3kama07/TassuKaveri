@@ -197,7 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [supabaseSession, setSupabaseSession] = useState<Session | null>(null);
   const [supabaseReady, setSupabaseReady] = useState(false);
+  const supabaseSessionRef = useRef<Session | null>(null);
   const bootstrapPromisesRef = useRef(new Map<string, Promise<UserProfile | null>>());
+  const supabaseUserId = supabaseSession?.user?.id ?? null;
+  supabaseSessionRef.current = supabaseSession;
 
   async function ensureUserBootstrap(
     authUser: AuthUser,
@@ -299,7 +302,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function reconcileSession() {
       setLoading(true);
 
-      if (!supabaseSession?.user) {
+      const currentSession = supabaseSessionRef.current;
+
+      if (!currentSession?.user) {
         if (active) {
           setUser(null);
           setProfile(null);
@@ -309,7 +314,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const currentUser = mapSupabaseUserToAuthUser(supabaseSession.user);
+        const currentUser = mapSupabaseUserToAuthUser(currentSession.user);
         const bootstrappedProfile = await ensureUserBootstrap(currentUser);
         if (active) {
           setUser(currentUser);
@@ -333,7 +338,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [supabaseReady, supabaseSession?.user]);
+  }, [supabaseReady, supabaseUserId]);
 
   const login = async (email: string, password: string) => {
     const trimmedEmail = normalizeEmailForAuth(email);
