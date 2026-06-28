@@ -1,7 +1,15 @@
 import { REPEATED_PAIR_ACTIVITY_THRESHOLD } from './platformPolicy';
-import { ReportRecord } from '@/types/moderation';
+import { ReportRecord, ReportStatus } from '@/types/moderation';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
 import { getSupabaseAuthHeaders } from './supabaseAuthClient';
+
+export type AdminUserCreditRecord = {
+  uid: string;
+  name: string;
+  email: string;
+  creditAmount: number;
+  createdAt: Date;
+};
 
 function generateReportId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -21,6 +29,19 @@ function mapReportRecord(data: Record<string, unknown>): ReportRecord {
     targetRequestId: (data.targetRequestId as string) || undefined,
     reason: (data.reason as string) || '',
     status: (data.status as ReportRecord['status']) || 'open',
+    createdAt:
+      typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
+        ? new Date(data.createdAt)
+        : new Date(),
+  };
+}
+
+function mapAdminUserCreditRecord(data: Record<string, unknown>): AdminUserCreditRecord {
+  return {
+    uid: (data.uid as string) || '',
+    name: (data.name as string) || '',
+    email: (data.email as string) || '',
+    creditAmount: typeof data.creditAmount === 'number' ? data.creditAmount : 0,
     createdAt:
       typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
         ? new Date(data.createdAt)
@@ -117,6 +138,19 @@ export async function viewSuspiciousActivity(adminId: string): Promise<ReportRec
   return payload.reports.map(mapReportRecord);
 }
 
+export async function viewOpenReports(adminId: string): Promise<ReportRecord[]> {
+  return viewSuspiciousActivity(adminId);
+}
+
+export async function viewAdminUsers(adminId: string): Promise<AdminUserCreditRecord[]> {
+  const payload = await fetchSupabaseReadJson<{ users: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/moderation?scope=admin-users&adminId=${encodeURIComponent(adminId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.users.map(mapAdminUserCreditRecord);
+}
+
 export async function logRepeatedPairActivity(
   ownerId: string,
   sitterId: string,
@@ -162,6 +196,32 @@ export async function freezeAccount(adminId: string, targetUserId: string, reaso
   });
 }
 
+export async function setAccountFrozen(
+  adminId: string,
+  targetUserId: string,
+  frozen: boolean,
+  reason: string
+): Promise<void> {
+  await postModerationAction(adminId, {
+    action: 'set-account-frozen',
+    targetUserId,
+    frozen,
+    reason: reason || 'Admin action',
+  });
+}
+
+export async function updateReportStatus(
+  adminId: string,
+  reportId: string,
+  status: ReportStatus
+): Promise<void> {
+  await postModerationAction(adminId, {
+    action: 'update-report-status',
+    reportId,
+    status,
+  });
+}
+
 export async function deleteAbusiveReview(
   adminId: string,
   ownerId: string,
@@ -171,5 +231,21 @@ export async function deleteAbusiveReview(
     action: 'delete-review',
     ownerId,
     requestId,
+  });
+}
+
+export async function adjustUserCredits(
+  adminId: string,
+  targetUserId: string,
+  amount: number,
+  direction: 'add' | 'deduct',
+  reason: string
+): Promise<void> {
+  await postModerationAction(adminId, {
+    action: 'adjust-credits',
+    targetUserId,
+    amount,
+    direction,
+    reason,
   });
 }

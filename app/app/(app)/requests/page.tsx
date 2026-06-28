@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CitySelect from '@/components/CitySelect';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -135,6 +136,10 @@ function RequestsPageContent() {
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
   const [applicationMessages, setApplicationMessages] = useState<Record<string, string>>({});
   const [cityFilter, setCityFilter] = useState('');
+  const [reportingRequest, setReportingRequest] = useState<Request | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportError, setReportError] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // Form fields
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -588,19 +593,47 @@ function RequestsPageContent() {
     }
   }
 
-  async function handleReportCommunityRequest(request: Request) {
-    if (!user) return;
-    const reason = prompt('Tell us what feels wrong with this request:');
-    if (!reason || !reason.trim()) {
+  function openReportModal(request: Request) {
+    setReportingRequest(request);
+    setReportReason('');
+    setReportError('');
+    setError('');
+    setSuccess('');
+  }
+
+  function closeReportModal() {
+    if (reportSubmitting) {
       return;
     }
 
+    setReportingRequest(null);
+    setReportReason('');
+    setReportError('');
+  }
+
+  async function handleReportCommunityRequest() {
+    if (!user || !reportingRequest) return;
+    const reason = reportReason.trim();
+    if (!reason) {
+      setReportError('Tell us what feels wrong before sending the report.');
+      return;
+    }
+
+    setReportSubmitting(true);
+    setReportError('');
+    setError('');
+    setSuccess('');
+
     try {
-      await reportRequest(user.uid, request.ownerId, request.id, reason);
+      await reportRequest(user.uid, reportingRequest.ownerId, reportingRequest.id, reason);
       setSuccess('Request reported. An admin will review it.');
+      setReportingRequest(null);
+      setReportReason('');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not send this report right now. Please try again. ' + message);
+      setReportError('We could not send this report right now. Please try again. ' + message);
+    } finally {
+      setReportSubmitting(false);
     }
   }
 
@@ -1934,16 +1967,23 @@ function RequestsPageContent() {
                               Selected request
                             </p>
                           )}
-                          <div className="flex items-start justify-between gap-3 mb-4">
-                            <div>
-                              <h3 className="text-lg font-bold text-[#0f2640]">
-                                {request.ownerName || 'Pet owner'}
-                              </h3>
-                              <p className="text-sm text-[#6b7280]">
-                                {request.petNames.join(', ') || 'Pet care request'}
-                              </p>
+                          <div className="mb-4 flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <ProfileAvatar
+                                uid={request.ownerId}
+                                name={request.ownerName || 'Pet owner'}
+                                className="h-12 w-12 shrink-0 rounded-full border border-[#efe3ee]"
+                              />
+                              <div className="min-w-0">
+                                <h3 className="truncate text-lg font-bold text-[#0f2640]">
+                                  {request.ownerName || 'Pet owner'}
+                                </h3>
+                                <p className="truncate text-sm text-[#6b7280]">
+                                  {request.petNames.join(', ') || 'Pet care request'}
+                                </p>
+                              </div>
                             </div>
-                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                            <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                               {getStatusText(request.status)}
                             </span>
                           </div>
@@ -2046,7 +2086,8 @@ function RequestsPageContent() {
                             </button>
                           )}
                           <button
-                            onClick={() => handleReportCommunityRequest(request)}
+                            type="button"
+                            onClick={() => openReportModal(request)}
                             className="w-full mt-2 border border-red-300 text-red-700 py-2 px-4 rounded-lg hover:bg-red-50 transition-colors font-medium"
                           >
                             Report request
@@ -2217,6 +2258,101 @@ function RequestsPageContent() {
           </>
         )}
       </div>
+
+      {reportingRequest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f2640]/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="report-request-title"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleReportCommunityRequest();
+            }}
+            className="w-full max-w-[30rem] rounded-[24px] border border-[#ead9ca] bg-white p-6 shadow-[0_24px_70px_rgba(15,38,64,0.24)]"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e96b2c]">
+                  Report request
+                </p>
+                <h2 id="report-request-title" className="mt-2 text-2xl font-bold text-[#0f2640]">
+                  Tell us what feels wrong
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeReportModal}
+                disabled={reportSubmitting}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e6d8ca] text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
+                aria-label="Close report dialog"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[#fff7ef] p-3">
+              <ProfileAvatar
+                uid={reportingRequest.ownerId}
+                name={reportingRequest.ownerName || 'Pet owner'}
+                className="h-11 w-11 shrink-0 rounded-full border border-[#efe3ee]"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-[#0f2640]">
+                  {reportingRequest.ownerName || 'Pet owner'}
+                </p>
+                <p className="truncate text-sm text-[#6b7280]">
+                  {reportingRequest.petNames.join(', ') || 'Pet care request'}
+                </p>
+              </div>
+            </div>
+
+            <label htmlFor="report-reason" className="mt-5 block text-sm font-semibold text-[#0f2640]">
+              Reason
+            </label>
+            <textarea
+              id="report-reason"
+              value={reportReason}
+              onChange={(event) => {
+                setReportReason(event.target.value);
+                if (reportError) {
+                  setReportError('');
+                }
+              }}
+              rows={5}
+              disabled={reportSubmitting}
+              placeholder="Describe the problem, for example unsafe details, spam, or inappropriate content."
+              className="mt-2 w-full resize-none rounded-2xl border border-[#d8cbbb] px-4 py-3 text-sm text-[#0f2640] outline-none transition-colors placeholder:text-[#8a95a3] focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ffd6bf] disabled:bg-gray-50"
+            />
+
+            {reportError && (
+              <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {reportError}
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeReportModal}
+                disabled={reportSubmitting}
+                className="rounded-full border border-[#d8cbbb] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={reportSubmitting}
+                className="rounded-full bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23] disabled:opacity-50"
+              >
+                {reportSubmitting ? 'Sending...' : 'Send report'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

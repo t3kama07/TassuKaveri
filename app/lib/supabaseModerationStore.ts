@@ -91,6 +91,21 @@ export async function upsertReportInSupabase(report: SupabaseReportInput): Promi
   }
 }
 
+export async function updateReportStatusInSupabase(
+  reportId: string,
+  status: ReportStatus
+): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from('reports')
+    .update({ status })
+    .eq('id', reportId);
+
+  if (error) {
+    throw new Error(`Failed to update moderation report in Supabase: ${error.message}`);
+  }
+}
+
 export async function getReportsFromSupabase(filters: {
   type?: ReportType;
   status?: ReportStatus;

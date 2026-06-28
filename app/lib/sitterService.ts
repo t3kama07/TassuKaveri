@@ -101,10 +101,13 @@ export async function getAvailableSitters(options: {
   requiredExperienceLevel?: string;
   requestedStartAt?: Date;
   requestedEndAt?: Date;
+  limit?: number;
 }): Promise<NearbySitter[]> {
-  const profiles = await getAvailablePublicProfiles();
-
   const normalizedCity = (options.city || '').trim().toLowerCase();
+  const profiles = await getAvailablePublicProfiles({
+    city: normalizedCity || undefined,
+    limit: options.limit,
+  });
   const maxDistanceKm = options.maxDistanceKm ?? 10;
   const hasUserCoords = options.latitude !== undefined && options.longitude !== undefined;
 

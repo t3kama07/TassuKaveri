@@ -81,7 +81,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden open requests filter' }, { status: 403 });
       }
 
-      const requests = await getOpenCommunityRequestsFromSupabase(excludeUserId);
+      const limitParam = request.nextUrl.searchParams.get('limit');
+      const parsedLimit = limitParam ? Number(limitParam) : undefined;
+      const limit =
+        typeof parsedLimit === 'number' && Number.isFinite(parsedLimit)
+          ? parsedLimit
+          : undefined;
+      const requests = await getOpenCommunityRequestsFromSupabase(excludeUserId, { limit });
       return NextResponse.json({ requests });
     }
 

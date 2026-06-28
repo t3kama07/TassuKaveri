@@ -1,5 +1,6 @@
 import { UserProfile } from '@/types/profile';
 import { createSupabaseAdminClient } from './supabaseAdmin';
+import { resolveProfileAvatarUrl } from './profileAvatar';
 
 type DateInput = Date | string | number | null | undefined;
 
@@ -11,6 +12,26 @@ export type SupabaseProfileInput = Partial<
     updatedAt?: DateInput;
     phoneVerificationExpires?: DateInput;
   };
+
+export type AdminUserCreditRecord = {
+  uid: string;
+  name: string;
+  email: string;
+  creditAmount: number;
+  createdAt: Date;
+};
+
+type SupabaseAdminUserRow = {
+  uid: string;
+  email: string;
+  name: string | null;
+  created_at: string;
+};
+
+type SupabaseUserWalletRow = {
+  user_uid: string;
+  balance: number | null;
+};
 
 function asNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -109,7 +130,7 @@ function mapSupabaseRowToProfile(row: Record<string, unknown>): UserProfile {
     name: asString(row.name),
     location: asString(row.location),
     country: asString(row.country, 'Finland'),
-    photoURL: asString(row.photo_url),
+    photoURL: resolveProfileAvatarUrl(asString(row.photo_url), asString(row.uid)),
     bio: asString(row.bio),
     petExperience: asString(row.pet_experience),
     availability:
@@ -183,4 +204,44 @@ export async function profileExistsInSupabase(uid: string): Promise<boolean> {
   }
 
   return (count ?? 0) > 0;
+}
+
+export async function getAdminUserCreditsFromSupabase(): Promise<AdminUserCreditRecord[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('uid, email, name, created_at')
+    .order('created_at', { ascending: false })
+    .returns<SupabaseAdminUserRow[]>();
+
+  if (profilesError) {
+    throw new Error(`Failed to read admin user list from Supabase: ${profilesError.message}`);
+  }
+
+  const userIds = (profiles || []).map((profile) => profile.uid).filter(Boolean);
+  const walletBalances = new Map<string, number>();
+
+  if (userIds.length > 0) {
+    const { data: wallets, error: walletsError } = await supabase
+      .from('wallets')
+      .select('user_uid, balance')
+      .in('user_uid', userIds)
+      .returns<SupabaseUserWalletRow[]>();
+
+    if (walletsError) {
+      throw new Error(`Failed to read admin wallet balances from Supabase: ${walletsError.message}`);
+    }
+
+    (wallets || []).forEach((wallet) => {
+      walletBalances.set(wallet.user_uid, asNumber(wallet.balance));
+    });
+  }
+
+  return (profiles || []).map((profile) => ({
+    uid: profile.uid,
+    name: profile.name || '',
+    email: profile.email || '',
+    creditAmount: walletBalances.get(profile.uid) ?? 0,
+    createdAt: toDate(profile.created_at) || new Date(),
+  }));
 }

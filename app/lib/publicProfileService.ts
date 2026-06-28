@@ -2,6 +2,7 @@ import { AvailabilitySlot } from '@/types/availability';
 import { PublicUserProfile } from '@/types/profile';
 import type { SupabasePublicProfileInput } from './supabasePublicProfileStore';
 import { mirrorPublicProfileToSupabase } from './supabaseMirrorClient';
+import { resolveProfileAvatarUrl } from './profileAvatar';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
 
 function asNumber(value: unknown): number | undefined {
@@ -37,7 +38,7 @@ export function buildPublicProfileDocument(
     name: (data.name as string) || '',
     location: (data.location as string) || '',
     country: (data.country as string) || 'Finland',
-    photoURL: (data.photoURL as string) || '',
+    photoURL: resolveProfileAvatarUrl(data.photoURL as string | undefined, uid),
     bio: (data.bio as string) || '',
     petExperience: (data.petExperience as string) || '',
     availability: (data.availability as string) || 'available',
@@ -134,7 +135,7 @@ export function mapPublicUserProfile(
     name: (data.name as string) || 'User',
     location: (data.location as string) || '',
     country: (data.country as string) || 'Finland',
-    photoURL: (data.photoURL as string) || '',
+    photoURL: resolveProfileAvatarUrl(data.photoURL as string | undefined, (data.uid as string) || id),
     bio: (data.bio as string) || '',
     petExperience: (data.petExperience as string) || '',
     availability: ((data.availability as PublicUserProfile['availability']) || 'available'),
@@ -167,9 +168,21 @@ export async function getPublicProfile(uid: string): Promise<PublicUserProfile |
   return payload.profile ? mapPublicUserProfile(uid, payload.profile) : null;
 }
 
-export async function getAvailablePublicProfiles(): Promise<PublicUserProfile[]> {
+export async function getAvailablePublicProfiles(options: {
+  city?: string;
+  limit?: number;
+} = {}): Promise<PublicUserProfile[]> {
+  const params = new URLSearchParams({ available: 'true' });
+  const city = options.city?.trim();
+  if (city) {
+    params.set('city', city);
+  }
+  if (typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0) {
+    params.set('limit', String(Math.floor(options.limit)));
+  }
+
   const payload = await fetchSupabaseReadJson<{ profiles: Array<Record<string, unknown>> }>(
-    '/api/supabase-read/public-profile?available=true'
+    `/api/supabase-read/public-profile?${params.toString()}`
   );
 
   return payload.profiles.map((profile) =>

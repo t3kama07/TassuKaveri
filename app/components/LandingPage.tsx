@@ -35,17 +35,42 @@ function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
 function ShieldIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       className={className}
     >
-      <path d="M12 3 5.5 6v5c0 4.4 2.8 8.4 6.5 10 3.7-1.6 6.5-5.6 6.5-10V6L12 3Z" />
-      <path d="m9.5 12 1.8 1.8L15 10.5" />
+      <path
+        d="M14.5 39.6c3.8-7.4 10.2-11.4 17.5-11.4s13.7 4 17.5 11.4c1.8 3.4-.7 7.4-4.6 7.4H19.1c-3.9 0-6.4-4-4.6-7.4Z"
+        fill="#DFF7F0"
+        stroke="#14314D"
+        strokeWidth="2.8"
+      />
+      <path
+        d="M19.5 30.5c0-9.5 5.6-15.3 12.5-15.3s12.5 5.8 12.5 15.3H19.5Z"
+        fill="#FFB978"
+        stroke="#14314D"
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m22.4 20.5-2.9-7.1 7 3.4M41.6 20.5l2.9-7.1-7 3.4"
+        fill="#FFB978"
+        stroke="#14314D"
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="27.2" cy="28.9" r="1.9" fill="#14314D" />
+      <circle cx="36.8" cy="28.9" r="1.9" fill="#14314D" />
+      <path d="M29.5 35c1.7 1.3 3.3 1.3 5 0" stroke="#14314D" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="47.8" cy="17.8" r="9.8" fill="#FF8A3D" stroke="#14314D" strokeWidth="2.6" />
+      <path
+        d="m43.6 17.6 2.8 2.8 5.8-6.1"
+        stroke="#FFF8EF"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -53,18 +78,38 @@ function ShieldIcon({ className = 'h-5 w-5' }: IconProps) {
 function MessageIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       className={className}
     >
-      <path d="M7 18.5c-2.2 0-4-1.7-4-3.9V8.4c0-2.2 1.8-3.9 4-3.9h10c2.2 0 4 1.7 4 3.9v6.2c0 2.2-1.8 3.9-4 3.9H12l-4.5 3v-3H7Z" />
-      <path d="M8.5 10.5h7" />
-      <path d="M8.5 13.5h4" />
+      <path
+        d="M13.5 13h37c4.6 0 8.2 3.5 8.2 7.9v19.4c0 4.4-3.6 7.9-8.2 7.9H34.8L23.2 56v-7.8h-9.7c-4.6 0-8.2-3.5-8.2-7.9V20.9c0-4.4 3.6-7.9 8.2-7.9Z"
+        fill="#DFF7F0"
+        stroke="#14314D"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path d="M21.2 34.3c0-8.8 5.1-14 11.3-14s11.3 5.2 11.3 14H21.2Z" fill="#9EDDCF" />
+      <path
+        d="m23.8 24.2-2.6-6.1 6.2 2.8M41.2 24.2l2.6-6.1-6.2 2.8"
+        fill="#9EDDCF"
+        stroke="#14314D"
+        strokeWidth="2.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="27.4" cy="31.3" r="1.8" fill="#14314D" />
+      <circle cx="37.6" cy="31.3" r="1.8" fill="#14314D" />
+      <path
+        d="M29.6 37.2c1.8 1.6 4 1.6 5.8 0"
+        stroke="#14314D"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M48.5 27.6c2.7-3 7.3-1 7.3 2.8 0 4.2-7.3 8.3-7.3 8.3s-7.3-4.1-7.3-8.3c0-3.8 4.6-5.8 7.3-2.8Z"
+        fill="#FF8A3D"
+      />
     </svg>
   );
 }
@@ -72,16 +117,30 @@ function MessageIcon({ className = 'h-5 w-5' }: IconProps) {
 function StarIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       className={className}
     >
-      <path d="m12 3.5 2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 17l-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 3.5Z" />
+      <path
+        d="m32 8.5 6.8 13.8 15.3 2.2-11.1 10.8 2.6 15.2L32 43.3l-13.6 7.2L21 35.3 9.9 24.5l15.3-2.2L32 8.5Z"
+        fill="#FFD16A"
+        stroke="#14314D"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M27.1 34.6c2.1-3.3 7.7-3.3 9.8 0l.8 1.2c1.2 1.9-.2 4.3-2.4 4.3h-6.6c-2.2 0-3.6-2.4-2.4-4.3l.8-1.2Z"
+        fill="#FF8A3D"
+      />
+      <circle cx="24.8" cy="29.5" r="2.4" fill="#FF8A3D" />
+      <circle cx="39.2" cy="29.5" r="2.4" fill="#FF8A3D" />
+      <circle cx="29.5" cy="25.6" r="2.4" fill="#FF8A3D" />
+      <circle cx="34.5" cy="25.6" r="2.4" fill="#FF8A3D" />
+      <path
+        d="M14.5 12.5c1.2 3.1 1.9 3.8 5 5-3.1 1.2-3.8 1.9-5 5-1.2-3.1-1.9-3.8-5-5 3.1-1.2 3.8-1.9 5-5ZM49.5 42c1.2 3.1 1.9 3.8 5 5-3.1 1.2-3.8 1.9-5 5-1.2-3.1-1.9-3.8-5-5 3.1-1.2 3.8-1.9 5-5Z"
+        fill="#7CC7B7"
+      />
     </svg>
   );
 }
@@ -89,19 +148,49 @@ function StarIcon({ className = 'h-5 w-5' }: IconProps) {
 function UsersIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       className={className}
     >
-      <path d="M16 21v-1.5a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4V21" />
-      <path d="M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-      <path d="M20 21v-1.5a4 4 0 0 0-2.6-3.74" />
-      <path d="M15.5 4.2a3.5 3.5 0 0 1 0 6.6" />
+      <path
+        d="M11.5 45.2c4.9-7 12.7-11 20.5-11s15.6 4 20.5 11c1.7 2.4.1 5.8-2.9 5.8H14.4c-3 0-4.6-3.4-2.9-5.8Z"
+        fill="#FFF0E5"
+        stroke="#14314D"
+        strokeWidth="3"
+      />
+      <path
+        d="M17.7 31.2c0-8.1 4.8-13.1 10.7-13.1s10.7 5 10.7 13.1H17.7Z"
+        fill="#F6B66E"
+      />
+      <path
+        d="m20.3 21.7-2.2-6 5.8 2.9M36.5 21.7l2.2-6-5.8 2.9"
+        fill="#F6B66E"
+        stroke="#14314D"
+        strokeWidth="2.4"
+        strokeLinejoin="round"
+      />
+      <circle cx="24" cy="29" r="1.7" fill="#14314D" />
+      <circle cx="32.8" cy="29" r="1.7" fill="#14314D" />
+      <path d="M26.4 34.3c1.4 1.1 2.8 1.1 4.2 0" stroke="#14314D" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M34.5 34.5c0-7.7 4.2-12.2 9.4-12.2s9.4 4.5 9.4 12.2H34.5Z"
+        fill="#8CD6C8"
+      />
+      <path
+        d="m36.7 26.1-1.9-5.3 5 2.6M51.1 26.1l1.9-5.3-5 2.6"
+        fill="#8CD6C8"
+        stroke="#14314D"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+      />
+      <circle cx="40.2" cy="32" r="1.5" fill="#14314D" />
+      <circle cx="47.6" cy="32" r="1.5" fill="#14314D" />
+      <path d="M42.4 36.2c1.1.9 2.1.9 3.2 0" stroke="#14314D" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M11.2 20.7c1.1 2.8 1.8 3.5 4.6 4.6-2.8 1.1-3.5 1.8-4.6 4.6-1.1-2.8-1.8-3.5-4.6-4.6 2.8-1.1 3.5-1.8 4.6-4.6Z"
+        fill="#FFD16A"
+      />
     </svg>
   );
 }
@@ -109,17 +198,35 @@ function UsersIcon({ className = 'h-5 w-5' }: IconProps) {
 function LockIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 64 64"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
       className={className}
     >
-      <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
-      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+      <path
+        d="M18.5 28.5v-6.2C18.5 14.1 24.2 8 32 8s13.5 6.1 13.5 14.3v6.2"
+        stroke="#14314D"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+      <rect
+        x="12"
+        y="26"
+        width="40"
+        height="30"
+        rx="10"
+        fill="#FFF2E7"
+        stroke="#14314D"
+        strokeWidth="3"
+      />
+      <path
+        d="M27.5 42c2-3.2 7-3.2 9 0l.7 1.1c1.2 1.9-.2 4.4-2.5 4.4h-5.4c-2.3 0-3.7-2.5-2.5-4.4l.7-1.1Z"
+        fill="#FF8A3D"
+      />
+      <circle cx="24.4" cy="36.3" r="2.6" fill="#FF8A3D" />
+      <circle cx="39.6" cy="36.3" r="2.6" fill="#FF8A3D" />
+      <circle cx="29.3" cy="33" r="2.6" fill="#FF8A3D" />
+      <circle cx="34.7" cy="33" r="2.6" fill="#FF8A3D" />
     </svg>
   );
 }
@@ -428,8 +535,8 @@ export default function LandingPage() {
                     key={label}
                     className="flex gap-4 py-5 first:pt-0 last:pb-0 sm:gap-5"
                   >
-                    <div className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#ffe2d1] bg-[#fff5ee] text-[#ff7a2d] shadow-[0_10px_24px_rgba(255,122,45,0.08)]">
-                      <Icon className="h-7 w-7" />
+                    <div className="inline-flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full border border-[#ffe0ce] bg-white shadow-[0_12px_26px_rgba(255,122,45,0.1)]">
+                      <Icon className="h-12 w-12" />
                     </div>
                     <div className="pt-1">
                       <h3 className="text-[1.28rem] font-semibold tracking-[-0.03em] text-[#16314f]">
@@ -445,8 +552,8 @@ export default function LandingPage() {
             </ul>
 
             <div className="mt-8 inline-flex max-w-xl items-center gap-3 rounded-[18px] border border-[#f4e4d8] bg-[#fff7f1] px-4 py-4 text-[#30475f] shadow-[0_12px_26px_rgba(255,122,45,0.08)] sm:px-5">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#ff7a2d] shadow-[0_8px_18px_rgba(255,122,45,0.12)]">
-                <LockIcon className="h-5 w-5" />
+              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_18px_rgba(255,122,45,0.12)]">
+                <LockIcon className="h-8 w-8" />
               </span>
               <p className="text-sm font-medium leading-6 sm:text-[0.98rem]">
                 {safetyNote}

@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AvailabilityPlanner from '@/components/AvailabilityPlanner';
 import CitySelect from '@/components/CitySelect';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -13,6 +13,11 @@ import {
   updateUserLocation,
 } from '@/lib/profileService';
 import { uploadProfileImage } from '@/lib/profileImageService';
+import {
+  getProfileAvatarUrl,
+  isProfileAvatarUrl,
+  PROFILE_AVATAR_OPTIONS,
+} from '@/lib/profileAvatar';
 import { getPetTypeLabel, PET_TYPE_OPTIONS } from '@/lib/petOptions';
 import { getWallet } from '@/lib/walletService';
 import { AvailabilityStatus, ExperienceLevel, UserProfile } from '@/types/profile';
@@ -308,7 +313,9 @@ export default function ProfilePage() {
   const profileLocation = profile ? `${profile.location}, ${profile.country}` : 'Location not added yet';
   const heroBio =
     profile?.bio.trim() || 'Add a short intro so pet owners quickly understand your style.';
-  const profileInitial = profileName.charAt(0).toUpperCase();
+  const selectedPresetAvatar = PROFILE_AVATAR_OPTIONS.find(
+    (option) => photoURL === getProfileAvatarUrl(option.id)
+  )?.id;
   const hasCoordinates = latitude.trim() !== '' && longitude.trim() !== '';
   const ratingSummary =
     profile && profile.ratingCount > 0
@@ -316,7 +323,7 @@ export default function ProfilePage() {
       : 'No ratings yet';
   const checklistItems = [
     { label: 'Name and location added', done: Boolean(name.trim()) && Boolean(location.trim()) },
-    { label: 'Profile photo added', done: Boolean(photoURL.trim()) },
+    { label: 'Profile photo or avatar selected', done: Boolean(photoURL.trim()) },
     { label: 'Short bio added', done: Boolean(bio.trim()) },
     { label: 'Pet experience added', done: Boolean(petExperience.trim()) },
     { label: 'Pet types added', done: petTypeExperience.length > 0 },
@@ -362,25 +369,17 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-bold text-[#0f2640]">Profile photo</h3>
                 <div className="mt-4 rounded-2xl border border-dashed border-[#d7e2ef] bg-white p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    {photoURL ? (
-                      <Image
-                        src={photoURL}
-                        alt={profileName}
-                        width={88}
-                        height={88}
-                        unoptimized
-                        className="h-[88px] w-[88px] rounded-3xl border border-gray-200 object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-[88px] w-[88px] items-center justify-center rounded-3xl bg-[#0f2640] text-3xl font-bold text-white">
-                        {profileInitial}
-                      </div>
-                    )}
+                    <ProfileAvatar
+                      uid={profile.uid}
+                      name={profileName}
+                      photoURL={photoURL}
+                      className="h-[88px] w-[88px] rounded-3xl border border-gray-200"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[#0f2640]">Profile photo</p>
                       <p className="mt-1 text-sm text-[#6b7280]">
-                        Upload a clear image so your profile feels more personal and trustworthy.
+                        Upload a clear image or choose a friendly avatar for your profile.
                       </p>
 
                       <input
@@ -412,6 +411,49 @@ export default function ProfilePage() {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="mt-5 border-t border-[#edf2f7] pt-4">
+                    <p className="text-sm font-semibold text-[#0f2640]">Choose an avatar</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {PROFILE_AVATAR_OPTIONS.map((option) => {
+                        const avatarUrl = getProfileAvatarUrl(option.id);
+                        const selected = selectedPresetAvatar === option.id;
+
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setPhotoURL(avatarUrl)}
+                            className={`flex items-center gap-3 rounded-2xl border bg-white p-3 text-left transition-colors ${
+                              selected
+                                ? 'border-[#ff7a2d] ring-2 ring-[#ffd7be]'
+                                : 'border-[#d7e2ef] hover:border-[#ffcfb2]'
+                            }`}
+                            aria-pressed={selected}
+                          >
+                            <ProfileAvatar
+                              name={option.label}
+                              photoURL={avatarUrl}
+                              className="h-11 w-11 rounded-2xl border border-gray-200"
+                            />
+                            <span className="text-xs font-semibold text-[#0f2640]">
+                              {option.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!photoURL && (
+                      <p className="mt-3 text-xs text-[#6b7280]">
+                        If you do not choose one, TassuKaveri shows an automatic avatar.
+                      </p>
+                    )}
+                    {photoURL && isProfileAvatarUrl(photoURL) && (
+                      <p className="mt-3 text-xs text-[#6b7280]">
+                        Save changes to use this avatar across your profile.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -613,16 +655,12 @@ export default function ProfilePage() {
             </form>
           ) : (
             <div className="mt-6 space-y-5">
-              {profile.photoURL && (
-                <Image
-                  src={profile.photoURL}
-                  alt={profile.name}
-                  width={88}
-                  height={88}
-                  unoptimized
-                  className="h-[88px] w-[88px] rounded-3xl border border-gray-200 object-cover"
-                />
-              )}
+              <ProfileAvatar
+                uid={profile.uid}
+                name={profile.name}
+                photoURL={profile.photoURL}
+                className="h-[88px] w-[88px] rounded-3xl border border-gray-200"
+              />
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
                   <p className="text-sm font-semibold text-[#0f2640]">Name</p>
@@ -885,20 +923,12 @@ export default function ProfilePage() {
                   </p>
 
                   <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-                    {profile.photoURL ? (
-                      <Image
-                        src={profile.photoURL}
-                        alt={profileName}
-                        width={96}
-                        height={96}
-                        unoptimized
-                        className="h-24 w-24 rounded-3xl border border-white/80 object-cover shadow-sm"
-                      />
-                    ) : (
-                      <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-[#0f2640] text-3xl font-bold text-white shadow-sm">
-                        {profileInitial}
-                      </div>
-                    )}
+                    <ProfileAvatar
+                      uid={profile.uid}
+                      name={profileName}
+                      photoURL={profile.photoURL}
+                      className="h-24 w-24 rounded-3xl border border-white/80 shadow-sm"
+                    />
 
                     <div className="min-w-0">
                       <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">

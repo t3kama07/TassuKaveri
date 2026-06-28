@@ -1,5 +1,6 @@
 import { PublicUserProfile } from '@/types/profile';
 import { createSupabaseAdminClient } from './supabaseAdmin';
+import { resolveProfileAvatarUrl } from './profileAvatar';
 
 type DateInput = Date | string | number | null | undefined;
 type SupabasePublicProfileRow = {
@@ -144,7 +145,7 @@ function mapSupabasePublicProfileRow(row: SupabasePublicProfileRow): PublicUserP
     name: row.name || 'User',
     location: row.location || '',
     country: row.country || 'Finland',
-    photoURL: row.photo_url || '',
+    photoURL: resolveProfileAvatarUrl(row.photo_url || '', row.uid),
     bio: row.bio || '',
     petExperience: row.pet_experience || '',
     availability: row.availability || 'available',
@@ -199,14 +200,27 @@ export async function getPublicProfileFromSupabase(
   return data ? mapSupabasePublicProfileRow(data) : null;
 }
 
-export async function getAvailablePublicProfilesFromSupabase(): Promise<PublicUserProfile[]> {
+export async function getAvailablePublicProfilesFromSupabase(options: {
+  city?: string;
+  limit?: number;
+} = {}): Promise<PublicUserProfile[]> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('public_profiles')
     .select('*')
     .eq('availability', 'available')
-    .order('updated_at', { ascending: false })
-    .returns<SupabasePublicProfileRow[]>();
+    .order('updated_at', { ascending: false });
+
+  const city = options.city?.trim();
+  if (city) {
+    query = query.ilike('location', `%${city}%`);
+  }
+
+  if (typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0) {
+    query = query.limit(Math.floor(options.limit));
+  }
+
+  const { data, error } = await query.returns<SupabasePublicProfileRow[]>();
 
   if (error) {
     throw new Error(`Failed to read public profiles from Supabase: ${error.message}`);

@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+let supabaseAdminClient: SupabaseClient | null = null;
+
 function getSupabaseUrl() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
@@ -19,10 +21,16 @@ function getSupabaseServiceRoleKey() {
 }
 
 export function createSupabaseAdminClient(): SupabaseClient {
-  return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
+  if (supabaseAdminClient) {
+    return supabaseAdminClient;
+  }
+
+  supabaseAdminClient = createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
+
+  return supabaseAdminClient;
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserConversations } from '@/lib/messageService';
@@ -152,12 +153,22 @@ export default function SitterProfilePage() {
                   <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
                     Sitter Profile
                   </p>
-                  <h1 className="mt-3 text-3xl font-bold text-[#0f2640] sm:text-4xl">
-                    {profile.name}
-                  </h1>
-                  <p className="mt-2 text-base text-[#516173]">
-                    {profile.location}, {profile.country}
-                  </p>
+                  <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <ProfileAvatar
+                      uid={profile.uid}
+                      name={profile.name}
+                      photoURL={profile.photoURL}
+                      className="h-24 w-24 rounded-3xl border border-white/80 shadow-sm"
+                    />
+                    <div className="min-w-0">
+                      <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">
+                        {profile.name}
+                      </h1>
+                      <p className="mt-2 text-base text-[#516173]">
+                        {profile.location}, {profile.country}
+                      </p>
+                    </div>
+                  </div>
                   <p className="mt-4 max-w-3xl text-[#516173]">
                     {profile.bio || 'This sitter has not added a bio yet.'}
                   </p>

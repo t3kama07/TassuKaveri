@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect, FormEvent } from 'react';
+import PetAvatar from '@/components/PetAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserPets, createPet, updatePet, deletePet } from '@/lib/petService';
@@ -196,9 +197,21 @@ export default function PetsPage() {
 
         {showForm ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-xl font-bold text-[#0f2640] mb-4">
-              {editingPet ? 'Edit pet' : 'Add your pet'}
-            </h2>
+            <div className="mb-4 flex items-center gap-4">
+              <PetAvatar
+                name={name || 'Your pet'}
+                type={type}
+                className="h-20 w-20 shrink-0 rounded-3xl border border-gray-200"
+              />
+              <div>
+                <h2 className="text-xl font-bold text-[#0f2640]">
+                  {editingPet ? 'Edit pet' : 'Add your pet'}
+                </h2>
+                <p className="mt-1 text-sm text-[#6b7280]">
+                  The pet image updates automatically from the pet type.
+                </p>
+              </div>
+            </div>
             <p className="mb-4 text-sm text-[#6b7280]">
               Add clear care details so sitters know how to help safely.
             </p>
@@ -429,7 +442,19 @@ export default function PetsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pets.map((pet) => (
               <div key={pet.id} className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="text-xl font-bold text-[#0f2640] mb-2">{pet.name}</h3>
+                <div className="mb-4 flex items-start gap-4">
+                  <PetAvatar
+                    name={pet.name}
+                    type={pet.type}
+                    className="h-20 w-20 shrink-0 rounded-3xl border border-gray-200 shadow-sm"
+                  />
+                  <div className="min-w-0 pt-1">
+                    <h3 className="break-words text-xl font-bold text-[#0f2640]">{pet.name}</h3>
+                    <p className="mt-1 text-sm font-medium text-[#ff7a2d]">
+                      {pet.type.charAt(0).toUpperCase() + pet.type.slice(1).replace('-', ' ')}
+                    </p>
+                  </div>
+                </div>
                 <div className="space-y-2 text-sm">
                   <p className="text-[#6b7280]">
                     <span className="font-medium">Type:</span>{' '}

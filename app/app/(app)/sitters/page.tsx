@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import CitySelect from '@/components/CitySelect';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { addFavoriteSitter, getFavoriteSitters, removeFavoriteSitter } from '@/lib/favoriteService';
@@ -33,15 +34,6 @@ function formatRequestedWindow(startAtValue: string, endAtValue: string): string
   }
 
   return formatAvailabilityWindow(startAt, endAt);
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'TK';
 }
 
 function getExperienceLabel(level: string): string {
@@ -420,18 +412,12 @@ export default function SittersPage() {
                 </button>
 
                 <div className="flex gap-3 pr-10">
-                  <div
-                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[#0f2640] ${
-                      entry.profile.photoURL ? 'bg-cover bg-center' : 'bg-[#efe3ee]'
-                    }`}
-                    style={
-                      entry.profile.photoURL
-                        ? { backgroundImage: `url(${entry.profile.photoURL})` }
-                        : undefined
-                    }
-                  >
-                    {!entry.profile.photoURL && getInitials(entry.profile.name)}
-                  </div>
+                  <ProfileAvatar
+                    uid={entry.profile.uid}
+                    name={entry.profile.name}
+                    photoURL={entry.profile.photoURL}
+                    className="h-14 w-14 shrink-0 rounded-full border border-[#efe3ee]"
+                  />
                   <div>
                     <h3 className="text-lg font-bold leading-tight text-[#0f2640]">
                       {entry.profile.name}

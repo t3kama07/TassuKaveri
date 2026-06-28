@@ -501,12 +501,20 @@ export async function deleteRequest(ownerId: string, requestId: string): Promise
   await deleteRequestFromSupabase(ownerId, requestId, ownerId);
 }
 
-export async function getAllOpenRequests(excludeUserId?: string): Promise<Request[]> {
-  const queryString = excludeUserId
-    ? `?scope=all-open&excludeUserId=${encodeURIComponent(excludeUserId)}`
-    : '?scope=all-open';
+export async function getAllOpenRequests(
+  excludeUserId?: string,
+  options: { limit?: number } = {}
+): Promise<Request[]> {
+  const params = new URLSearchParams({ scope: 'all-open' });
+  if (excludeUserId) {
+    params.set('excludeUserId', excludeUserId);
+  }
+  if (typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0) {
+    params.set('limit', String(Math.floor(options.limit)));
+  }
+
   const payload = await fetchSupabaseReadJson<{ requests: Array<Record<string, unknown>> }>(
-    `/api/supabase-read/request${queryString}`,
+    `/api/supabase-read/request?${params.toString()}`,
     { requireAuth: true }
   );
 

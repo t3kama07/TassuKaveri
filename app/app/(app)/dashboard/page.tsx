@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAvailabilitySlots } from '@/lib/availabilityService';
@@ -51,37 +52,46 @@ function formatDateRange(startDate: Date, endDate: Date): string {
   return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'TK';
-}
-
 function OnboardingIcon({ type }: { type: OnboardingChoice }) {
   if (type === 'need-care') {
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
-        <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z" />
-        <path d="M9.5 12.5 11 14l3.5-4" />
+      <svg viewBox="0 0 64 64" aria-hidden="true" className="h-10 w-10">
+        <path d="M14 34 32 18l18 16v17a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3V34Z" fill="#fff7ed" stroke="#0f2640" strokeWidth="2.4" strokeLinejoin="round" />
+        <path d="M22 54V39c0-5.5 4.5-10 10-10s10 4.5 10 10v15" fill="#ffe2c8" stroke="#0f2640" strokeWidth="2.4" strokeLinejoin="round" />
+        <path d="M11 34 32 15l21 19" fill="none" stroke="#e96b2c" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="27" cy="40" r="2.4" fill="#0f2640" />
+        <circle cx="37" cy="40" r="2.4" fill="#0f2640" />
+        <path d="M29 47c2 1.8 4.2 1.8 6 0" fill="none" stroke="#0f2640" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M45 52c2.8-4 8.4-4 11 0-2.4 2.8-8.8 2.8-11 0Z" fill="#70bfd1" stroke="#0f2640" strokeWidth="2" strokeLinejoin="round" />
       </svg>
     );
   }
 
   if (type === 'help-sitter') {
     return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
-        <path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7L6.8 19l1-5.8-4.2-4.1 5.8-.8L12 3Z" />
+      <svg viewBox="0 0 64 64" aria-hidden="true" className="h-10 w-10">
+        <path d="M13 40c7 9 16 13 28 12l8-.8c4-.4 6-4.8 3.4-7.8-1.4-1.6-3.6-2.2-5.7-1.5l-9.4 3.2" fill="#ffe2c8" stroke="#0f2640" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 39c6-1 12 0 17 4" fill="none" stroke="#0f2640" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M29 17c-5 0-9 4-9 9 0 9 11 15 12 16 1-1 12-7 12-16 0-5-4-9-9-9-2.5 0-4.8 1.1-6 3-1.2-1.9-3.5-3-6-3Z" fill="#ff7a2d" stroke="#0f2640" strokeWidth="2.4" strokeLinejoin="round" />
+        <circle cx="25.5" cy="27.5" r="2.2" fill="white" />
+        <circle cx="36.5" cy="27.5" r="2.2" fill="white" />
+        <path d="M29 34c2 1.5 4 1.5 6 0" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M49 22c3 1 5 3 6 6" fill="none" stroke="#70bfd1" strokeWidth="3" strokeLinecap="round" />
       </svg>
     );
   }
 
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-5 w-5">
-      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-      <path d="M4 21a8 8 0 0 1 16 0" />
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="h-10 w-10">
+      <path d="M18 36c0-12 8-20 19-20 9 0 16 5 18 13" fill="none" stroke="#70bfd1" strokeWidth="4" strokeLinecap="round" />
+      <path d="m52 22 4 8-9 1" fill="none" stroke="#70bfd1" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M46 28c0 11-8 20-19 20-9 0-16-5-18-13" fill="none" stroke="#e96b2c" strokeWidth="4" strokeLinecap="round" />
+      <path d="m12 42-4-8 9-1" fill="none" stroke="#e96b2c" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="32" cy="32" r="12" fill="#fff7ed" stroke="#0f2640" strokeWidth="2.4" />
+      <circle cx="27" cy="31" r="2.2" fill="#0f2640" />
+      <circle cx="37" cy="31" r="2.2" fill="#0f2640" />
+      <path d="M29 38c2.2 1.6 4.8 1.6 7 0" fill="none" stroke="#0f2640" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M32 20c-2-4-6-5-9-3 1 4 4 6 9 6 5 0 8-2 9-6-3-2-7-1-9 3Z" fill="#f2c47e" stroke="#0f2640" strokeWidth="2" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -159,8 +169,9 @@ export default function DashboardPage() {
             latitude: userProfile?.latitude,
             longitude: userProfile?.longitude,
             maxDistanceKm: 15,
+            limit: 24,
           }),
-          getAllOpenRequests(user.uid),
+          getAllOpenRequests(user.uid, { limit: 24 }),
           getUserPets(user.uid),
           getAvailabilitySlots(user.uid),
         ]);
@@ -374,10 +385,10 @@ export default function DashboardPage() {
                         }`}
                       >
                         <span
-                          className={`mb-8 inline-flex h-10 w-10 items-center justify-center rounded-xl ${
+                          className={`mb-7 inline-flex h-14 w-14 items-center justify-center rounded-2xl border ${
                             selected
-                              ? 'bg-[#e96b2c] text-white'
-                              : 'bg-[#f2efe9] text-[#607080]'
+                              ? 'border-[#ffd1b8] bg-white shadow-sm'
+                              : 'border-[#e3d7c7] bg-[#fffaf6]'
                           }`}
                         >
                           <OnboardingIcon type={choice.value} />
@@ -501,18 +512,12 @@ export default function DashboardPage() {
                       className="rounded-2xl border border-[#ded3c2] bg-white p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fffaf6]"
                     >
                       <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[#0f2640] ${
-                            entry.profile.photoURL ? 'bg-cover bg-center' : 'bg-[#efe3ee]'
-                          }`}
-                          style={
-                            entry.profile.photoURL
-                              ? { backgroundImage: `url(${entry.profile.photoURL})` }
-                              : undefined
-                          }
-                        >
-                          {!entry.profile.photoURL && getInitials(entry.profile.name)}
-                        </div>
+                        <ProfileAvatar
+                          uid={entry.profile.uid}
+                          name={entry.profile.name}
+                          photoURL={entry.profile.photoURL}
+                          className="h-12 w-12 shrink-0 rounded-full border border-[#efe3ee]"
+                        />
                         <div>
                           <h3 className="text-lg font-bold text-[#0f2640]">{entry.profile.name}</h3>
                           <p className="text-sm text-[#6b7280]">{entry.profile.location}</p>
@@ -567,15 +572,22 @@ export default function DashboardPage() {
                       className="block rounded-2xl border border-[#ded3c2] bg-[#fffdf9] p-5 transition-colors hover:border-[#ffcfb2] hover:bg-[#fff7ef]"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-bold text-[#0f2640]">
-                            {request.ownerName || 'Pet owner'}
-                          </h3>
-                          <p className="text-sm text-[#6b7280]">
-                            {request.petNames.join(', ') || 'Pet care request'}
-                          </p>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <ProfileAvatar
+                            uid={request.ownerId}
+                            name={request.ownerName || 'Pet owner'}
+                            className="h-12 w-12 shrink-0 rounded-full border border-[#efe3ee]"
+                          />
+                          <div className="min-w-0">
+                            <h3 className="truncate text-lg font-bold text-[#0f2640]">
+                              {request.ownerName || 'Pet owner'}
+                            </h3>
+                            <p className="truncate text-sm text-[#6b7280]">
+                              {request.petNames.join(', ') || 'Pet care request'}
+                            </p>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
+                        <span className="shrink-0 rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
                           {request.creditsOffered} credits
                         </span>
                       </div>

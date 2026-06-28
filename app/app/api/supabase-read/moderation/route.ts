@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
 import { getReportsFromSupabase } from '@/lib/supabaseModerationStore';
-import { getProfileFromSupabase } from '@/lib/supabaseProfileStore';
+import {
+  getAdminUserCreditsFromSupabase,
+  getProfileFromSupabase,
+} from '@/lib/supabaseProfileStore';
 
 async function assertAdmin(adminId: string) {
   const profile = await getProfileFromSupabase(adminId);
@@ -43,6 +46,11 @@ export async function GET(request: NextRequest) {
         status: 'open',
       });
       return NextResponse.json({ reports });
+    }
+
+    if (scope === 'admin-users') {
+      const users = await getAdminUserCreditsFromSupabase();
+      return NextResponse.json({ users });
     }
 
     return NextResponse.json({ error: 'Invalid moderation read scope' }, { status: 400 });

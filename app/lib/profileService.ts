@@ -4,6 +4,7 @@ import { PILOT_CITY } from './platformPolicy';
 import { syncPublicAvailabilitySummary, syncPublicProfile } from './publicProfileService';
 import { mirrorProfileToSupabase } from './supabaseMirrorClient';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
+import { getAutomaticProfileAvatarUrl, resolveProfileAvatarUrl } from './profileAvatar';
 import { calculateTrustScore } from './trustScore';
 
 const USERS_COLLECTION = 'users';
@@ -32,7 +33,7 @@ function mapProfileRecord(uid: string, data: Record<string, unknown>): UserProfi
     name: (data.name as string) || '',
     location: (data.location as string) || '',
     country: (data.country as string) || 'Finland',
-    photoURL: (data.photoURL as string) || '',
+    photoURL: resolveProfileAvatarUrl(data.photoURL as string | undefined, uid),
     bio: (data.bio as string) || '',
     petExperience: (data.petExperience as string) || '',
     availability: ((data.availability as UserProfile['availability']) || 'available'),
@@ -99,7 +100,7 @@ export async function createProfile(
     name: data.name,
     location: selectedLocation.location,
     country: selectedLocation.country,
-    photoURL: '',
+    photoURL: getAutomaticProfileAvatarUrl(uid),
     bio: '',
     petExperience: '',
     availability: 'available',

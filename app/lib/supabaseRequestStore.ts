@@ -359,7 +359,8 @@ export async function getUserRequestsFromSupabase(ownerId: string): Promise<Requ
 }
 
 export async function getOpenCommunityRequestsFromSupabase(
-  excludeUserId?: string
+  excludeUserId?: string,
+  options: { limit?: number } = {}
 ): Promise<Request[]> {
   const supabase = createSupabaseAdminClient();
   let requestQuery = supabase
@@ -371,6 +372,10 @@ export async function getOpenCommunityRequestsFromSupabase(
 
   if (excludeUserId) {
     requestQuery = requestQuery.neq('owner_uid', excludeUserId);
+  }
+
+  if (typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0) {
+    requestQuery = requestQuery.limit(Math.floor(options.limit));
   }
 
   const { data, error } = await requestQuery.returns<SupabaseRequestRow[]>();

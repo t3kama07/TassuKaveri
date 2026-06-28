@@ -15,7 +15,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (available === 'true') {
-      const profiles = await getAvailablePublicProfilesFromSupabase();
+      const city = request.nextUrl.searchParams.get('city') || undefined;
+      const limitParam = request.nextUrl.searchParams.get('limit');
+      const parsedLimit = limitParam ? Number(limitParam) : undefined;
+      const limit =
+        typeof parsedLimit === 'number' && Number.isFinite(parsedLimit)
+          ? parsedLimit
+          : undefined;
+      const profiles = await getAvailablePublicProfilesFromSupabase({ city, limit });
       return NextResponse.json({ profiles });
     }
 
