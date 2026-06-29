@@ -1,4 +1,3 @@
-import { getAvailabilityMatch } from './availabilityService';
 import {
   CreateRequestData,
   Request,
@@ -8,32 +7,10 @@ import {
   RequestStatus,
   UpdateRequestData,
 } from '@/types/request';
-import { getUserPets } from './petService';
-import { getProfile } from './profileService';
-import { getPublicProfile } from './publicProfileService';
-import { logRepeatedPairActivity } from './moderationService';
-import { createNotification } from './notificationService';
-import { ensureConversation } from './messageService';
-import {
-  deleteRequestFromSupabase,
-  mirrorRequestToSupabase,
-  syncProfileMetricsToSupabase,
-} from './supabaseMirrorClient';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
-import { getCurrentAuthUser } from './supabaseAuthClient';
-import { escrowCredits, refundEscrow, releaseEscrow } from './walletService';
-import { getCityLocationPayload } from './locations';
-import { assertNoMoneyLanguage } from './platformPolicy';
+import { getCurrentAuthUser, getSupabaseAuthHeaders } from './supabaseAuthClient';
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
-
-function generateRequestId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function toDateOrNow(value: unknown): Date {
   if (value instanceof Date) {
@@ -80,24 +57,6 @@ export function calculateCreditsForRequestWindow(startDate: Date, endDate: Date)
   }
 
   return Math.max(1, Math.ceil(durationMs / MILLISECONDS_PER_HOUR));
-}
-
-function validateRequestTextFields(data: {
-  notes?: string;
-  feedingSchedule?: string;
-  walkSchedule?: string;
-  medicationInstructions?: string;
-  sleepInstructions?: string;
-  specialWarnings?: string;
-}) {
-  assertNoMoneyLanguage(
-    data.notes,
-    data.feedingSchedule,
-    data.walkSchedule,
-    data.medicationInstructions,
-    data.sleepInstructions,
-    data.specialWarnings
-  );
 }
 
 function parseApplications(raw: unknown): RequestApplication[] {
@@ -197,18 +156,6 @@ function mapRequest(id: string, data: Record<string, unknown>): Request {
   };
 }
 
-function isValidStatusTransition(currentStatus: RequestStatus, nextStatus: RequestStatus): boolean {
-  const validTransitions: Record<RequestStatus, RequestStatus[]> = {
-    open: ['accepted', 'cancelled'],
-    accepted: ['awaiting_confirmation', 'cancelled'],
-    awaiting_confirmation: ['completed', 'cancelled'],
-    completed: [],
-    cancelled: [],
-  };
-
-  return validTransitions[currentStatus]?.includes(nextStatus) ?? false;
-}
-
 async function fetchRequestRecord(
   ownerId: string,
   requestId: string
@@ -221,129 +168,47 @@ async function fetchRequestRecord(
   return payload.request;
 }
 
-async function requireRequest(ownerId: string, requestId: string): Promise<Request> {
-  const request = await getRequest(ownerId, requestId);
-  if (!request) {
-    throw new Error('Request not found');
+async function postRequestAction<T>(
+  actorId: string,
+  payload: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch('/api/supabase-sync/request', {
+    method: 'POST',
+    headers: {
+      ...(await getSupabaseAuthHeaders(actorId)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      actorId,
+      ...payload,
+    }),
+  });
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    let errorMessage = responseText || 'Request action failed';
+    try {
+      const parsed = JSON.parse(responseText) as { error?: string };
+      errorMessage = parsed.error || errorMessage;
+    } catch {
+      // Keep the raw response text when the body is not JSON.
+    }
+    throw new Error(errorMessage);
   }
 
-  return request;
-}
-
-async function saveRequest(request: Request, actorId: string): Promise<void> {
-  await mirrorRequestToSupabase(request, actorId);
-}
-
-async function rollbackRequest(request: Request, actorId: string): Promise<void> {
-  await saveRequest(request, actorId).catch(() => undefined);
-}
-
-async function resolveRequestedSitter(params: {
-  ownerId: string;
-  audience: RequestAudience;
-  requestedSitterId?: string;
-}): Promise<{ requestedSitterId?: string; requestedSitterName?: string }> {
-  if (params.audience !== 'direct') {
-    return {};
-  }
-
-  const requestedSitterId = params.requestedSitterId?.trim() || '';
-  if (!requestedSitterId) {
-    throw new Error('A direct request must include a sitter.');
-  }
-  if (requestedSitterId === params.ownerId) {
-    throw new Error('You cannot send a direct request to yourself.');
-  }
-
-  const requestedSitterProfile = await getPublicProfile(requestedSitterId);
-  if (!requestedSitterProfile) {
-    throw new Error('Requested sitter profile not found.');
-  }
-
-  return {
-    requestedSitterId,
-    requestedSitterName: requestedSitterProfile.name,
-  };
+  return responseText ? (JSON.parse(responseText) as T) : ({} as T);
 }
 
 export async function createRequest(
   ownerId: string,
   data: CreateRequestData
 ): Promise<string> {
-  validateRequestTextFields(data);
-
-  const userPets = await getUserPets(ownerId);
-  const validPetIds = userPets.map((pet) => pet.id);
-  const invalidPets = data.petIds.filter((petId) => !validPetIds.includes(petId));
-
-  if (invalidPets.length > 0) {
-    throw new Error('You can only create requests for your own pets');
-  }
-  if (data.petIds.length === 0) {
-    throw new Error('At least one pet must be selected');
-  }
-
-  const ownerProfile = await getProfile(ownerId);
-  if (!ownerProfile) {
-    throw new Error('Owner profile not found');
-  }
-
-  const selectedPets = userPets.filter((pet) => data.petIds.includes(pet.id));
-  const audience: RequestAudience = data.audience === 'direct' ? 'direct' : 'community';
-  const requestedSitter = await resolveRequestedSitter({
-    ownerId,
-    audience,
-    requestedSitterId: data.requestedSitterId,
+  const result = await postRequestAction<{ requestId: string }>(ownerId, {
+    action: 'create-request',
+    data,
   });
-  const selectedLocation = getCityLocationPayload(data.location || ownerProfile.location);
-  if (!selectedLocation) {
-    throw new Error('Select a supported Finnish city');
-  }
-  const requestId = generateRequestId();
-  const now = new Date();
-  const request: Request = {
-    id: requestId,
-    ownerId,
-    ownerName: ownerProfile.name,
-    petIds: data.petIds,
-    petNames: selectedPets.map((pet) => pet.name),
-    careType: data.careType,
-    startDate: data.startDate,
-    endDate: data.endDate,
-    location: selectedLocation.location,
-    locationLat: selectedLocation.latitude,
-    locationLng: selectedLocation.longitude,
-    creditsOffered: calculateCreditsForRequestWindow(data.startDate, data.endDate),
-    status: 'open',
-    audience,
-    escrowStatus: 'none',
-    requestedSitterId: requestedSitter.requestedSitterId,
-    requestedSitterName: requestedSitter.requestedSitterName,
-    applications: [],
-    notes: data.notes || '',
-    feedingSchedule: data.feedingSchedule || '',
-    walkSchedule: data.walkSchedule || '',
-    medicationInstructions: data.medicationInstructions || '',
-    sleepInstructions: data.sleepInstructions || '',
-    specialWarnings: data.specialWarnings || '',
-    createdAt: now,
-    updatedAt: now,
-  };
 
-  await saveRequest(request, ownerId);
-
-  if (audience === 'direct' && requestedSitter.requestedSitterId) {
-    await createNotification({
-      userId: requestedSitter.requestedSitterId,
-      type: 'direct_request_received',
-      relatedRequestId: requestId,
-      message: `${ownerProfile.name} sent you a direct request for ${request.petNames.join(', ')}.`,
-    }).catch((error) => {
-      console.warn('Failed to create direct request notification', error);
-    });
-  }
-
-  return requestId;
+  return result.requestId;
 }
 
 export async function getRequest(ownerId: string, requestId: string): Promise<Request | null> {
@@ -389,70 +254,12 @@ export async function updateRequest(
   requestId: string,
   data: UpdateRequestData
 ): Promise<void> {
-  validateRequestTextFields(data);
-
-  const request = await requireRequest(ownerId, requestId);
-  if (request.status !== 'open') {
-    throw new Error('Can only edit open requests');
-  }
-
-  let petIds = request.petIds;
-  let petNames = request.petNames;
-
-  if (data.petIds) {
-    if (data.petIds.length === 0) {
-      throw new Error('At least one pet must be selected');
-    }
-
-    const userPets = await getUserPets(ownerId);
-    const validPetIds = userPets.map((pet) => pet.id);
-    const invalidPets = data.petIds.filter((petId) => !validPetIds.includes(petId));
-    if (invalidPets.length > 0) {
-      throw new Error('You can only select your own pets');
-    }
-
-    petIds = data.petIds;
-    petNames = userPets.filter((pet) => data.petIds?.includes(pet.id)).map((pet) => pet.name);
-  }
-
-  const effectiveStartDate = data.startDate ?? request.startDate;
-  const effectiveEndDate = data.endDate ?? request.endDate;
-  const audience = data.audience ?? request.audience;
-  const requestedSitter = await resolveRequestedSitter({
+  await postRequestAction(ownerId, {
+    action: 'update-request',
     ownerId,
-    audience,
-    requestedSitterId: data.requestedSitterId ?? request.requestedSitterId,
+    requestId,
+    data,
   });
-  const selectedLocation = getCityLocationPayload(data.location ?? request.location);
-  if (!selectedLocation) {
-    throw new Error('Select a supported Finnish city');
-  }
-
-  await saveRequest(
-    {
-      ...request,
-      petIds,
-      petNames,
-      careType: data.careType ?? request.careType,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      location: selectedLocation.location,
-      locationLat: selectedLocation.latitude,
-      locationLng: selectedLocation.longitude,
-      creditsOffered: calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate),
-      audience,
-      requestedSitterId: requestedSitter.requestedSitterId,
-      requestedSitterName: requestedSitter.requestedSitterName,
-      notes: data.notes ?? request.notes ?? '',
-      feedingSchedule: data.feedingSchedule ?? request.feedingSchedule ?? '',
-      walkSchedule: data.walkSchedule ?? request.walkSchedule ?? '',
-      medicationInstructions: data.medicationInstructions ?? request.medicationInstructions ?? '',
-      sleepInstructions: data.sleepInstructions ?? request.sleepInstructions ?? '',
-      specialWarnings: data.specialWarnings ?? request.specialWarnings ?? '',
-      updatedAt: new Date(),
-    },
-    ownerId
-  );
 }
 
 export async function changeRequestStatus(
@@ -462,43 +269,29 @@ export async function changeRequestStatus(
   sitterId?: string,
   sitterName?: string
 ): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-  if (!isValidStatusTransition(request.status, newStatus)) {
-    throw new Error(`Cannot transition from ${request.status} to ${newStatus}`);
+  if (newStatus !== 'cancelled') {
+    throw new Error('Use the dedicated request action for this status change');
   }
 
-  await saveRequest(
-    {
-      ...request,
-      status: newStatus,
-      sitterId: newStatus === 'accepted' ? sitterId : request.sitterId,
-      sitterName: newStatus === 'accepted' ? sitterName : request.sitterName,
-      updatedAt: new Date(),
-    },
-    ownerId
-  );
+  void sitterId;
+  void sitterName;
+  await cancelRequest(ownerId, requestId);
 }
 
 export async function cancelRequest(ownerId: string, requestId: string): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-
-  if (request.status === 'accepted') {
-    throw new Error('Use cancelAcceptedRequest to cancel an accepted request (requires escrow refund)');
-  }
-  if (request.status !== 'open') {
-    throw new Error(`Cannot cancel request with status: ${request.status}`);
-  }
-
-  await changeRequestStatus(ownerId, requestId, 'cancelled');
+  await postRequestAction(ownerId, {
+    action: 'cancel-request',
+    ownerId,
+    requestId,
+  });
 }
 
 export async function deleteRequest(ownerId: string, requestId: string): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-  if (request.status !== 'open' && request.status !== 'cancelled') {
-    throw new Error('Can only delete open or cancelled requests');
-  }
-
-  await deleteRequestFromSupabase(ownerId, requestId, ownerId);
+  await postRequestAction(ownerId, {
+    action: 'delete-request',
+    ownerId,
+    requestId,
+  });
 }
 
 export async function getAllOpenRequests(
@@ -545,72 +338,11 @@ export async function applyToRequest(
   sitterId: string,
   message: string = ''
 ): Promise<void> {
-  assertNoMoneyLanguage(message);
-
-  if (ownerId === sitterId) {
-    throw new Error('You cannot apply to your own request');
-  }
-
-  const sitterProfile = await getProfile(sitterId);
-  if (!sitterProfile) {
-    throw new Error('Sitter profile not found');
-  }
-  if (sitterProfile.availability !== 'available') {
-    throw new Error('Set your availability to Available before applying');
-  }
-
-  const request = await requireRequest(ownerId, requestId);
-  if (request.status !== 'open') {
-    throw new Error('This request is no longer open');
-  }
-  if (
-    request.audience === 'direct' &&
-    request.requestedSitterId &&
-    request.requestedSitterId !== sitterId
-  ) {
-    throw new Error('This direct request was sent to another sitter.');
-  }
-
-  const availabilityMatch = await getAvailabilityMatch(
-    sitterId,
-    request.startDate,
-    request.endDate
-  );
-  if (!availabilityMatch.available) {
-    if (availabilityMatch.hasConflict) {
-      throw new Error('You already have another confirmed booking during these dates');
-    }
-    throw new Error('Add an availability slot that fully covers these dates before applying');
-  }
-
-  const alreadyApplied = (request.applications ?? []).some(
-    (application) => application.sitterId === sitterId
-  );
-  if (alreadyApplied) {
-    throw new Error('You have already applied to this request');
-  }
-
-  const updatedRequest: Request = {
-    ...request,
-    applications: [
-      ...(request.applications ?? []),
-      {
-        sitterId,
-        sitterName: sitterProfile.name,
-        message,
-        appliedAt: new Date(),
-      },
-    ],
-    updatedAt: new Date(),
-  };
-
-  await saveRequest(updatedRequest, sitterId);
-  await ensureConversation(ownerId, requestId, sitterId, sitterProfile.name);
-  await createNotification({
-    userId: ownerId,
-    type: 'application_received',
-    relatedRequestId: requestId,
-    message: `${sitterProfile.name} applied to your request.`,
+  await postRequestAction(sitterId, {
+    action: 'apply-to-request',
+    ownerId,
+    requestId,
+    message,
   });
 }
 
@@ -619,26 +351,11 @@ export async function withdrawApplication(
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-  if (request.status !== 'open') {
-    throw new Error('Cannot withdraw application after request is no longer open');
-  }
-
-  const nextApplications = (request.applications ?? []).filter(
-    (application) => application.sitterId !== sitterId
-  );
-  if (nextApplications.length === (request.applications ?? []).length) {
-    throw new Error('Application not found');
-  }
-
-  await saveRequest(
-    {
-      ...request,
-      applications: nextApplications,
-      updatedAt: new Date(),
-    },
-    sitterId
-  );
+  await postRequestAction(sitterId, {
+    action: 'withdraw-application',
+    ownerId,
+    requestId,
+  });
 }
 
 export async function acceptApplication(
@@ -646,64 +363,11 @@ export async function acceptApplication(
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-  if (request.status !== 'open') {
-    throw new Error('Request is no longer open');
-  }
-
-  const selectedApplication = (request.applications ?? []).find(
-    (application) => application.sitterId === sitterId
-  );
-  if (!selectedApplication) {
-    throw new Error('Selected sitter has not applied');
-  }
-  if (request.creditsOffered <= 0) {
-    throw new Error('Invalid credits offered');
-  }
-
-  const availabilityMatch = await getAvailabilityMatch(
+  await postRequestAction(ownerId, {
+    action: 'accept-application',
+    ownerId,
+    requestId,
     sitterId,
-    request.startDate,
-    request.endDate
-  );
-  if (!availabilityMatch.available) {
-    if (availabilityMatch.hasConflict) {
-      throw new Error('This sitter already has another confirmed booking during these dates');
-    }
-    throw new Error('This sitter no longer has an availability slot covering these dates');
-  }
-
-  const acceptedRequest: Request = {
-    ...request,
-    status: 'accepted',
-    escrowStatus: 'held',
-    sitterId,
-    sitterName: selectedApplication.sitterName,
-    applications: [],
-    updatedAt: new Date(),
-  };
-
-  await saveRequest(acceptedRequest, ownerId);
-
-  try {
-    await escrowCredits(
-      ownerId,
-      request.creditsOffered,
-      requestId,
-      `Escrow for request ${requestId}`,
-      ownerId
-    );
-  } catch (error) {
-    await rollbackRequest(request, ownerId);
-    throw error;
-  }
-
-  await ensureConversation(ownerId, requestId, sitterId, selectedApplication.sitterName);
-  await createNotification({
-    userId: sitterId,
-    type: 'application_accepted',
-    relatedRequestId: requestId,
-    message: `Your application was accepted by ${request.ownerName || 'Owner'}.`,
   });
 }
 
@@ -712,67 +376,11 @@ export async function acceptRequest(
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  if (ownerId === sitterId) {
-    throw new Error('You cannot accept your own request');
-  }
-
-  const sitterProfile = await getProfile(sitterId);
-  if (!sitterProfile) {
-    throw new Error('Sitter profile not found');
-  }
-  if (sitterProfile.availability !== 'available') {
-    throw new Error('Set your availability to Available before accepting requests');
-  }
-
-  const request = await requireRequest(ownerId, requestId);
-  if (request.audience !== 'direct' || request.requestedSitterId !== sitterId) {
-    throw new Error('This direct request was sent to another sitter.');
-  }
-  if (request.status !== 'open') {
-    throw new Error('Request is no longer open');
-  }
-  if (request.creditsOffered <= 0) {
-    throw new Error('Invalid credits offered');
-  }
-
-  const availabilityMatch = await getAvailabilityMatch(
-    sitterId,
-    request.startDate,
-    request.endDate
-  );
-  if (!availabilityMatch.available) {
-    if (availabilityMatch.hasConflict) {
-      throw new Error('You already have another confirmed booking during these dates');
-    }
-    throw new Error('You do not have an availability slot covering these dates');
-  }
-
-  const acceptedRequest: Request = {
-    ...request,
-    status: 'accepted',
-    escrowStatus: 'held',
-    sitterId,
-    sitterName: sitterProfile.name,
-    applications: [],
-    updatedAt: new Date(),
-  };
-
-  await saveRequest(acceptedRequest, sitterId);
-
-  try {
-    await escrowCredits(
-      ownerId,
-      request.creditsOffered,
-      requestId,
-      `Escrow for request ${requestId}`,
-      sitterId
-    );
-  } catch (error) {
-    await rollbackRequest(request, sitterId);
-    throw error;
-  }
-
-  await ensureConversation(ownerId, requestId, sitterId, sitterProfile.name);
+  await postRequestAction(sitterId, {
+    action: 'accept-direct-request',
+    ownerId,
+    requestId,
+  });
 }
 
 export async function markAwaitingConfirmation(
@@ -780,33 +388,10 @@ export async function markAwaitingConfirmation(
   requestId: string,
   sitterId: string
 ): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-
-  if (request.status !== 'accepted') {
-    throw new Error(`Cannot mark request with status ${request.status} as awaiting confirmation`);
-  }
-  if (request.escrowStatus !== 'held') {
-    throw new Error('Escrow must be held before moving to awaiting confirmation');
-  }
-  if (request.sitterId !== sitterId) {
-    throw new Error('Only the assigned sitter can mark this request as awaiting confirmation');
-  }
-
-  await saveRequest(
-    {
-      ...request,
-      status: 'awaiting_confirmation',
-      markedCompleteAt: new Date(),
-      updatedAt: new Date(),
-    },
-    sitterId
-  );
-
-  await createNotification({
-    userId: ownerId,
-    type: 'request_completed',
-    relatedRequestId: requestId,
-    message: 'The sitter marked this task as complete. Please confirm to release credits.',
+  await postRequestAction(sitterId, {
+    action: 'mark-awaiting-confirmation',
+    ownerId,
+    requestId,
   });
 }
 
@@ -819,69 +404,11 @@ export async function confirmCompletion(
     throw new Error('Only the request owner can confirm completion');
   }
 
-  const request = await requireRequest(ownerId, requestId);
-  const sitterId = request.sitterId;
-  if (request.status !== 'awaiting_confirmation') {
-    throw new Error(`Cannot confirm completion for request with status: ${request.status}`);
-  }
-  if (request.escrowStatus !== 'held') {
-    throw new Error('Escrow status mismatch: expected held before completion');
-  }
-  if (!sitterId) {
-    throw new Error('No sitter assigned to this request');
-  }
-  if (request.creditsOffered <= 0) {
-    throw new Error('Invalid credits offered');
-  }
-
-  const completedRequest: Request = {
-    ...request,
-    status: 'completed',
-    escrowStatus: 'released',
-    confirmedCompleteAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  await saveRequest(completedRequest, ownerId);
-
-  try {
-    await releaseEscrow(
-      sitterId,
-      request.creditsOffered,
-      requestId,
-      `Reward completed for request ${requestId}`,
-      ownerId
-    );
-  } catch (error) {
-    await rollbackRequest(request, ownerId);
-    throw error;
-  }
-
-  await createNotification({
-    userId: ownerId,
-    type: 'request_completed',
-    relatedRequestId: requestId,
-    message: 'Request marked as completed.',
+  await postRequestAction(confirmedBy ?? ownerId, {
+    action: 'confirm-completion',
+    ownerId,
+    requestId,
   });
-  await createNotification({
-    userId: sitterId,
-    type: 'request_completed',
-    relatedRequestId: requestId,
-    message: 'Reward completed. Credits have been released.',
-  });
-
-  try {
-    await syncProfileMetricsToSupabase({
-      actorId: ownerId,
-      targetUserId: sitterId,
-      relatedRequestId: requestId,
-      recalculateTrustScore: true,
-    });
-  } catch (error) {
-    console.warn('Unable to refresh sitter trust score after completion:', error);
-  }
-
-  await logRepeatedPairActivity(ownerId, sitterId, requestId);
 }
 
 export async function cancelAcceptedRequest(
@@ -889,47 +416,11 @@ export async function cancelAcceptedRequest(
   requestId: string,
   cancelledBy: string
 ): Promise<void> {
-  const request = await requireRequest(ownerId, requestId);
-
-  if (request.status !== 'accepted' && request.status !== 'awaiting_confirmation') {
-    throw new Error(
-      `Cannot cancel request with status: ${request.status}. Use cancelRequest for open requests.`
-    );
-  }
-  if (request.escrowStatus !== 'held') {
-    throw new Error('Escrow status mismatch: expected held before refund');
-  }
-  if (!request.sitterId) {
-    throw new Error('No sitter assigned to this request');
-  }
-  if (cancelledBy !== ownerId && cancelledBy !== request.sitterId) {
-    throw new Error('Only owner or assigned sitter can cancel the request');
-  }
-  if (request.creditsOffered <= 0) {
-    throw new Error('Invalid credits offered');
-  }
-
-  const cancelledRequest: Request = {
-    ...request,
-    status: 'cancelled',
-    escrowStatus: 'refunded',
-    updatedAt: new Date(),
-  };
-
-  await saveRequest(cancelledRequest, cancelledBy);
-
-  try {
-    await refundEscrow(
-      ownerId,
-      request.creditsOffered,
-      requestId,
-      `Refund for cancelled request ${requestId}`,
-      cancelledBy
-    );
-  } catch (error) {
-    await rollbackRequest(request, cancelledBy);
-    throw error;
-  }
+  await postRequestAction(cancelledBy, {
+    action: 'cancel-accepted-request',
+    ownerId,
+    requestId,
+  });
 }
 
 export async function submitReview(
@@ -938,69 +429,13 @@ export async function submitReview(
   rating: number,
   comment: string
 ): Promise<void> {
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    throw new Error('Rating must be between 1 and 5');
-  }
-
-  const request = await requireRequest(ownerId, requestId);
-  const sitterId = request.sitterId;
-  if (request.status !== 'completed') {
-    throw new Error('You can review only completed requests');
-  }
-  if (!sitterId) {
-    throw new Error('No sitter assigned for this request');
-  }
-  if (request.review || request.ownerReview) {
-    throw new Error('This request already has a review');
-  }
-
-  const publicSitterProfile = await getPublicProfile(sitterId);
-  if (!publicSitterProfile) {
-    throw new Error('Sitter public profile not found');
-  }
-
-  const review: RequestReview = {
+  await postRequestAction(ownerId, {
+    action: 'submit-review',
+    ownerId,
+    requestId,
     rating,
-    comment: comment.trim(),
-    reviewerId: ownerId,
-    reviewerName: request.ownerName || 'Owner',
-    reviewedAt: new Date(),
-  };
-
-  await saveRequest(
-    {
-      ...request,
-      review,
-      ownerReview: review,
-      updatedAt: new Date(),
-    },
-    ownerId
-  );
-
-  await createNotification({
-    userId: sitterId,
-    type: 'review_received',
-    relatedRequestId: requestId,
-    message: 'You received a new review.',
+    comment,
   });
-
-  const nextRatingCount = publicSitterProfile.ratingCount + 1;
-  const nextRatingAverage =
-    (publicSitterProfile.ratingAverage * publicSitterProfile.ratingCount + rating) /
-    nextRatingCount;
-
-  try {
-    await syncProfileMetricsToSupabase({
-      actorId: ownerId,
-      targetUserId: sitterId,
-      relatedRequestId: requestId,
-      ratingAverage: nextRatingAverage,
-      ratingCount: nextRatingCount,
-      recalculateTrustScore: true,
-    });
-  } catch (error) {
-    console.warn('Unable to refresh sitter profile metrics after review:', error);
-  }
 }
 
 export async function getSitterReviews(sitterId: string): Promise<RequestReview[]> {
