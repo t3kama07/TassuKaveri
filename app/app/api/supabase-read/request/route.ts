@@ -10,6 +10,18 @@ import {
   hasActiveRequestConflictFromSupabase,
 } from '@/lib/supabaseRequestStore';
 
+const DEFAULT_OPEN_REQUEST_LIMIT = 50;
+const MAX_OPEN_REQUEST_LIMIT = 100;
+
+function parseBoundedLimit(value: string | null): number {
+  const parsed = value ? Number(value) : DEFAULT_OPEN_REQUEST_LIMIT;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_OPEN_REQUEST_LIMIT;
+  }
+
+  return Math.min(Math.floor(parsed), MAX_OPEN_REQUEST_LIMIT);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const idToken = readBearerToken(request.headers);
@@ -81,12 +93,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden open requests filter' }, { status: 403 });
       }
 
-      const limitParam = request.nextUrl.searchParams.get('limit');
-      const parsedLimit = limitParam ? Number(limitParam) : undefined;
-      const limit =
-        typeof parsedLimit === 'number' && Number.isFinite(parsedLimit)
-          ? parsedLimit
-          : undefined;
+      const limit = parseBoundedLimit(request.nextUrl.searchParams.get('limit'));
       const requests = await getOpenCommunityRequestsFromSupabase(excludeUserId, { limit });
       return NextResponse.json({ requests });
     }

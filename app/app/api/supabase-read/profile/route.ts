@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readBearerToken, verifySessionToken } from '@/lib/serverAuth';
 import { getProfileFromSupabase } from '@/lib/supabaseProfileStore';
 
+function sanitizeProfileForClient(
+  profile: Awaited<ReturnType<typeof getProfileFromSupabase>>
+) {
+  if (!profile) {
+    return null;
+  }
+
+  const clientProfile = { ...profile };
+  delete clientProfile.phoneVerificationCode;
+  delete clientProfile.phoneVerificationExpires;
+  return clientProfile;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const idToken = readBearerToken(request.headers);
@@ -23,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     const profile = await getProfileFromSupabase(requestedUid);
-    return NextResponse.json({ profile });
+    return NextResponse.json({ profile: sanitizeProfileForClient(profile) });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected profile read failure';
     return NextResponse.json({ error: message }, { status: 500 });

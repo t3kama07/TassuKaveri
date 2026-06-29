@@ -5,6 +5,22 @@ import {
   getWalletTransactionsFromSupabase,
 } from '@/lib/supabaseWalletStore';
 
+const DEFAULT_TRANSACTION_LIMIT = 50;
+const MAX_TRANSACTION_LIMIT = 100;
+
+function parseBoundedTransactionLimit(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_TRANSACTION_LIMIT;
+  }
+
+  return Math.min(Math.floor(parsed), MAX_TRANSACTION_LIMIT);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const idToken = readBearerToken(request.headers);
@@ -26,12 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     const includeTransactions = request.nextUrl.searchParams.get('includeTransactions') === 'true';
-    const maxResultsParam = request.nextUrl.searchParams.get('maxResults');
-    const parsedMaxResults = maxResultsParam ? Number(maxResultsParam) : undefined;
-    const maxResults =
-      typeof parsedMaxResults === 'number' && Number.isFinite(parsedMaxResults)
-        ? parsedMaxResults
-        : undefined;
+    const maxResults = parseBoundedTransactionLimit(request.nextUrl.searchParams.get('maxResults'));
 
     const [wallet, transactions] = await Promise.all([
       getWalletFromSupabase(userId),
