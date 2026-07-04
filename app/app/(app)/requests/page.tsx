@@ -32,6 +32,13 @@ import { Pet } from '@/types/pet';
 
 type ExchangeTab = 'my-requests' | 'direct-requests' | 'community' | 'my-sits';
 type RequestWizardStep = 1 | 2 | 3 | 4;
+type ConfirmationDialog = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  tone?: 'default' | 'danger';
+};
 
 const requestWizardSteps: Array<{ step: RequestWizardStep; label: string }> = [
   { step: 1, label: 'Your pet' },
@@ -113,6 +120,7 @@ function RequestsPageContent() {
   const searchParams = useSearchParams();
   const wizardAdvanceLockRef = useRef(false);
   const wizardStepRef = useRef<RequestWizardStep>(1);
+  const confirmationResolveRef = useRef<((confirmed: boolean) => void) | null>(null);
   const tabParam = searchParams.get('tab');
   const createParam = searchParams.get('create');
   const requestedSitterId = searchParams.get('sitterId');
@@ -140,6 +148,7 @@ function RequestsPageContent() {
   const [reportReason, setReportReason] = useState('');
   const [reportError, setReportError] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialog | null>(null);
 
   // Form fields
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -378,7 +387,13 @@ function RequestsPageContent() {
 
   async function handleCancelRequest(request: Request) {
     if (!user) return;
-    if (!confirm('Cancel this pet-care request? Sitters will no longer see it.')) return;
+    const confirmed = await requestConfirmation({
+      title: 'Cancel request?',
+      message: 'Sitters will no longer see this pet-care request.',
+      confirmLabel: 'Cancel request',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setError('');
     setSuccess('');
@@ -395,7 +410,13 @@ function RequestsPageContent() {
 
   async function handleDelete(request: Request) {
     if (!user) return;
-    if (!confirm('Delete this pet-care request? This cannot be undone.')) return;
+    const confirmed = await requestConfirmation({
+      title: 'Delete request?',
+      message: 'This pet-care request will be permanently removed.',
+      confirmLabel: 'Delete request',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setError('');
     setSuccess('');
@@ -412,7 +433,12 @@ function RequestsPageContent() {
 
   async function handleMarkAwaitingConfirmation(request: Request) {
     if (!user) return;
-    if (!confirm('Mark this pet care as finished? The owner must confirm before you receive the credits.')) return;
+    const confirmed = await requestConfirmation({
+      title: 'Mark care as finished?',
+      message: 'The owner will need to confirm before you receive the credits.',
+      confirmLabel: 'Mark finished',
+    });
+    if (!confirmed) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -432,7 +458,12 @@ function RequestsPageContent() {
 
   async function handleConfirmCompletion(request: Request) {
     if (!user) return;
-    if (!confirm('Confirm the care is finished? The sitter will receive the reserved credits.')) return;
+    const confirmed = await requestConfirmation({
+      title: 'Confirm completed care?',
+      message: 'The sitter will receive the reserved credits.',
+      confirmLabel: 'Confirm care',
+    });
+    if (!confirmed) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -452,7 +483,13 @@ function RequestsPageContent() {
 
   async function handleCancelAcceptedRequest(request: Request) {
     if (!user) return;
-    if (!confirm('Cancel this accepted pet care? The reserved credits will be returned to the owner.')) return;
+    const confirmed = await requestConfirmation({
+      title: 'Cancel accepted care?',
+      message: 'The reserved credits will be returned to the owner.',
+      confirmLabel: 'Cancel care',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -472,7 +509,12 @@ function RequestsPageContent() {
 
   async function handleAcceptApplicant(request: Request, application: RequestApplication) {
     if (!user) return;
-    if (!confirm(`Choose ${application.sitterName} as the sitter? Credits will be reserved until the care is finished or cancelled.`)) return;
+    const confirmed = await requestConfirmation({
+      title: `Choose ${application.sitterName}?`,
+      message: 'Credits will be reserved until the care is finished or cancelled.',
+      confirmLabel: 'Choose sitter',
+    });
+    if (!confirmed) return;
 
     setActioningRequestId(request.id);
     setError('');
@@ -524,9 +566,12 @@ function RequestsPageContent() {
 
   async function handleApply(request: Request) {
     if (!user) return;
-    if (!confirm(`Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits?`)) {
-      return;
-    }
+    const confirmed = await requestConfirmation({
+      title: 'Send offer?',
+      message: `Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits.`,
+      confirmLabel: 'Send offer',
+    });
+    if (!confirmed) return;
 
     setProcessingCommunityRequestId(request.id);
     setError('');
@@ -551,9 +596,12 @@ function RequestsPageContent() {
 
   async function handleAcceptDirectRequest(request: Request) {
     if (!user) return;
-    if (!confirm(`Accept this direct pet-care request for ${request.petNames.join(', ')}?`)) {
-      return;
-    }
+    const confirmed = await requestConfirmation({
+      title: 'Accept direct request?',
+      message: `Accept this direct pet-care request for ${request.petNames.join(', ')}.`,
+      confirmLabel: 'Accept request',
+    });
+    if (!confirmed) return;
 
     setProcessingCommunityRequestId(request.id);
     setError('');
@@ -573,9 +621,13 @@ function RequestsPageContent() {
 
   async function handleWithdraw(request: Request) {
     if (!user) return;
-    if (!confirm('Withdraw your offer to help?')) {
-      return;
-    }
+    const confirmed = await requestConfirmation({
+      title: 'Withdraw offer?',
+      message: 'The owner will no longer see your offer for this request.',
+      confirmLabel: 'Withdraw offer',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setProcessingCommunityRequestId(request.id);
     setError('');
@@ -609,6 +661,22 @@ function RequestsPageContent() {
     setReportingRequest(null);
     setReportReason('');
     setReportError('');
+  }
+
+  function requestConfirmation(dialog: ConfirmationDialog): Promise<boolean> {
+    confirmationResolveRef.current?.(false);
+
+    return new Promise((resolve) => {
+      confirmationResolveRef.current = resolve;
+      setConfirmationDialog(dialog);
+    });
+  }
+
+  function closeConfirmationDialog(confirmed: boolean) {
+    const resolve = confirmationResolveRef.current;
+    confirmationResolveRef.current = null;
+    setConfirmationDialog(null);
+    resolve?.(confirmed);
   }
 
   async function handleReportCommunityRequest() {
@@ -2258,6 +2326,61 @@ function RequestsPageContent() {
           </>
         )}
       </div>
+
+      {confirmationDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f2640]/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirmation-dialog-title"
+        >
+          <div className="w-full max-w-[28rem] rounded-[24px] border border-[#ead9ca] bg-white p-6 shadow-[0_24px_70px_rgba(15,38,64,0.24)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e96b2c]">
+                  TassuKaveri
+                </p>
+                <h2 id="confirmation-dialog-title" className="mt-2 text-2xl font-bold text-[#0f2640]">
+                  {confirmationDialog.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => closeConfirmationDialog(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e6d8ca] text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#fff7ef]"
+                aria-label="Close confirmation dialog"
+              >
+                x
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-[#516173]">
+              {confirmationDialog.message}
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => closeConfirmationDialog(false)}
+                className="rounded-full border border-[#d8cbbb] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef]"
+              >
+                {confirmationDialog.cancelLabel ?? 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => closeConfirmationDialog(true)}
+                className={`rounded-full px-5 py-3 text-sm font-bold text-white transition-colors ${
+                  confirmationDialog.tone === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-[#e96b2c] hover:bg-[#d95f23]'
+                }`}
+              >
+                {confirmationDialog.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reportingRequest && (
         <div

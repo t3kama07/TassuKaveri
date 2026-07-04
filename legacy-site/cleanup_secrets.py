@@ -5,11 +5,11 @@ Clean exposed secrets from Git history
 import subprocess
 import sys
 
-# Secrets to remove
+# Replace these placeholders before running this script locally.
 secrets = [
-    "Priyanath@1990",
-    "tasslszw_tassu_user",
-    "server704.web-hosting.com"
+    "PASTE_EXPOSED_SMTP_PASSWORD_HERE",
+    "PASTE_EXPOSED_DATABASE_USER_HERE",
+    "PASTE_EXPOSED_SMTP_HOST_HERE",
 ]
 
 print("⚠️  WARNING: This will rewrite your Git history!")
