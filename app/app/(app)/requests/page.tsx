@@ -169,12 +169,14 @@ function RequestsPageContent() {
   const [careDetailsConfirmed, setCareDetailsConfirmed] = useState(false);
   const [reviewStepReady, setReviewStepReady] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!user) return;
 
     try {
-      setLoading(true);
-      setError('');
+      if (!options.silent) {
+        setLoading(true);
+        setError('');
+      }
       const [userRequests, userPets, sitterRequests, directSitterRequests, openRequests] = await Promise.all([
         getUserRequests(user.uid),
         getUserPets(user.uid),
@@ -189,15 +191,44 @@ function RequestsPageContent() {
       setCommunityRequests(openRequests);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load your requests right now. Please try again. ' + message);
+      if (!options.silent) {
+        setError('We could not load your requests right now. Please try again. ' + message);
+      }
     } finally {
-      setLoading(false);
+      if (!options.silent) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!user || showForm) {
+      return;
+    }
+
+    const refreshQuietly = () => {
+      void loadData({ silent: true });
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshQuietly();
+      }
+    };
+
+    window.addEventListener('focus', refreshQuietly);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    const refreshIntervalId = window.setInterval(refreshQuietly, 15000);
+
+    return () => {
+      window.removeEventListener('focus', refreshQuietly);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.clearInterval(refreshIntervalId);
+    };
+  }, [loadData, showForm, user]);
 
   useEffect(() => {
     setActiveTab(resolveInitialTab(tabParam));
@@ -410,10 +441,14 @@ function RequestsPageContent() {
 
   async function handleDelete(request: Request) {
     if (!user) return;
+    const isActiveCare =
+      request.status === 'accepted' || request.status === 'awaiting_confirmation';
     const confirmed = await requestConfirmation({
-      title: 'Delete request?',
-      message: 'This pet-care request will be permanently removed.',
-      confirmLabel: 'Delete request',
+      title: isActiveCare ? 'Cancel and delete request?' : 'Delete request?',
+      message: isActiveCare
+        ? 'The reserved credits will be returned to you, and this request will be removed for both people.'
+        : 'This pet-care request will be permanently removed for both people.',
+      confirmLabel: isActiveCare ? 'Cancel and delete' : 'Delete request',
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -1854,12 +1889,17 @@ function RequestsPageContent() {
                             </button>
                           </>
                         )}
-                        {(request.status === 'open' || request.status === 'cancelled') && (
+                        {(request.status === 'open' ||
+                          request.status === 'cancelled' ||
+                          request.status === 'accepted' ||
+                          request.status === 'awaiting_confirmation') && (
                           <button
                             onClick={() => handleDelete(request)}
                             className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors"
                           >
-                            Delete
+                            {request.status === 'accepted' || request.status === 'awaiting_confirmation'
+                              ? 'Cancel and delete'
+                              : 'Delete'}
                           </button>
                         )}
                       </div>

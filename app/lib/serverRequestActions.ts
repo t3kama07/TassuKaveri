@@ -10,9 +10,15 @@ import {
 } from './platformPolicy';
 import { createSupabaseAdminClient } from './supabaseAdmin';
 import { getAvailabilitySlotsFromSupabase } from './supabaseAvailabilityStore';
-import { upsertConversationInSupabase } from './supabaseMessageStore';
+import {
+  deleteConversationsForRequestFromSupabase,
+  upsertConversationInSupabase,
+} from './supabaseMessageStore';
 import { upsertReportInSupabase } from './supabaseModerationStore';
-import { upsertNotificationInSupabase } from './supabaseNotificationStore';
+import {
+  deleteNotificationsForRequestFromSupabase,
+  upsertNotificationInSupabase,
+} from './supabaseNotificationStore';
 import { getOwnerPetsFromSupabase } from './supabasePetStore';
 import { getProfileFromSupabase } from './supabaseProfileStore';
 import { getPublicProfileFromSupabase } from './supabasePublicProfileStore';
@@ -714,11 +720,49 @@ async function deleteRequestAction(actorId: string, ownerId: string, requestId: 
   }
 
   const request = await requireOwnedRequest(ownerId, requestId);
-  if (request.status !== 'open' && request.status !== 'cancelled') {
-    throw new Error('Can only delete open or cancelled requests');
+  if (
+    request.status !== 'open' &&
+    request.status !== 'cancelled' &&
+    request.status !== 'accepted' &&
+    request.status !== 'awaiting_confirmation'
+  ) {
+    throw new Error('Can only delete open, cancelled, or active requests');
+  }
+
+  if (request.status === 'accepted' || request.status === 'awaiting_confirmation') {
+    if (request.escrowStatus !== 'held') {
+      throw new Error('Escrow status mismatch: expected held before refund');
+    }
+    if (!request.sitterId) {
+      throw new Error('No sitter assigned to this request');
+    }
+
+    const cancelledRequest: Request = {
+      ...request,
+      status: 'cancelled',
+      escrowStatus: 'refunded',
+      updatedAt: new Date(),
+    };
+
+    await upsertRequestInSupabase(cancelledRequest);
+    try {
+      await applyWalletActionForRequest({
+        actorId,
+        userId: ownerId,
+        request: cancelledRequest,
+        action: 'escrow_refund',
+      });
+    } catch (error) {
+      await upsertRequestInSupabase(request).catch(() => undefined);
+      throw error;
+    }
   }
 
   await deleteRequestInSupabase(ownerId, requestId);
+  await Promise.all([
+    deleteNotificationsForRequestFromSupabase(requestId),
+    deleteConversationsForRequestFromSupabase(requestId),
+  ]);
 }
 
 async function applyToRequestAction(actorId: string, payload: Extract<RequestActionPayload, { action: 'apply-to-request' }>) {

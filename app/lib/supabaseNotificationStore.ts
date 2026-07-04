@@ -121,3 +121,15 @@ export async function getUnreadNotificationCountFromSupabase(userId: string): Pr
 
   return count ?? 0;
 }
+
+export async function deleteNotificationsForRequestFromSupabase(requestId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('related_request_id', requestId);
+
+  if (error) {
+    throw new Error(`Failed to delete request notifications from Supabase: ${error.message}`);
+  }
+}

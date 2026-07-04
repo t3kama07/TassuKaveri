@@ -315,3 +315,15 @@ export async function getUnreadMessageCountFromSupabase(userId: string): Promise
 
   return count ?? 0;
 }
+
+export async function deleteConversationsForRequestFromSupabase(requestId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('request_id', requestId);
+
+  if (error) {
+    throw new Error(`Failed to delete request conversations from Supabase: ${error.message}`);
+  }
+}
