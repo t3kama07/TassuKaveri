@@ -910,9 +910,6 @@ async function acceptDirectRequestAction(actorId: string, ownerId: string, reque
   if (ownerId === actorId) {
     throw new Error('You cannot accept your own request');
   }
-  if (sitterProfile.availability !== 'available') {
-    throw new Error('Set your availability to Available before accepting requests');
-  }
 
   const request = await requireOwnedRequest(ownerId, requestId);
   if (request.audience !== 'direct' || request.requestedSitterId !== actorId) {
@@ -922,12 +919,13 @@ async function acceptDirectRequestAction(actorId: string, ownerId: string, reque
     throw new Error('Request is no longer open');
   }
 
-  const availabilityMatch = await getAvailabilityMatch(actorId, request.startDate, request.endDate);
-  if (!availabilityMatch.available) {
-    if (availabilityMatch.hasConflict) {
-      throw new Error('You already have another confirmed booking during these dates');
-    }
-    throw new Error('You do not have an availability slot covering these dates');
+  const hasConflict = await hasActiveRequestConflictFromSupabase(
+    actorId,
+    request.startDate,
+    request.endDate
+  );
+  if (hasConflict) {
+    throw new Error('You already have another confirmed booking during these dates');
   }
 
   const acceptedRequest: Request = {

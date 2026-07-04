@@ -114,6 +114,13 @@ function formatRequestDuration(startAt: Date, endAt: Date): string {
   return `${hours} hr ${minutes} min`;
 }
 
+function formatRequestDateTime(date: Date): string {
+  return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
 function RequestsPageContent() {
   const { user } = useAuth();
   const router = useRouter();
@@ -1948,9 +1955,15 @@ function RequestsPageContent() {
 
                         <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                           <div>
-                            <p className="text-[#6b7280]">Dates</p>
+                            <p className="text-[#6b7280]">Starts</p>
                             <p className="font-medium text-[#0f2640]">
-                              {request.startDate.toLocaleDateString()} - {request.endDate.toLocaleDateString()}
+                              {formatRequestDateTime(request.startDate)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[#6b7280]">Ends</p>
+                            <p className="font-medium text-[#0f2640]">
+                              {formatRequestDateTime(request.endDate)}
                             </p>
                           </div>
                           <div>
@@ -1961,6 +1974,10 @@ function RequestsPageContent() {
                             <p className="text-[#6b7280]">Location</p>
                             <p className="font-medium text-[#0f2640]">{request.location}</p>
                           </div>
+                        </div>
+
+                        <div className="mb-4 rounded-xl border border-[#d7e1eb] bg-[#f7fafc] p-3 text-sm text-[#516173]">
+                          You can accept this direct ask even if you have not added a public availability slot.
                         </div>
 
                         {request.notes && (
