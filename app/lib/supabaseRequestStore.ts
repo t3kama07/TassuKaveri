@@ -532,6 +532,25 @@ export async function getSitterCancellationStatsFromSupabase(
   };
 }
 
+export async function getSitterReviewsFromSupabase(sitterId: string): Promise<RequestReview[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('requests')
+    .select('review, owner_review')
+    .eq('sitter_uid', sitterId)
+    .eq('status', 'completed')
+    .returns<Array<{ review: unknown; owner_review: unknown }>>();
+
+  if (error) {
+    throw new Error(`Failed to read sitter reviews from Supabase: ${error.message}`);
+  }
+
+  return (data || [])
+    .map((row) => parseReview(row.owner_review ?? row.review))
+    .filter((review): review is RequestReview => Boolean(review))
+    .sort((left, right) => right.reviewedAt.getTime() - left.reviewedAt.getTime());
+}
+
 export async function hasActiveRequestConflictFromSupabase(
   sitterId: string,
   startAt: DateInput,

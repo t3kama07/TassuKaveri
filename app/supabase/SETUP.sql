@@ -297,6 +297,17 @@ create table if not exists public.notifications (
   created_at timestamptz not null default timezone('utc'::text, now())
 );
 
+create table if not exists public.email_subscriptions (
+  id text primary key,
+  email text not null,
+  source text not null default 'website_popup'
+    check (source in ('website_popup')),
+  submitted_at timestamptz not null default timezone('utc'::text, now()),
+  created_at timestamptz not null default timezone('utc'::text, now()),
+  updated_at timestamptz not null default timezone('utc'::text, now()),
+  unique (email, source)
+);
+
 create table if not exists public.favorites (
   id text primary key,
   owner_uid text not null references public.profiles(uid) on delete cascade,
@@ -364,6 +375,8 @@ create index if not exists idx_wallet_transactions_occurred_at on public.wallet_
 create unique index if not exists idx_favorites_owner_sitter on public.favorites(owner_uid, sitter_uid);
 create index if not exists idx_notifications_user_uid on public.notifications(user_uid);
 create index if not exists idx_notifications_created_at on public.notifications(created_at desc);
+create index if not exists idx_email_subscriptions_submitted_at
+  on public.email_subscriptions(submitted_at desc);
 create index if not exists idx_favorites_owner_uid on public.favorites(owner_uid);
 create index if not exists idx_reports_type_status on public.reports(report_type, status);
 create index if not exists idx_reports_created_at on public.reports(created_at desc);
@@ -431,6 +444,12 @@ before update on public.messages
 for each row
 execute function public.set_updated_at();
 
+drop trigger if exists set_email_subscriptions_updated_at on public.email_subscriptions;
+create trigger set_email_subscriptions_updated_at
+before update on public.email_subscriptions
+for each row
+execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.pets enable row level security;
 alter table public.public_profiles enable row level security;
@@ -439,6 +458,7 @@ alter table public.requests enable row level security;
 alter table public.wallets enable row level security;
 alter table public.wallet_transactions enable row level security;
 alter table public.notifications enable row level security;
+alter table public.email_subscriptions enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reports enable row level security;
 alter table public.conversations enable row level security;
@@ -452,6 +472,7 @@ revoke all on public.requests from anon, authenticated;
 revoke all on public.wallets from anon, authenticated;
 revoke all on public.wallet_transactions from anon, authenticated;
 revoke all on public.notifications from anon, authenticated;
+revoke all on public.email_subscriptions from anon, authenticated;
 revoke all on public.favorites from anon, authenticated;
 revoke all on public.reports from anon, authenticated;
 revoke all on public.conversations from anon, authenticated;

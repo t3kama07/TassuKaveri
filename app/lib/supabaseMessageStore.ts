@@ -158,6 +158,8 @@ function mapSupabaseConversationRow(
     ownerId: row.owner_uid,
     requestId: row.request_id,
     sitterId: row.sitter_uid,
+    ownerName: row.owner_name || 'Owner',
+    sitterName: row.sitter_name || 'Sitter',
     title: row.title || 'Conversation',
     subtitle: row.subtitle || '',
     otherUserId: isOwner ? row.sitter_uid : row.owner_uid,

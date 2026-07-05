@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import EmailSubscriptionPopup from "@/components/EmailSubscriptionPopup";
 import SeoScripts from "@/components/SeoScripts";
 import { getSiteUrl } from "@/lib/seo";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>
             {children}
+            <EmailSubscriptionPopup />
           </LanguageProvider>
         </AuthProvider>
       </body>

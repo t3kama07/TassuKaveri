@@ -8,9 +8,10 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserConversations } from '@/lib/messageService';
 import { getPublicProfile } from '@/lib/publicProfileService';
-import { getSitterCancellationStats } from '@/lib/requestService';
+import { getSitterCancellationStats, getSitterReviews } from '@/lib/requestService';
 import { Conversation } from '@/types/message';
 import { PublicUserProfile } from '@/types/profile';
+import { RequestReview } from '@/types/request';
 import type { SitterCancellationStats } from '@/lib/requestService';
 
 function formatDateTimeRange(startAt?: Date, endAt?: Date): string {
@@ -40,6 +41,18 @@ function formatList(values: string[], emptyLabel: string): string {
   return values.length > 0 ? values.join(', ') : emptyLabel;
 }
 
+function formatReviewDate(date: Date): string {
+  return date.toLocaleDateString([], {
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function renderStars(rating: number): string {
+  const roundedRating = Math.max(0, Math.min(5, Math.round(rating)));
+  return `${'★'.repeat(roundedRating)}${'☆'.repeat(5 - roundedRating)}`;
+}
+
 export default function SitterProfilePage() {
   const params = useParams<{ sitterId: string }>();
   const { user } = useAuth();
@@ -47,6 +60,7 @@ export default function SitterProfilePage() {
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [cancellationStats, setCancellationStats] = useState<SitterCancellationStats | null>(null);
+  const [reviews, setReviews] = useState<RequestReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -65,11 +79,15 @@ export default function SitterProfilePage() {
         setLoading(true);
         setError('');
 
-        const [publicProfile, sitterStats] = await Promise.all([
+        const [publicProfile, sitterStats, sitterReviews] = await Promise.all([
           getPublicProfile(sitterId),
           getSitterCancellationStats(sitterId).catch((statsError) => {
             console.warn('Unable to load sitter cancellation stats:', statsError);
             return null;
+          }),
+          getSitterReviews(sitterId).catch((reviewsError) => {
+            console.warn('Unable to load sitter reviews:', reviewsError);
+            return [];
           }),
         ]);
 
@@ -81,12 +99,14 @@ export default function SitterProfilePage() {
           setError('This sitter profile is not available right now.');
           setProfile(null);
           setCancellationStats(null);
+          setReviews([]);
           setConversation(null);
           return;
         }
 
         setProfile(publicProfile);
         setCancellationStats(sitterStats);
+        setReviews(sitterReviews);
 
         try {
           const conversations = await getUserConversations(user.uid);
@@ -228,17 +248,22 @@ export default function SitterProfilePage() {
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">
                       {profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : 'New'}
                     </p>
+                    {profile.ratingCount > 0 && (
+                      <p className="mt-1 text-sm tracking-[0.08em] text-[#ffb020]">
+                        {renderStars(profile.ratingAverage)}
+                      </p>
+                    )}
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.ratingCount > 0
-                        ? `${profile.ratingCount} reviews`
+                        ? `${profile.ratingCount} ${profile.ratingCount === 1 ? 'review' : 'reviews'}`
                         : 'No reviews yet'}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
                     <p className="text-sm text-[#6b7280]">Trust level</p>
-                    <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}%</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      Based on verified email, profile quality, completed care, and reviews.
+                      Based on profile quality, verified email, completed care, and reviews.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
@@ -333,6 +358,65 @@ export default function SitterProfilePage() {
                   </p>
                 </div>
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-[#0f2640]">Reviews</h2>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    Feedback from completed pet-care requests.
+                  </p>
+                </div>
+                {reviews.length > 0 && (
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-[#0f2640]">
+                      {profile.ratingAverage.toFixed(1)} / 5
+                    </p>
+                    <p className="text-sm tracking-[0.08em] text-[#ffb020]">
+                      {renderStars(profile.ratingAverage)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {reviews.length === 0 ? (
+                <p className="mt-5 text-sm text-[#6b7280]">No reviews yet.</p>
+              ) : (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {reviews.map((review) => (
+                    <article
+                      key={`${review.reviewerId}-${review.reviewedAt.toISOString()}`}
+                      className="rounded-2xl border border-[#e4e9ef] bg-[#fbfcfd] p-5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-lg font-bold text-[#0f2640]">{review.rating} / 5</p>
+                          <p className="mt-1 text-sm tracking-[0.08em] text-[#ffb020]">
+                            {renderStars(review.rating)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-[#0f2640]">
+                            {review.reviewerName || 'Pet owner'}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-[#6b7280]">
+                            {formatReviewDate(review.reviewedAt)}
+                          </p>
+                        </div>
+                      </div>
+                      {review.comment ? (
+                        <p className="mt-4 text-sm leading-6 text-[#516173]">{review.comment}</p>
+                      ) : (
+                        <p className="mt-4 text-sm leading-6 text-[#6b7280]">No written comment.</p>
+                      )}
+                      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6b2]">
+                        Completed care review
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           </>
         ) : (

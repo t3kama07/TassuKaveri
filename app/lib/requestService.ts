@@ -462,10 +462,13 @@ export async function submitReview(
 }
 
 export async function getSitterReviews(sitterId: string): Promise<RequestReview[]> {
-  const sitterRequests = await getSitterRequests(sitterId);
-  return sitterRequests
-    .filter((request) => request.status === 'completed' && Boolean(request.review || request.ownerReview))
-    .map((request) => request.ownerReview ?? request.review)
+  const payload = await fetchSupabaseReadJson<{ reviews: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/request?scope=sitter-reviews&sitterId=${encodeURIComponent(sitterId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.reviews
+    .map(parseReview)
     .filter((review): review is RequestReview => Boolean(review))
     .sort((left, right) => right.reviewedAt.getTime() - left.reviewedAt.getTime());
 }

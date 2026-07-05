@@ -279,6 +279,8 @@ export async function getUserConversations(userId: string): Promise<Conversation
     ownerId: (conversation.ownerId as string) || '',
     requestId: (conversation.requestId as string) || '',
     sitterId: (conversation.sitterId as string) || '',
+    ownerName: (conversation.ownerName as string) || 'Owner',
+    sitterName: (conversation.sitterName as string) || 'Sitter',
     title: (conversation.title as string) || 'Conversation',
     subtitle: (conversation.subtitle as string) || '',
     otherUserId: (conversation.otherUserId as string) || '',

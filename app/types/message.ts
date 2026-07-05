@@ -17,6 +17,8 @@ export interface Conversation {
   ownerId: string;
   requestId: string;
   sitterId: string;
+  ownerName: string;
+  sitterName: string;
   title: string;
   subtitle: string;
   otherUserId: string;

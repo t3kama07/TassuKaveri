@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -217,9 +218,20 @@ function MessagesPageContent() {
                       selected ? 'border-[#ff7a2d] bg-[#fff7f2]' : 'border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    <p className="font-semibold text-[#0f2640]">{conversation.title}</p>
-                    <p className="text-sm text-[#6b7280]">With: {conversation.otherUserName}</p>
-                    <p className="text-xs text-[#6b7280]">{conversation.subtitle}</p>
+                    <div className="flex items-start gap-3">
+                      <ProfileAvatar
+                        uid={conversation.ownerId}
+                        name={conversation.ownerName}
+                        className="h-9 w-9 shrink-0 rounded-full border border-[#e2e8f0]"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold text-[#0f2640]">{conversation.ownerName}</p>
+                        <p className="truncate text-sm font-medium text-[#516173]">
+                          {conversation.title}
+                        </p>
+                        <p className="truncate text-xs text-[#6b7280]">{conversation.subtitle}</p>
+                      </div>
+                    </div>
                     {conversation.latestMessageText && (
                       <p className="text-xs text-[#6b7280] mt-1 truncate">{conversation.latestMessageText}</p>
                     )}
@@ -234,8 +246,21 @@ function MessagesPageContent() {
               ) : (
                 <>
                   <div className="mb-3 pb-3 border-b border-gray-100">
-                    <p className="font-semibold text-[#0f2640]">{selectedConversation.title}</p>
-                    <p className="text-sm text-[#6b7280]">With: {selectedConversation.otherUserName}</p>
+                    <div className="flex items-center gap-3">
+                      <ProfileAvatar
+                        uid={selectedConversation.ownerId}
+                        name={selectedConversation.ownerName}
+                        className="h-10 w-10 shrink-0 rounded-full border border-[#e2e8f0]"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-[#0f2640]">
+                          {selectedConversation.ownerName}
+                        </p>
+                        <p className="truncate text-sm font-medium text-[#516173]">
+                          {selectedConversation.title}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto space-y-2 mb-3">

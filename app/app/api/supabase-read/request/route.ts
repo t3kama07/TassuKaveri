@@ -7,6 +7,7 @@ import {
   getOpenCommunityRequestsFromSupabase,
   getSitterCancellationStatsFromSupabase,
   getSitterRequestsFromSupabase,
+  getSitterReviewsFromSupabase,
   getUserRequestsFromSupabase,
   hasActiveRequestConflictFromSupabase,
 } from '@/lib/supabaseRequestStore';
@@ -150,6 +151,16 @@ export async function GET(request: NextRequest) {
 
       const stats = await getSitterCancellationStatsFromSupabase(sitterId);
       return NextResponse.json(stats);
+    }
+
+    if (scope === 'sitter-reviews') {
+      const sitterId = request.nextUrl.searchParams.get('sitterId');
+      if (!sitterId) {
+        return NextResponse.json({ error: 'sitterId is required' }, { status: 400 });
+      }
+
+      const reviews = await getSitterReviewsFromSupabase(sitterId);
+      return NextResponse.json({ reviews });
     }
 
     if (scope === 'conflict-check') {
