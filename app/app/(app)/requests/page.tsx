@@ -40,6 +40,8 @@ type ConfirmationDialog = {
   tone?: 'default' | 'danger';
 };
 
+const OWNER_FREE_CANCELLATION_HOURS = 24;
+
 const requestWizardSteps: Array<{ step: RequestWizardStep; label: string }> = [
   { step: 1, label: 'Your pet' },
   { step: 2, label: 'Dates & place' },
@@ -119,6 +121,36 @@ function formatRequestDateTime(date: Date): string {
     hour: '2-digit',
     minute: '2-digit',
   })}`;
+}
+
+function isOwnerCreditError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+  return message.includes('request owner does not have enough credits');
+}
+
+function isInsideOwnerFreeCancellationWindow(startDate: Date): boolean {
+  return startDate.getTime() - Date.now() <= OWNER_FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
+}
+
+function getCancellationCreditNotice(request: Request, viewer: 'owner' | 'sitter'): string {
+  if (request.status !== 'cancelled') {
+    return '';
+  }
+
+  if (request.cancellationCreditOutcome === 'sitter_paid') {
+    return viewer === 'owner'
+      ? 'Cancelled within 24 hours of the start time. The reserved credits were given to the sitter.'
+      : 'Cancelled within 24 hours of the start time. The reserved credits were released to you.';
+  }
+
+  if (request.cancellationCreditOutcome === 'owner_refunded') {
+    return viewer === 'owner'
+      ? 'The reserved credits were returned to you.'
+      : 'The reserved credits were returned to the pet owner.';
+  }
+
+  return '';
 }
 
 function RequestsPageContent() {
@@ -448,14 +480,10 @@ function RequestsPageContent() {
 
   async function handleDelete(request: Request) {
     if (!user) return;
-    const isActiveCare =
-      request.status === 'accepted' || request.status === 'awaiting_confirmation';
     const confirmed = await requestConfirmation({
-      title: isActiveCare ? 'Cancel and delete request?' : 'Delete request?',
-      message: isActiveCare
-        ? 'The reserved credits will be returned to you, and this request will be removed for both people.'
-        : 'This pet-care request will be permanently removed for both people.',
-      confirmLabel: isActiveCare ? 'Cancel and delete' : 'Delete request',
+      title: 'Delete request?',
+      message: 'This pet-care request will be permanently removed for both people.',
+      confirmLabel: 'Delete request',
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -525,9 +553,18 @@ function RequestsPageContent() {
 
   async function handleCancelAcceptedRequest(request: Request) {
     if (!user) return;
+    const actorIsOwner = user.uid === request.ownerId;
+    const ownerLateCancellation = actorIsOwner && isInsideOwnerFreeCancellationWindow(request.startDate);
+    const sitterLateCancellation = !actorIsOwner && isInsideOwnerFreeCancellationWindow(request.startDate);
     const confirmed = await requestConfirmation({
-      title: 'Cancel accepted care?',
-      message: 'The reserved credits will be returned to the owner.',
+      title: 'Cancel this accepted care?',
+      message: actorIsOwner
+        ? ownerLateCancellation
+          ? 'This care starts within 24 hours, so the reserved credits will be given to the sitter.'
+          : 'The reserved credits will be returned to you.'
+        : sitterLateCancellation
+          ? 'This care starts within 24 hours. Cancelling now may leave the pet owner without help, and the reserved credits will be returned to them.'
+          : 'The reserved credits will be returned to the pet owner.',
       confirmLabel: 'Cancel care',
       tone: 'danger',
     });
@@ -539,7 +576,13 @@ function RequestsPageContent() {
 
     try {
       await cancelAcceptedRequest(request.ownerId, request.id, user.uid);
-      setSuccess('Pet care cancelled. The reserved credits were returned to the owner.');
+      setSuccess(
+        actorIsOwner
+          ? ownerLateCancellation
+            ? 'Pet care cancelled. The reserved credits were released to the sitter.'
+            : 'Pet care cancelled. The reserved credits were returned to you.'
+          : 'Pet care cancelled. The reserved credits were returned to the pet owner.'
+      );
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -553,7 +596,7 @@ function RequestsPageContent() {
     if (!user) return;
     const confirmed = await requestConfirmation({
       title: `Choose ${application.sitterName}?`,
-      message: 'Credits will be reserved until the care is finished or cancelled.',
+      message: 'Reserved credits will stay held until the care is finished or cancelled.',
       confirmLabel: 'Choose sitter',
     });
     if (!confirmed) return;
@@ -564,7 +607,7 @@ function RequestsPageContent() {
 
     try {
       await acceptApplication(request.ownerId, request.id, application.sitterId);
-      setSuccess(`Accepted ${application.sitterName}. The credits are reserved until the care is finished or cancelled.`);
+      setSuccess(`Accepted ${application.sitterName}. Reserved credits stay held until the care is finished or cancelled.`);
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -655,7 +698,11 @@ function RequestsPageContent() {
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not accept this direct request right now. Please try again. ' + message);
+      setError(
+        isOwnerCreditError(err)
+          ? 'The pet owner does not currently have enough credits reserved for this request. Ask them to add credits or send a shorter request.'
+          : 'We could not accept this direct request right now. Please try again. ' + message
+      );
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -906,6 +953,19 @@ function RequestsPageContent() {
       default:
         return status;
     }
+  }
+
+  function getRequestStatusText(request: Request) {
+    if (request.status === 'cancelled') {
+      if (request.cancelledBy === 'owner') {
+        return 'Cancelled by pet owner';
+      }
+      if (request.cancelledBy === 'sitter') {
+        return 'Cancelled by sitter';
+      }
+    }
+
+    return getStatusText(request.status);
   }
 
   function getCareTypeLabel(careType: string): string {
@@ -1537,7 +1597,7 @@ function RequestsPageContent() {
                     )}
 
                     <div className="rounded-2xl bg-[#e8f3ec] p-4 text-sm text-[#245d45]">
-                      Your credits are reserved only after the sitter accepts, and released after you confirm the care is finished.
+                      Your credits are reserved when you send this request, and released after you confirm the care is finished.
                     </div>
                   </div>
                 )}
@@ -1657,7 +1717,7 @@ function RequestsPageContent() {
                               request.status
                             )}`}
                           >
-                            {getStatusText(request.status)}
+                            {getRequestStatusText(request)}
                           </span>
                         </div>
                         <div className="text-right">
@@ -1756,6 +1816,14 @@ function RequestsPageContent() {
                           <p className="text-sm text-[#0f2640] font-medium">{request.requestedSitterName}</p>
                           <p className="mt-1 text-sm text-[#516173]">
                             This sitter can see it in Direct asks.
+                          </p>
+                        </div>
+                      )}
+
+                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'owner') && (
+                        <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3">
+                          <p className="text-sm font-medium text-red-700">
+                            {getCancellationCreditNotice(request, 'owner')}
                           </p>
                         </div>
                       )}
@@ -1897,16 +1965,12 @@ function RequestsPageContent() {
                           </>
                         )}
                         {(request.status === 'open' ||
-                          request.status === 'cancelled' ||
-                          request.status === 'accepted' ||
-                          request.status === 'awaiting_confirmation') && (
+                          (request.status === 'cancelled' && !request.sitterId)) && (
                           <button
                             onClick={() => handleDelete(request)}
                             className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors"
                           >
-                            {request.status === 'accepted' || request.status === 'awaiting_confirmation'
-                              ? 'Cancel and delete'
-                              : 'Delete'}
+                            Delete
                           </button>
                         )}
                       </div>
@@ -2109,7 +2173,7 @@ function RequestsPageContent() {
                               </div>
                             </div>
                             <span className="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                              {getStatusText(request.status)}
+                              {getRequestStatusText(request)}
                             </span>
                           </div>
 
@@ -2249,7 +2313,7 @@ function RequestsPageContent() {
                               request.status
                             )}`}
                           >
-                            {getStatusText(request.status)}
+                            {getRequestStatusText(request)}
                           </span>
                         </div>
                         <div className="text-right">
@@ -2339,6 +2403,14 @@ function RequestsPageContent() {
                               {request.specialWarnings}
                             </p>
                           )}
+                        </div>
+                      )}
+
+                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'sitter') && (
+                        <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3">
+                          <p className="text-sm font-medium text-red-700">
+                            {getCancellationCreditNotice(request, 'sitter')}
+                          </p>
                         </div>
                       )}
 

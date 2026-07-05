@@ -2,6 +2,8 @@ export type RequestStatus = 'open' | 'accepted' | 'awaiting_confirmation' | 'com
 export type CareType = 'daily-visit' | 'overnight' | 'boarding' | 'walking';
 export type EscrowStatus = 'none' | 'held' | 'released' | 'refunded';
 export type RequestAudience = 'community' | 'direct';
+export type RequestCancellationActor = 'owner' | 'sitter';
+export type CancellationCreditOutcome = 'owner_refunded' | 'sitter_paid';
 
 export interface RequestApplication {
   sitterId: string;
@@ -44,6 +46,9 @@ export interface Request {
   sitterReview?: RequestReview;
   markedCompleteAt?: Date;
   confirmedCompleteAt?: Date;
+  cancelledBy?: RequestCancellationActor;
+  cancelledAt?: Date;
+  cancellationCreditOutcome?: CancellationCreditOutcome;
   notes?: string;
   feedingSchedule?: string;
   walkSchedule?: string;

@@ -5,6 +5,7 @@ import {
   getCompletedSitsCountFromSupabase,
   getDirectRequestsForSitterFromSupabase,
   getOpenCommunityRequestsFromSupabase,
+  getSitterCancellationStatsFromSupabase,
   getSitterRequestsFromSupabase,
   getUserRequestsFromSupabase,
   hasActiveRequestConflictFromSupabase,
@@ -51,16 +52,23 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ request: null });
       }
 
-      const isParticipant =
-        sessionUser.uid === ownerId ||
-        sessionUser.uid === requestRecord.sitterId ||
-        sessionUser.uid === requestRecord.requestedSitterId ||
+      const isFundedOpenRequest =
+        requestRecord.status === 'open' && requestRecord.escrowStatus === 'held';
+      const isRequestedSitter =
+        isFundedOpenRequest && sessionUser.uid === requestRecord.requestedSitterId;
+      const isApplicant =
+        isFundedOpenRequest &&
         (requestRecord.applications ?? []).some(
           (application) => application.sitterId === sessionUser.uid
         );
+      const isParticipant =
+        sessionUser.uid === ownerId ||
+        sessionUser.uid === requestRecord.sitterId ||
+        isRequestedSitter ||
+        isApplicant;
 
       const isEligibleOpenRequestViewer =
-        requestRecord.status === 'open' &&
+        isFundedOpenRequest &&
         (requestRecord.audience === 'community' ||
           requestRecord.requestedSitterId === sessionUser.uid);
 
@@ -132,6 +140,16 @@ export async function GET(request: NextRequest) {
 
       const completedCount = await getCompletedSitsCountFromSupabase(sitterId);
       return NextResponse.json({ completedCount });
+    }
+
+    if (scope === 'sitter-cancellation-stats') {
+      const sitterId = request.nextUrl.searchParams.get('sitterId');
+      if (!sitterId) {
+        return NextResponse.json({ error: 'sitterId is required' }, { status: 400 });
+      }
+
+      const stats = await getSitterCancellationStatsFromSupabase(sitterId);
+      return NextResponse.json(stats);
     }
 
     if (scope === 'conflict-check') {

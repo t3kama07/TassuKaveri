@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
             transactionType: 'escrow' as const,
             allowed:
               payload.userId === relatedRequest.ownerId &&
-              relatedRequest.status === 'accepted' &&
+              (relatedRequest.status === 'open' || relatedRequest.status === 'accepted') &&
               relatedRequest.escrowStatus === 'held' &&
               (payload.actorId === relatedRequest.ownerId || payload.actorId === relatedRequest.sitterId),
             balanceDelta: -relatedRequest.creditsOffered,
@@ -174,10 +174,15 @@ export async function POST(request: NextRequest) {
               allowed:
                 payload.userId === relatedRequest.sitterId &&
                 payload.actorId === relatedRequest.ownerId &&
-                relatedRequest.status === 'completed' &&
-                relatedRequest.escrowStatus === 'released',
+                relatedRequest.escrowStatus === 'released' &&
+                (relatedRequest.status === 'completed' ||
+                  (relatedRequest.status === 'cancelled' &&
+                    relatedRequest.cancellationCreditOutcome === 'sitter_paid')),
               balanceDelta: relatedRequest.creditsOffered,
-              reference: `Reward completed for request ${payload.requestId}`,
+              reference:
+                relatedRequest.status === 'cancelled'
+                  ? `Late cancellation reward for request ${payload.requestId}`
+                  : `Reward completed for request ${payload.requestId}`,
             }
           : requestedAction === 'escrow_refund'
             ? {

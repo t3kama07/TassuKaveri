@@ -145,6 +145,10 @@ function mapRequest(id: string, data: Record<string, unknown>): Request {
     sitterReview,
     markedCompleteAt: toOptionalDate(data.markedCompleteAt),
     confirmedCompleteAt: toOptionalDate(data.confirmedCompleteAt),
+    cancelledBy: (data.cancelledBy as Request['cancelledBy']) || undefined,
+    cancelledAt: toOptionalDate(data.cancelledAt),
+    cancellationCreditOutcome:
+      (data.cancellationCreditOutcome as Request['cancellationCreditOutcome']) || undefined,
     notes: (data.notes as string) || '',
     feedingSchedule: (data.feedingSchedule as string) || '',
     walkSchedule: (data.walkSchedule as string) || '',
@@ -330,6 +334,25 @@ export async function getSitterRequests(sitterId: string): Promise<Request[]> {
   );
 
   return payload.requests.map((request) => mapRequest((request.id as string) || '', request));
+}
+
+export type SitterCancellationStats = {
+  completedCount: number;
+  sitterCancelledCount: number;
+  sitterLateCancelledCount: number;
+  totalFinishedOrCancelled: number;
+  cancellationRatio: number;
+};
+
+export async function getSitterCancellationStats(
+  sitterId: string
+): Promise<SitterCancellationStats> {
+  const payload = await fetchSupabaseReadJson<SitterCancellationStats>(
+    `/api/supabase-read/request?scope=sitter-cancellation-stats&sitterId=${encodeURIComponent(sitterId)}`,
+    { requireAuth: true }
+  );
+
+  return payload;
 }
 
 export async function applyToRequest(

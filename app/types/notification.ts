@@ -4,7 +4,8 @@ export type NotificationType =
   | 'application_accepted'
   | 'message_received'
   | 'review_received'
-  | 'request_completed';
+  | 'request_completed'
+  | 'request_cancelled';
 
 export interface AppNotification {
   id: string;

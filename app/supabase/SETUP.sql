@@ -218,6 +218,11 @@ create table if not exists public.requests (
   sitter_review jsonb,
   marked_complete_at timestamptz,
   confirmed_complete_at timestamptz,
+  cancelled_by text
+    check (cancelled_by in ('owner', 'sitter')),
+  cancelled_at timestamptz,
+  cancellation_credit_outcome text
+    check (cancellation_credit_outcome in ('owner_refunded', 'sitter_paid')),
   notes text not null default '',
   feeding_schedule text not null default '',
   walk_schedule text not null default '',
@@ -282,7 +287,8 @@ create table if not exists public.notifications (
         'application_accepted',
         'message_received',
         'review_received',
-        'request_completed'
+        'request_completed',
+        'request_cancelled'
       )
     ),
   related_request_id text,

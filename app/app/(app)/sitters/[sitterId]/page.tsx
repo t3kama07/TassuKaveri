@@ -8,8 +8,10 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserConversations } from '@/lib/messageService';
 import { getPublicProfile } from '@/lib/publicProfileService';
+import { getSitterCancellationStats } from '@/lib/requestService';
 import { Conversation } from '@/types/message';
 import { PublicUserProfile } from '@/types/profile';
+import type { SitterCancellationStats } from '@/lib/requestService';
 
 function formatDateTimeRange(startAt?: Date, endAt?: Date): string {
   if (!startAt || !endAt) {
@@ -44,6 +46,7 @@ export default function SitterProfilePage() {
   const sitterId = Array.isArray(params.sitterId) ? params.sitterId[0] : params.sitterId;
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [cancellationStats, setCancellationStats] = useState<SitterCancellationStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -62,7 +65,13 @@ export default function SitterProfilePage() {
         setLoading(true);
         setError('');
 
-        const publicProfile = await getPublicProfile(sitterId);
+        const [publicProfile, sitterStats] = await Promise.all([
+          getPublicProfile(sitterId),
+          getSitterCancellationStats(sitterId).catch((statsError) => {
+            console.warn('Unable to load sitter cancellation stats:', statsError);
+            return null;
+          }),
+        ]);
 
         if (!active) {
           return;
@@ -71,11 +80,13 @@ export default function SitterProfilePage() {
         if (!publicProfile) {
           setError('This sitter profile is not available right now.');
           setProfile(null);
+          setCancellationStats(null);
           setConversation(null);
           return;
         }
 
         setProfile(publicProfile);
+        setCancellationStats(sitterStats);
 
         try {
           const conversations = await getUserConversations(user.uid);
@@ -228,6 +239,19 @@ export default function SitterProfilePage() {
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       Based on verified email, profile quality, completed care, and reviews.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
+                    <p className="text-sm text-[#6b7280]">Cancellation ratio</p>
+                    <p className="mt-2 text-3xl font-bold text-[#0f2640]">
+                      {cancellationStats && cancellationStats.totalFinishedOrCancelled > 0
+                        ? `${Math.round(cancellationStats.cancellationRatio * 100)}%`
+                        : 'New'}
+                    </p>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      {cancellationStats && cancellationStats.totalFinishedOrCancelled > 0
+                        ? `${cancellationStats.sitterCancelledCount} sitter cancellations from ${cancellationStats.totalFinishedOrCancelled} completed or cancelled care records. ${cancellationStats.sitterLateCancelledCount} were within 24 hours.`
+                        : 'No completed or cancelled care records yet.'}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">

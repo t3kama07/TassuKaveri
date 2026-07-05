@@ -23,6 +23,7 @@ import { getOwnerPetsFromSupabase } from './supabasePetStore';
 import { getProfileFromSupabase } from './supabaseProfileStore';
 import { getPublicProfileFromSupabase } from './supabasePublicProfileStore';
 import {
+  acceptOpenRequestInSupabase,
   deleteRequestInSupabase,
   getCompletedSitsCountFromSupabase,
   getRequestByIdFromSupabase,
@@ -39,6 +40,7 @@ import {
 import { calculateTrustScore } from './trustScore';
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const OWNER_FREE_CANCELLATION_HOURS = 24;
 const CARE_TYPES = new Set<Request['careType']>([
   'daily-visit',
   'overnight',
@@ -175,6 +177,88 @@ function calculateCreditsForRequestWindow(startDate: Date, endDate: Date): numbe
   }
 
   return Math.max(1, Math.ceil(durationMs / MILLISECONDS_PER_HOUR));
+}
+
+function isWithinOwnerFreeCancellationWindow(startDate: Date, now = new Date()): boolean {
+  return startDate.getTime() - now.getTime() > OWNER_FREE_CANCELLATION_HOURS * MILLISECONDS_PER_HOUR;
+}
+
+async function assertOwnerCanFundRequest(ownerId: string, requiredCredits: number) {
+  const wallet = await getWalletFromSupabase(ownerId);
+  const balance = wallet?.balance ?? 0;
+
+  if (balance < requiredCredits) {
+    throw new Error(
+      `You need ${requiredCredits} credits to send this request, but you only have ${balance}.`
+    );
+  }
+}
+
+async function adjustHeldCreditsForUpdatedRequest(params: {
+  actorId: string;
+  previousRequest: Request;
+  updatedRequest: Request;
+}) {
+  const { actorId, previousRequest, updatedRequest } = params;
+  const ownerId = updatedRequest.ownerId;
+
+  if (previousRequest.escrowStatus !== 'held') {
+    await assertOwnerCanFundRequest(ownerId, updatedRequest.creditsOffered);
+    await applyWalletActionForRequest({
+      actorId,
+      userId: ownerId,
+      request: updatedRequest,
+      action: 'escrow_hold',
+    });
+    return;
+  }
+
+  const creditDelta = updatedRequest.creditsOffered - previousRequest.creditsOffered;
+  if (creditDelta === 0) {
+    return;
+  }
+
+  const currentWallet = await getWalletFromSupabase(ownerId);
+  if (!currentWallet) {
+    throw new Error('Wallet not found. Please initialize wallet first.');
+  }
+
+  const nextBalance = currentWallet.balance - creditDelta;
+  if (nextBalance < 0) {
+    const availableCredits = currentWallet.balance + previousRequest.creditsOffered;
+    throw new Error(
+      `You need ${updatedRequest.creditsOffered} credits to update this request, but you only have ${availableCredits}.`
+    );
+  }
+
+  const transactions = await getWalletTransactionsFromSupabase(ownerId);
+  const adjustmentType = creditDelta > 0 ? 'spend' : 'earn';
+  const adjustmentAmount = Math.abs(creditDelta);
+
+  await replaceWalletStateInSupabase({
+    userId: ownerId,
+    wallet: {
+      ...currentWallet,
+      balance: nextBalance,
+      lastRequestId: updatedRequest.id,
+      lastRequestOwnerId: ownerId,
+      lastWalletAction: creditDelta > 0 ? 'escrow_hold' : 'escrow_refund',
+      updatedAt: new Date(),
+    },
+    transactions: [
+      buildTransaction({
+        type: adjustmentType,
+        amount: adjustmentAmount,
+        requestId: updatedRequest.id,
+        reference:
+          creditDelta > 0
+            ? `Additional escrow for request ${updatedRequest.id}`
+            : `Escrow adjustment refund for request ${updatedRequest.id}`,
+        balanceAfter: nextBalance,
+      }),
+      ...transactions,
+    ],
+  });
 }
 
 function validateRequestTextFields(data: {
@@ -410,7 +494,7 @@ async function applyWalletActionForRequest(params: {
           transactionType: 'escrow' as const,
           allowed:
             params.userId === request.ownerId &&
-            request.status === 'accepted' &&
+            (request.status === 'open' || request.status === 'accepted') &&
             request.escrowStatus === 'held' &&
             (params.actorId === request.ownerId || params.actorId === request.sitterId),
           balanceDelta: -request.creditsOffered,
@@ -422,10 +506,15 @@ async function applyWalletActionForRequest(params: {
             allowed:
               params.userId === request.sitterId &&
               params.actorId === request.ownerId &&
-              request.status === 'completed' &&
-              request.escrowStatus === 'released',
+              request.escrowStatus === 'released' &&
+              (request.status === 'completed' ||
+                (request.status === 'cancelled' &&
+                  request.cancellationCreditOutcome === 'sitter_paid')),
             balanceDelta: request.creditsOffered,
-            reference: `Reward completed for request ${request.id}`,
+            reference:
+              request.status === 'cancelled'
+                ? `Late cancellation reward for request ${request.id}`
+                : `Reward completed for request ${request.id}`,
           }
         : params.action === 'escrow_refund'
           ? {
@@ -455,6 +544,10 @@ async function applyWalletActionForRequest(params: {
 
   const nextBalance = currentWallet.balance + actionConfig.balanceDelta;
   if (nextBalance < 0) {
+    if (params.action === 'escrow_hold') {
+      throw new Error('The request owner does not have enough credits to reserve this care reward.');
+    }
+
     throw new Error('Insufficient credits');
   }
 
@@ -589,6 +682,9 @@ async function createRequestAction(actorId: string, payload: Extract<RequestActi
 
   const requestId = generateId();
   const now = new Date();
+  const creditsOffered = calculateCreditsForRequestWindow(data.startDate, data.endDate);
+  await assertOwnerCanFundRequest(actorId, creditsOffered);
+
   const request: Request = {
     id: requestId,
     ownerId: actorId,
@@ -601,10 +697,10 @@ async function createRequestAction(actorId: string, payload: Extract<RequestActi
     location: selectedLocation.location,
     locationLat: selectedLocation.latitude,
     locationLng: selectedLocation.longitude,
-    creditsOffered: calculateCreditsForRequestWindow(data.startDate, data.endDate),
+    creditsOffered,
     status: 'open',
     audience,
-    escrowStatus: 'none',
+    escrowStatus: 'held',
     requestedSitterId: requestedSitter.requestedSitterId,
     requestedSitterName: requestedSitter.requestedSitterName,
     applications: [],
@@ -619,6 +715,17 @@ async function createRequestAction(actorId: string, payload: Extract<RequestActi
   };
 
   await upsertRequestInSupabase(request);
+  try {
+    await applyWalletActionForRequest({
+      actorId,
+      userId: actorId,
+      request,
+      action: 'escrow_hold',
+    });
+  } catch (error) {
+    await deleteRequestInSupabase(actorId, requestId).catch(() => undefined);
+    throw error;
+  }
 
   if (audience === 'direct' && requestedSitter.requestedSitterId) {
     await createNotification({
@@ -657,6 +764,8 @@ async function updateRequestAction(actorId: string, payload: Extract<RequestActi
 
   const effectiveStartDate = data.startDate ?? request.startDate;
   const effectiveEndDate = data.endDate ?? request.endDate;
+  const creditsOffered = calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate);
+
   const audience = data.audience ?? request.audience;
   const requestedSitter = await resolveRequestedSitter({
     ownerId,
@@ -668,7 +777,7 @@ async function updateRequestAction(actorId: string, payload: Extract<RequestActi
     throw new Error('Select a supported Finnish city');
   }
 
-  await upsertRequestInSupabase({
+  const updatedRequest: Request = {
     ...request,
     petIds,
     petNames,
@@ -678,8 +787,9 @@ async function updateRequestAction(actorId: string, payload: Extract<RequestActi
     location: selectedLocation.location,
     locationLat: selectedLocation.latitude,
     locationLng: selectedLocation.longitude,
-    creditsOffered: calculateCreditsForRequestWindow(effectiveStartDate, effectiveEndDate),
+    creditsOffered,
     audience,
+    escrowStatus: 'held',
     requestedSitterId: requestedSitter.requestedSitterId,
     requestedSitterName: requestedSitter.requestedSitterName,
     notes: data.notes ?? request.notes ?? '',
@@ -689,7 +799,19 @@ async function updateRequestAction(actorId: string, payload: Extract<RequestActi
     sleepInstructions: data.sleepInstructions ?? request.sleepInstructions ?? '',
     specialWarnings: data.specialWarnings ?? request.specialWarnings ?? '',
     updatedAt: new Date(),
-  });
+  };
+
+  await upsertRequestInSupabase(updatedRequest);
+  try {
+    await adjustHeldCreditsForUpdatedRequest({
+      actorId,
+      previousRequest: request,
+      updatedRequest,
+    });
+  } catch (error) {
+    await upsertRequestInSupabase(request).catch(() => undefined);
+    throw error;
+  }
 }
 
 async function cancelRequestAction(actorId: string, ownerId: string, requestId: string) {
@@ -706,11 +828,31 @@ async function cancelRequestAction(actorId: string, ownerId: string, requestId: 
     throw new Error(`Cannot cancel request with status: ${request.status}`);
   }
 
-  await upsertRequestInSupabase({
+  const cancelledRequest: Request = {
     ...request,
     status: 'cancelled',
+    escrowStatus: request.escrowStatus === 'held' ? 'refunded' : request.escrowStatus,
+    cancelledBy: 'owner',
+    cancelledAt: new Date(),
+    cancellationCreditOutcome:
+      request.escrowStatus === 'held' ? 'owner_refunded' : undefined,
     updatedAt: new Date(),
-  });
+  };
+
+  await upsertRequestInSupabase(cancelledRequest);
+  if (request.escrowStatus === 'held') {
+    try {
+      await applyWalletActionForRequest({
+        actorId,
+        userId: ownerId,
+        request: cancelledRequest,
+        action: 'escrow_refund',
+      });
+    } catch (error) {
+      await upsertRequestInSupabase(request).catch(() => undefined);
+      throw error;
+    }
+  }
 }
 
 async function deleteRequestAction(actorId: string, ownerId: string, requestId: string) {
@@ -720,27 +862,24 @@ async function deleteRequestAction(actorId: string, ownerId: string, requestId: 
   }
 
   const request = await requireOwnedRequest(ownerId, requestId);
-  if (
-    request.status !== 'open' &&
-    request.status !== 'cancelled' &&
-    request.status !== 'accepted' &&
-    request.status !== 'awaiting_confirmation'
-  ) {
-    throw new Error('Can only delete open, cancelled, or active requests');
+  if (request.status === 'accepted' || request.status === 'awaiting_confirmation') {
+    throw new Error('Accepted care must be cancelled first so both people can see what happened.');
+  }
+  if (request.status === 'cancelled' && request.sitterId) {
+    throw new Error('Cancelled accepted care stays in history for both people.');
+  }
+  if (request.status !== 'open' && request.status !== 'cancelled') {
+    throw new Error('Can only delete open or cancelled requests');
   }
 
-  if (request.status === 'accepted' || request.status === 'awaiting_confirmation') {
-    if (request.escrowStatus !== 'held') {
-      throw new Error('Escrow status mismatch: expected held before refund');
-    }
-    if (!request.sitterId) {
-      throw new Error('No sitter assigned to this request');
-    }
-
+  if (request.status === 'open' && request.escrowStatus === 'held') {
     const cancelledRequest: Request = {
       ...request,
       status: 'cancelled',
       escrowStatus: 'refunded',
+      cancelledBy: 'owner',
+      cancelledAt: new Date(),
+      cancellationCreditOutcome: 'owner_refunded',
       updatedAt: new Date(),
     };
 
@@ -782,6 +921,9 @@ async function applyToRequestAction(actorId: string, payload: Extract<RequestAct
   const request = await requireOwnedRequest(ownerId, requestId);
   if (request.status !== 'open') {
     throw new Error('This request is no longer open');
+  }
+  if (request.escrowStatus !== 'held') {
+    throw new Error('This request is no longer available. Ask the owner to send it again.');
   }
   if (request.audience === 'direct' && request.requestedSitterId && request.requestedSitterId !== actorId) {
     throw new Error('This direct request was sent to another sitter.');
@@ -883,7 +1025,20 @@ async function acceptApplicationAction(actorId: string, payload: Extract<Request
     updatedAt: new Date(),
   };
 
-  await upsertRequestInSupabase(acceptedRequest);
+  if (!(await acceptOpenRequestInSupabase(acceptedRequest))) {
+    throw new Error('This request is no longer open.');
+  }
+  if (
+    await hasActiveRequestConflictFromSupabase(
+      sitterId,
+      request.startDate,
+      request.endDate,
+      request.id
+    )
+  ) {
+    await upsertRequestInSupabase(request).catch(() => undefined);
+    throw new Error('This sitter already has another confirmed booking during these dates');
+  }
   try {
     await applyWalletActionForRequest({
       actorId,
@@ -918,6 +1073,9 @@ async function acceptDirectRequestAction(actorId: string, ownerId: string, reque
   if (request.status !== 'open') {
     throw new Error('Request is no longer open');
   }
+  if (request.escrowStatus !== 'held') {
+    throw new Error('This direct ask is no longer available. Ask the owner to send it again.');
+  }
 
   const hasConflict = await hasActiveRequestConflictFromSupabase(
     actorId,
@@ -938,7 +1096,20 @@ async function acceptDirectRequestAction(actorId: string, ownerId: string, reque
     updatedAt: new Date(),
   };
 
-  await upsertRequestInSupabase(acceptedRequest);
+  if (!(await acceptOpenRequestInSupabase(acceptedRequest))) {
+    throw new Error('This direct ask is no longer open.');
+  }
+  if (
+    await hasActiveRequestConflictFromSupabase(
+      actorId,
+      request.startDate,
+      request.endDate,
+      request.id
+    )
+  ) {
+    await upsertRequestInSupabase(request).catch(() => undefined);
+    throw new Error('You already have another confirmed booking during these dates');
+  }
   try {
     await applyWalletActionForRequest({
       actorId,
@@ -1057,24 +1228,52 @@ async function cancelAcceptedRequestAction(actorId: string, ownerId: string, req
     throw new Error('Only owner or assigned sitter can cancel the request');
   }
 
+  const now = new Date();
+  const cancelledBy = actorId === ownerId ? 'owner' : 'sitter';
+  const ownerCancelsWithRefund =
+    cancelledBy === 'owner' && isWithinOwnerFreeCancellationWindow(request.startDate, now);
+  const ownerCancelsLate = cancelledBy === 'owner' && !ownerCancelsWithRefund;
+  const cancellationCreditOutcome = ownerCancelsLate ? 'sitter_paid' : 'owner_refunded';
+
   const cancelledRequest: Request = {
     ...request,
     status: 'cancelled',
-    escrowStatus: 'refunded',
-    updatedAt: new Date(),
+    escrowStatus: ownerCancelsLate ? 'released' : 'refunded',
+    cancelledBy,
+    cancelledAt: now,
+    cancellationCreditOutcome,
+    updatedAt: now,
   };
 
   await upsertRequestInSupabase(cancelledRequest);
   try {
     await applyWalletActionForRequest({
-      actorId,
-      userId: ownerId,
+      actorId: ownerCancelsLate ? ownerId : actorId,
+      userId: ownerCancelsLate ? request.sitterId : ownerId,
       request: cancelledRequest,
-      action: 'escrow_refund',
+      action: ownerCancelsLate ? 'escrow_release' : 'escrow_refund',
     });
   } catch (error) {
     await upsertRequestInSupabase(request).catch(() => undefined);
     throw error;
+  }
+
+  if (cancelledBy === 'owner') {
+    await createNotification({
+      userId: request.sitterId,
+      type: 'request_cancelled',
+      relatedRequestId: requestId,
+      message: ownerCancelsLate
+        ? 'The pet owner cancelled within 24 hours of the start time. The reserved credits were released to you.'
+        : 'The pet owner cancelled the accepted care. The reserved credits were returned to them.',
+    });
+  } else {
+    await createNotification({
+      userId: ownerId,
+      type: 'request_cancelled',
+      relatedRequestId: requestId,
+      message: 'The sitter cancelled the accepted care. The reserved credits were returned to you.',
+    });
   }
 }
 

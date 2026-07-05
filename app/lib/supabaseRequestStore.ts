@@ -28,6 +28,9 @@ type SupabaseRequestRow = {
   sitter_review: unknown;
   marked_complete_at: string | null;
   confirmed_complete_at: string | null;
+  cancelled_by: Request['cancelledBy'] | null;
+  cancelled_at: string | null;
+  cancellation_credit_outcome: Request['cancellationCreditOutcome'] | null;
   notes: string;
   feeding_schedule: string;
   walk_schedule: string;
@@ -46,6 +49,14 @@ type RequestReviewInput = Omit<RequestReview, 'reviewedAt'> & {
   reviewedAt?: DateInput;
 };
 
+export type SitterCancellationStats = {
+  completedCount: number;
+  sitterCancelledCount: number;
+  sitterLateCancelledCount: number;
+  totalFinishedOrCancelled: number;
+  cancellationRatio: number;
+};
+
 export interface SupabaseRequestInput
   extends Omit<
     Request,
@@ -57,6 +68,7 @@ export interface SupabaseRequestInput
     | 'sitterReview'
     | 'markedCompleteAt'
     | 'confirmedCompleteAt'
+    | 'cancelledAt'
     | 'createdAt'
     | 'updatedAt'
   > {
@@ -68,6 +80,7 @@ export interface SupabaseRequestInput
   sitterReview?: RequestReviewInput;
   markedCompleteAt?: DateInput;
   confirmedCompleteAt?: DateInput;
+  cancelledAt?: DateInput;
   createdAt: DateInput;
   updatedAt: DateInput;
 }
@@ -193,6 +206,9 @@ function mapSupabaseRequestRow(row: SupabaseRequestRow): Request {
     confirmedCompleteAt: row.confirmed_complete_at
       ? toDate(row.confirmed_complete_at)
       : undefined,
+    cancelledBy: row.cancelled_by || undefined,
+    cancelledAt: row.cancelled_at ? toDate(row.cancelled_at) : undefined,
+    cancellationCreditOutcome: row.cancellation_credit_outcome || undefined,
     notes: row.notes || '',
     feedingSchedule: row.feeding_schedule || '',
     walkSchedule: row.walk_schedule || '',
@@ -270,6 +286,11 @@ function mapRequestToSupabaseRow(request: SupabaseRequestInput): Record<string, 
     confirmed_complete_at: request.confirmedCompleteAt
       ? toIsoString(request.confirmedCompleteAt, now)
       : null,
+    cancelled_by: request.cancelledBy ? asString(request.cancelledBy) : null,
+    cancelled_at: request.cancelledAt ? toIsoString(request.cancelledAt, now) : null,
+    cancellation_credit_outcome: request.cancellationCreditOutcome
+      ? asString(request.cancellationCreditOutcome)
+      : null,
     notes: asString(request.notes),
     feeding_schedule: asString(request.feedingSchedule),
     walk_schedule: asString(request.walkSchedule),
@@ -290,6 +311,24 @@ export async function upsertRequestInSupabase(request: SupabaseRequestInput): Pr
   if (error) {
     throw new Error(`Failed to upsert request in Supabase: ${error.message}`);
   }
+}
+
+export async function acceptOpenRequestInSupabase(request: SupabaseRequestInput): Promise<boolean> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('requests')
+    .update(mapRequestToSupabaseRow(request))
+    .eq('owner_uid', request.ownerId)
+    .eq('id', request.id)
+    .eq('status', 'open')
+    .select('id')
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    throw new Error(`Failed to accept request in Supabase: ${error.message}`);
+  }
+
+  return Boolean(data);
 }
 
 export async function deleteRequestInSupabase(
@@ -368,6 +407,7 @@ export async function getOpenCommunityRequestsFromSupabase(
     .select('*')
     .eq('status', 'open')
     .eq('audience', 'community')
+    .eq('escrow_status', 'held')
     .order('created_at', { ascending: false });
 
   if (excludeUserId) {
@@ -395,6 +435,7 @@ export async function getDirectRequestsForSitterFromSupabase(
     .select('*')
     .eq('status', 'open')
     .eq('audience', 'direct')
+    .eq('escrow_status', 'held')
     .eq('requested_sitter_uid', sitterId)
     .order('created_at', { ascending: false })
     .returns<SupabaseRequestRow[]>();
@@ -437,13 +478,68 @@ export async function getCompletedSitsCountFromSupabase(sitterId: string): Promi
   return count ?? 0;
 }
 
+export async function getSitterCancellationStatsFromSupabase(
+  sitterId: string
+): Promise<SitterCancellationStats> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('requests')
+    .select('status, cancelled_by, start_date, cancelled_at')
+    .eq('sitter_uid', sitterId)
+    .in('status', ['completed', 'cancelled'])
+    .returns<
+      Array<{
+        status: Request['status'];
+        cancelled_by: Request['cancelledBy'] | null;
+        start_date: string | null;
+        cancelled_at: string | null;
+      }>
+    >();
+
+  if (error) {
+    throw new Error(`Failed to read sitter cancellation stats from Supabase: ${error.message}`);
+  }
+
+  const rows = data || [];
+  const completedCount = rows.filter((row) => row.status === 'completed').length;
+  const sitterCancelledRows = rows.filter(
+    (row) => row.status === 'cancelled' && row.cancelled_by === 'sitter'
+  );
+  const sitterLateCancelledCount = sitterCancelledRows.filter((row) => {
+    if (!row.start_date || !row.cancelled_at) {
+      return false;
+    }
+
+    const startAt = new Date(row.start_date).getTime();
+    const cancelledAt = new Date(row.cancelled_at).getTime();
+    return (
+      Number.isFinite(startAt) &&
+      Number.isFinite(cancelledAt) &&
+      startAt - cancelledAt <= 24 * 60 * 60 * 1000
+    );
+  }).length;
+  const totalFinishedOrCancelled = completedCount + sitterCancelledRows.length;
+
+  return {
+    completedCount,
+    sitterCancelledCount: sitterCancelledRows.length,
+    sitterLateCancelledCount,
+    totalFinishedOrCancelled,
+    cancellationRatio:
+      totalFinishedOrCancelled > 0
+        ? sitterCancelledRows.length / totalFinishedOrCancelled
+        : 0,
+  };
+}
+
 export async function hasActiveRequestConflictFromSupabase(
   sitterId: string,
   startAt: DateInput,
-  endAt: DateInput
+  endAt: DateInput,
+  excludeRequestId?: string
 ): Promise<boolean> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('requests')
     .select('id')
     .eq('sitter_uid', sitterId)
@@ -451,6 +547,12 @@ export async function hasActiveRequestConflictFromSupabase(
     .lt('start_date', toIsoString(endAt, new Date()))
     .gt('end_date', toIsoString(startAt, new Date()))
     .limit(1);
+
+  if (excludeRequestId) {
+    query = query.neq('id', excludeRequestId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to check request conflict in Supabase: ${error.message}`);
