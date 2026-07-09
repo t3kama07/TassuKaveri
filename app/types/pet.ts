@@ -19,14 +19,23 @@ export interface Pet {
   size: PetSize;
   notes: string;
   behaviour: string;
+  aggressiveBehavior: string;
+  medicalConditions: string;
   allergies: string;
   vaccinationStatus: string;
   friendlyWithDogs: boolean;
   friendlyWithCats: boolean;
   friendlyWithChildren: boolean;
   medicationRequired: boolean;
+  medicationInstructions: string;
+  feedingInstructions: string;
   specialCareInstructions: string;
+  escapeRisk: string;
+  childBehavior: string;
+  animalBehavior: string;
+  veterinarianDetails: string;
   emergencyVetContact: string;
+  emergencyContactInfo: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,14 +48,23 @@ export interface CreatePetData {
   size: PetSize;
   notes: string;
   behaviour?: string;
+  aggressiveBehavior?: string;
+  medicalConditions?: string;
   allergies?: string;
   vaccinationStatus?: string;
   friendlyWithDogs?: boolean;
   friendlyWithCats?: boolean;
   friendlyWithChildren?: boolean;
   medicationRequired?: boolean;
+  medicationInstructions?: string;
+  feedingInstructions?: string;
   specialCareInstructions?: string;
+  escapeRisk?: string;
+  childBehavior?: string;
+  animalBehavior?: string;
+  veterinarianDetails?: string;
   emergencyVetContact?: string;
+  emergencyContactInfo?: string;
 }
 
 export interface UpdatePetData {
@@ -57,12 +75,21 @@ export interface UpdatePetData {
   size?: PetSize;
   notes?: string;
   behaviour?: string;
+  aggressiveBehavior?: string;
+  medicalConditions?: string;
   allergies?: string;
   vaccinationStatus?: string;
   friendlyWithDogs?: boolean;
   friendlyWithCats?: boolean;
   friendlyWithChildren?: boolean;
   medicationRequired?: boolean;
+  medicationInstructions?: string;
+  feedingInstructions?: string;
   specialCareInstructions?: string;
+  escapeRisk?: string;
+  childBehavior?: string;
+  animalBehavior?: string;
+  veterinarianDetails?: string;
   emergencyVetContact?: string;
+  emergencyContactInfo?: string;
 }

@@ -1,9 +1,34 @@
+'use client';
+
 import Script from 'next/script';
+import { useEffect, useState } from 'react';
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from '@/lib/cookieConsent';
 
 const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
 export default function SeoScripts() {
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(false);
+
+  useEffect(() => {
+    function syncConsent() {
+      setAnalyticsAllowed(window.localStorage.getItem(COOKIE_CONSENT_KEY) === 'accepted');
+    }
+
+    syncConsent();
+    window.addEventListener(COOKIE_CONSENT_EVENT, syncConsent);
+    window.addEventListener('storage', syncConsent);
+
+    return () => {
+      window.removeEventListener(COOKIE_CONSENT_EVENT, syncConsent);
+      window.removeEventListener('storage', syncConsent);
+    };
+  }, []);
+
+  if (!analyticsAllowed) {
+    return null;
+  }
+
   return (
     <>
       {gaMeasurementId && (

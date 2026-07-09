@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
+import { profileExists } from '@/lib/profileService';
+import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 
 function getOAuthError(): string | null {
   const query = new URLSearchParams(window.location.search);
@@ -43,6 +46,28 @@ export default function AuthCallbackPage() {
         return;
       }
 
+      const intent =
+        new URLSearchParams(window.location.search).get('intent') ||
+        window.sessionStorage.getItem('tassukaveri_google_auth_intent');
+      if (intent === 'login') {
+        const authUser = mapSupabaseUserToAuthUser(data.session.user);
+        const hasAccount = await profileExists(authUser.uid);
+        const legalStatus = hasAccount
+          ? await getLegalAcceptanceStatus(authUser.uid).catch(() => ({ accepted: false }))
+          : { accepted: false };
+        if (!active) {
+          return;
+        }
+
+        if (!hasAccount || !legalStatus.accepted) {
+          await supabase.auth.signOut().catch(() => undefined);
+          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+          router.replace('/signup?from=google-login');
+          return;
+        }
+      }
+
+      window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
       router.replace('/dashboard');
     }
 

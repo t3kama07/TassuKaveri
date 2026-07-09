@@ -15,6 +15,7 @@ import { initializeWallet } from '@/lib/walletService';
 import { CreateProfileData, UserProfile } from '@/types/profile';
 import type { AuthUser } from '@/types/auth';
 import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
+import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 
 type SignupResult = {
   user: AuthUser | null;
@@ -22,13 +23,15 @@ type SignupResult = {
   email: string;
 };
 
+type GoogleAuthIntent = 'login' | 'signup';
+
 interface AuthContextType {
   user: AuthUser | null;
   profile: UserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<UserProfile | null>;
   login: (email: string, password: string) => Promise<AuthUser>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (intent?: GoogleAuthIntent) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<string>;
   updatePassword: (password: string) => Promise<void>;
   signup: (
@@ -120,6 +123,16 @@ function normalizeEmailForAuth(email: string): string {
   const extractedEmail = normalizedEmail.match(/<([^<>]+)>/)?.[1] ?? normalizedEmail;
 
   return extractedEmail.replace(/["'`“”‘’]/g, '').replace(/\s+/g, '').toLowerCase();
+}
+
+function getGoogleAuthIntent(): GoogleAuthIntent {
+  if (typeof window === 'undefined') {
+    return 'signup';
+  }
+
+  return window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login'
+    ? 'login'
+    : 'signup';
 }
 
 async function signInSupabaseWithPassword(email: string, password: string): Promise<Session | null> {
@@ -223,6 +236,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const hasProfile = await profileExists(authUser.uid);
+      if (!overwriteProfile && getGoogleAuthIntent() === 'login') {
+        const legalStatus = hasProfile
+          ? await getLegalAcceptanceStatus(authUser.uid).catch(() => ({ accepted: false }))
+          : { accepted: false };
+
+        if (!hasProfile || !legalStatus.accepted) {
+          await signOutSupabaseQuietly();
+          throw new Error('Please register first before using Google login.');
+        }
+      }
+
       if (overwriteProfile && profileData) {
         await createProfile(authUser.uid, email, profileData);
       } else if (!hasProfile) {
@@ -364,9 +388,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (intent: GoogleAuthIntent = 'signup') => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('tassukaveri_google_auth_intent', intent);
+    }
+
     const redirectTo =
-      typeof window === 'undefined' ? undefined : `${window.location.origin}/auth/callback`;
+      typeof window === 'undefined'
+        ? undefined
+        : `${window.location.origin}/auth/callback?intent=${intent}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

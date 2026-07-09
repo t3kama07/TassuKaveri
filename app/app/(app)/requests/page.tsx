@@ -27,6 +27,11 @@ import {
 } from '@/lib/requestService';
 import { getUserPets } from '@/lib/petService';
 import { reportRequest } from '@/lib/moderationService';
+import {
+  MEET_AND_GREET_RECOMMENDATION,
+  PLATFORM_ROLE_ACKNOWLEDGEMENT,
+  PLATFORM_ROLE_NOTICE,
+} from '@/lib/legalPolicy';
 import { Request, CreateRequestData, CareType, RequestApplication } from '@/types/request';
 import { Pet } from '@/types/pet';
 
@@ -38,6 +43,7 @@ type ConfirmationDialog = {
   confirmLabel: string;
   cancelLabel?: string;
   tone?: 'default' | 'danger';
+  requiresArrangementAcknowledgement?: boolean;
 };
 
 const OWNER_FREE_CANCELLATION_HOURS = 24;
@@ -207,6 +213,8 @@ function RequestsPageContent() {
   const [requestWizardStep, setRequestWizardStep] = useState<RequestWizardStep>(1);
   const [careDetailsConfirmed, setCareDetailsConfirmed] = useState(false);
   const [reviewStepReady, setReviewStepReady] = useState(false);
+  const [arrangementAcknowledged, setArrangementAcknowledged] = useState(false);
+  const [confirmationAcknowledged, setConfirmationAcknowledged] = useState(false);
 
   const loadData = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!user) return;
@@ -306,6 +314,7 @@ function RequestsPageContent() {
     wizardStepRef.current = 1;
     setCareDetailsConfirmed(false);
     setReviewStepReady(false);
+    setArrangementAcknowledged(false);
   }, [createParam, requestedSitterId]);
 
   function selectTab(tab: ExchangeTab) {
@@ -340,6 +349,7 @@ function RequestsPageContent() {
     wizardStepRef.current = 1;
     setCareDetailsConfirmed(false);
     setReviewStepReady(false);
+    setArrangementAcknowledged(false);
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -370,6 +380,7 @@ function RequestsPageContent() {
     wizardStepRef.current = 1;
     setCareDetailsConfirmed(false);
     setReviewStepReady(false);
+    setArrangementAcknowledged(false);
     setShowForm(true);
     setError('');
     setSuccess('');
@@ -392,6 +403,10 @@ function RequestsPageContent() {
       return;
     }
     if (!validateRequestBeforeSubmit()) {
+      return;
+    }
+    if (!arrangementAcknowledged) {
+      setError('Please confirm that you understand TassuKaveri is a connection platform before sending.');
       return;
     }
 
@@ -447,6 +462,7 @@ function RequestsPageContent() {
       setRequestWizardStep(1);
       wizardStepRef.current = 1;
       setReviewStepReady(false);
+      setArrangementAcknowledged(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError('We could not save this request right now. Please check the fields and try again. ' + message);
@@ -598,6 +614,7 @@ function RequestsPageContent() {
       title: `Choose ${application.sitterName}?`,
       message: 'Reserved credits will stay held until the care is finished or cancelled.',
       confirmLabel: 'Choose sitter',
+      requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
 
@@ -655,6 +672,7 @@ function RequestsPageContent() {
       title: 'Send offer?',
       message: `Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits.`,
       confirmLabel: 'Send offer',
+      requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
 
@@ -685,6 +703,7 @@ function RequestsPageContent() {
       title: 'Accept direct request?',
       message: `Accept this direct pet-care request for ${request.petNames.join(', ')}.`,
       confirmLabel: 'Accept request',
+      requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
 
@@ -757,6 +776,7 @@ function RequestsPageContent() {
 
     return new Promise((resolve) => {
       confirmationResolveRef.current = resolve;
+      setConfirmationAcknowledged(false);
       setConfirmationDialog(dialog);
     });
   }
@@ -1596,6 +1616,23 @@ function RequestsPageContent() {
                       </div>
                     )}
 
+                    <div className="rounded-2xl border border-[#d8cbbb] bg-[#fcfbf8] p-4 text-sm text-[#516173]">
+                      <p className="font-bold text-[#0f2640]">Before confirming</p>
+                      <p className="mt-2 leading-6">{PLATFORM_ROLE_NOTICE}</p>
+                      <p className="mt-2 leading-6">{MEET_AND_GREET_RECOMMENDATION}</p>
+                      <label className="mt-4 flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={arrangementAcknowledged}
+                          onChange={(event) => setArrangementAcknowledged(event.target.checked)}
+                          className="mt-1 h-4 w-4"
+                        />
+                        <span className="font-semibold text-[#0f2640]">
+                          {PLATFORM_ROLE_ACKNOWLEDGEMENT}
+                        </span>
+                      </label>
+                    </div>
+
                     <div className="rounded-2xl bg-[#e8f3ec] p-4 text-sm text-[#245d45]">
                       Your credits are reserved when you send this request, and released after you confirm the care is finished.
                     </div>
@@ -1625,7 +1662,7 @@ function RequestsPageContent() {
                     <button
                       type="button"
                       onClick={handleFinalSubmit}
-                      disabled={saving || pets.length === 0 || !reviewStepReady}
+                      disabled={saving || pets.length === 0 || !reviewStepReady || !arrangementAcknowledged}
                       className="rounded-full bg-[#ff7a2d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
                     >
                       {saving
@@ -2486,6 +2523,24 @@ function RequestsPageContent() {
             <p className="mt-4 text-sm leading-6 text-[#516173]">
               {confirmationDialog.message}
             </p>
+            {confirmationDialog.requiresArrangementAcknowledgement && (
+              <div className="mt-5 rounded-2xl border border-[#d8cbbb] bg-[#fcfbf8] p-4 text-sm text-[#516173]">
+                <p className="font-bold text-[#0f2640]">Before confirming</p>
+                <p className="mt-2 leading-6">{PLATFORM_ROLE_NOTICE}</p>
+                <p className="mt-2 leading-6">{MEET_AND_GREET_RECOMMENDATION}</p>
+                <label className="mt-4 flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={confirmationAcknowledged}
+                    onChange={(event) => setConfirmationAcknowledged(event.target.checked)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span className="font-semibold text-[#0f2640]">
+                    {PLATFORM_ROLE_ACKNOWLEDGEMENT}
+                  </span>
+                </label>
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
@@ -2498,11 +2553,14 @@ function RequestsPageContent() {
               <button
                 type="button"
                 onClick={() => closeConfirmationDialog(true)}
+                disabled={
+                  confirmationDialog.requiresArrangementAcknowledgement && !confirmationAcknowledged
+                }
                 className={`rounded-full px-5 py-3 text-sm font-bold text-white transition-colors ${
                   confirmationDialog.tone === 'danger'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-[#e96b2c] hover:bg-[#d95f23]'
-                }`}
+                } disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {confirmationDialog.confirmLabel}
               </button>

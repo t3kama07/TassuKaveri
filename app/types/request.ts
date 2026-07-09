@@ -20,12 +20,31 @@ export interface RequestReview {
   reviewedAt: Date;
 }
 
+export interface RequestPetSafetyInfo {
+  petId: string;
+  name: string;
+  behaviour: string;
+  aggressiveBehavior: string;
+  medicalConditions: string;
+  medicationRequired: boolean;
+  medicationInstructions: string;
+  allergies: string;
+  feedingInstructions: string;
+  specialCareRequirements: string;
+  escapeRisk: string;
+  childBehavior: string;
+  animalBehavior: string;
+  veterinarianDetails: string;
+  emergencyContactInfo: string;
+}
+
 export interface Request {
   id: string;
   ownerId: string;
   ownerName: string;
   petIds: string[];
   petNames: string[];
+  petSafetyInfo?: RequestPetSafetyInfo[];
   careType: CareType;
   startDate: Date;
   endDate: Date;
@@ -61,6 +80,7 @@ export interface Request {
 
 export interface CreateRequestData {
   petIds: string[];
+  petSafetyInfo?: RequestPetSafetyInfo[];
   careType: CareType;
   startDate: Date;
   endDate: Date;
@@ -81,6 +101,7 @@ export interface CreateRequestData {
 
 export interface UpdateRequestData {
   petIds?: string[];
+  petSafetyInfo?: RequestPetSafetyInfo[];
   careType?: CareType;
   startDate?: Date;
   endDate?: Date;

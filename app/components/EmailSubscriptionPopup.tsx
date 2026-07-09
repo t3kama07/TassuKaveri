@@ -141,6 +141,12 @@ export default function EmailSubscriptionPopup() {
                 autoComplete="email"
               />
               {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+              <p className="mt-2 text-xs leading-5 text-[#6b7280]">
+                We use this email only for TassuKaveri updates.{' '}
+                <Link href="/privacy-policy.html" className="font-semibold text-[#0f2640] underline underline-offset-4">
+                  Privacy policy
+                </Link>
+              </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">

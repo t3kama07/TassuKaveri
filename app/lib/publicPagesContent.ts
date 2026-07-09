@@ -331,18 +331,114 @@ export const privacyPolicyPageContent = {
     fi: 'Tietosuojaseloste',
   },
   title: {
-    en: 'How we handle information on TassuKaveri.',
-    fi: 'Miten käsittelemme tietoja TassuKaverissa.',
+    en: 'How TassuKaveri handles personal data.',
+    fi: 'Miten TassuKaveri käsittelee henkilötietoja.',
   },
   subtitle: {
-    en: 'This page explains in plain language what information may be collected when you create an account, publish requests, use messaging, and participate in the community.',
-    fi: 'Tällä sivulla kerrotaan selkeästi, mitä tietoja voidaan kerätä, kun luot tilin, julkaiset pyyntöjä, käytät viestejä ja osallistut yhteisöön.',
+    en: 'This page explains what we collect, why we use it, who helps us process it, and how you can use your privacy rights.',
+    fi: 'Tällä sivulla kerrotaan, mitä tietoja keräämme, miksi käytämme niitä, ketkä auttavat meitä käsittelemään tietoja ja miten voit käyttää tietosuojaoikeuksiasi.',
   },
   updatedAt: {
-    en: 'April 9, 2026',
-    fi: '9.4.2026',
+    en: 'July 5, 2026',
+    fi: '5.7.2026',
   },
   sections: [
+    {
+      heading: {
+        en: 'Controller and contact',
+        fi: 'Rekisterinpitäjä ja yhteystiedot',
+      },
+      paragraphs: [
+        {
+          en: 'TassuKaveri is responsible for the personal data processed through the website and service.',
+          fi: 'TassuKaveri vastaa verkkosivuston ja palvelun kautta käsiteltävistä henkilötiedoista.',
+        },
+        {
+          en: 'For privacy questions, account requests, or data subject rights, contact us at info@tassukaveri.fi.',
+          fi: 'Tietosuojakysymyksissä, tilipyyntöjen yhteydessä tai rekisteröidyn oikeuksien käyttämiseksi voit ottaa yhteyttä osoitteeseen info@tassukaveri.fi.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Detailed information we collect',
+        fi: 'Tarkemmat keräämämme tiedot',
+      },
+      paragraphs: [
+        {
+          en: 'We may process account details, email verification status, profile details, location, pet details, availability, photos, care requests, direct asks, accepted care records, messages, credit reservations and releases, reviews, trust score, cancellation history, support messages, moderation reports, and security logs.',
+          fi: 'Voimme käsitellä tilitietoja, sähköpostin vahvistustilaa, profiilitietoja, sijaintia, lemmikkitietoja, saatavuutta, kuvia, hoitopyyntöjä, suoria pyyntöjä, hyväksyttyjä hoitotapahtumia, viestejä, krediittien varauksia ja vapautuksia, arvosteluja, luottamustasoa, peruutushistoriaa, tukiviestejä, moderointi-ilmoituksia ja turvallisuuslokeja.',
+        },
+        {
+          en: 'If you submit your email through the website popup, we save the email address, submission date, and source as website_popup so we can send TassuKaveri details and updates.',
+          fi: 'Jos lähetät sähköpostiosoitteesi verkkosivuston ponnahdusikkunassa, tallennamme sähköpostiosoitteen, lähetyspäivän ja lähteen website_popup, jotta voimme lähettää TassuKaveri-tietoja ja päivityksiä.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Legal bases and purposes',
+        fi: 'Oikeusperusteet ja tarkoitukset',
+      },
+      paragraphs: [
+        {
+          en: 'We use information to create accounts, verify email addresses, show relevant profiles and requests, support messaging, reserve and release credits, display reviews, respond to support requests, prevent abuse, and keep the service secure.',
+          fi: 'Käytämme tietoja tilien luomiseen, sähköpostiosoitteiden vahvistamiseen, olennaisten profiilien ja pyyntöjen näyttämiseen, viestien tukemiseen, krediittien varaamiseen ja vapauttamiseen, arvostelujen näyttämiseen, tukipyyntöihin vastaamiseen, väärinkäytösten estämiseen ja palvelun suojaamiseen.',
+        },
+        {
+          en: 'The legal bases may include contract performance for account and care features, consent for email updates and optional analytics, legitimate interests for safety and abuse prevention, and legal obligations where applicable.',
+          fi: 'Oikeusperusteita voivat olla sopimuksen täyttäminen tili- ja hoito-ominaisuuksissa, suostumus sähköpostipäivityksiin ja valinnaiseen analytiikkaan, oikeutettu etu turvallisuuden ja väärinkäytösten estämisessä sekä sovellettavat lakisääteiset velvoitteet.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Cookies, local storage, and analytics',
+        fi: 'Evästeet, paikallinen tallennus ja analytiikka',
+      },
+      paragraphs: [
+        {
+          en: 'We use necessary browser storage for login sessions, language choice, onboarding choices, and to remember whether the email popup was closed or submitted. These are needed for the website experience to work properly.',
+          fi: 'Käytämme välttämätöntä selaintallennusta kirjautumiseen, kielivalintaan, aloitusvalintoihin ja siihen, muistetaanko sähköpostiponnahdusikkunan sulkeminen tai lähetys. Näitä tarvitaan sivuston toimivuuteen.',
+        },
+        {
+          en: 'Optional analytics, such as Google Analytics or Google Tag Manager, only loads after you accept analytics cookies. You can change this choice on the Cookie Preferences page.',
+          fi: 'Valinnainen analytiikka, kuten Google Analytics tai Google Tag Manager, latautuu vain, jos hyväksyt analytiikkaevästeet. Voit muuttaa valintaa Evasteasetukset-sivulla.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Service providers and transfers',
+        fi: 'Palveluntarjoajat ja siirrot',
+      },
+      paragraphs: [
+        {
+          en: 'We use service providers to host, store, secure, and send parts of the service, such as Supabase for authentication and database services, Vercel or similar hosting, email delivery providers, and Google analytics tools if you consent.',
+          fi: 'Käytämme palveluntarjoajia palvelun hostaamiseen, tallentamiseen, suojaamiseen ja viestien lähettämiseen. Näitä voivat olla esimerkiksi Supabase tunnistautumiseen ja tietokantaan, Vercel tai vastaava hosting, sähköpostin lähetyspalvelut ja Googlen analytiikkatyökalut, jos annat suostumuksen.',
+        },
+        {
+          en: 'Some providers may process data outside Finland or the EEA. When that happens, appropriate safeguards such as EU Standard Contractual Clauses or equivalent transfer mechanisms should be used.',
+          fi: 'Osa palveluntarjoajista voi käsitellä tietoja Suomen tai ETA-alueen ulkopuolella. Tällöin tulee käyttää asianmukaisia suojatoimia, kuten EU:n vakiosopimuslausekkeita tai vastaavia siirtomekanismeja.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Retention and your rights',
+        fi: 'Säilytys ja oikeutesi',
+      },
+      paragraphs: [
+        {
+          en: 'We keep account and service information for as long as it is needed to operate the account, provide the pet-care exchange, protect trust and safety, resolve disputes, and meet legal obligations. Email update subscriptions are kept until you ask us to remove them or until they are no longer needed.',
+          fi: 'Säilytämme tili- ja palvelutietoja niin kauan kuin niitä tarvitaan tilin ylläpitoon, lemmikkihoidon vaihtopalvelun tarjoamiseen, luottamuksen ja turvallisuuden suojaamiseen, riitojen ratkaisemiseen ja lakisääteisten velvoitteiden täyttämiseen. Sähköpostipäivitysten tilaukset säilytetään, kunnes pyydät poistamista tai kunnes niitä ei enää tarvita.',
+        },
+        {
+          en: 'Depending on the legal basis and situation, you may have the right to access your data, correct it, request deletion, restrict processing, object to processing, receive portable data, and withdraw consent. You can also contact the Finnish Data Protection Ombudsman if you believe your rights have not been respected.',
+          fi: 'Oikeusperusteesta ja tilanteesta riippuen sinulla voi olla oikeus saada pääsy tietoihisi, korjata tietoja, pyytää poistamista, rajoittaa käsittelyä, vastustaa käsittelyä, saada tiedot siirrettävässä muodossa ja peruuttaa suostumus. Voit myös ottaa yhteyttä Suomen tietosuojavaltuutettuun, jos katsot, ettei oikeuksiasi ole noudatettu.',
+        },
+      ],
+    },
     {
       heading: {
         en: 'Information you provide',
@@ -430,6 +526,38 @@ export const termsOfServicePageContent = {
   sections: [
     {
       heading: {
+        en: 'TassuKaveri role',
+        fi: 'TassuKaverin rooli',
+      },
+      paragraphs: [
+        {
+          en: 'TassuKaveri provides an online platform that helps pet owners and pet carers find, communicate with, and make arrangements with each other.',
+          fi: 'TassuKaveri tarjoaa verkkoalustan, joka auttaa lemmikinomistajia ja lemmikinhoitajia löytämään toisensa, viestimään ja sopimaan järjestelyistä keskenään.',
+        },
+        {
+          en: 'TassuKaveri does not provide pet-care services and is not the employer, representative, or agent of any user. Any pet-care arrangement is made directly between the pet owner and the pet carer.',
+          fi: 'TassuKaveri ei tarjoa lemmikinhoitopalveluja eikä ole käyttäjän työnantaja, edustaja tai asiamies. Jokainen lemmikinhoitojärjestely tehdään suoraan lemmikinomistajan ja lemmikinhoitajan välillä.',
+        },
+        {
+          en: 'Users are responsible for deciding whether another user is suitable and for agreeing on the dates, duration, credits, pet-care instructions, access arrangements, emergency procedures, insurance, and all other conditions of the arrangement.',
+          fi: 'Käyttäjät vastaavat itse siitä, onko toinen käyttäjä sopiva, sekä päivämääristä, kestosta, krediiteistä, hoito-ohjeista, pääsyjärjestelyistä, hätätilanteista, vakuutuksista ja muista järjestelyn ehdoista sopimisesta.',
+        },
+        {
+          en: 'Pet owners are responsible for providing complete and accurate information about their pets, including behaviour, health conditions, medication, feeding requirements, and possible safety risks. Pet carers are responsible for deciding whether they have the necessary ability, experience, availability, and suitable conditions to care for the pet safely.',
+          fi: 'Lemmikinomistajat vastaavat täydellisten ja oikeiden tietojen antamisesta lemmikeistään, mukaan lukien käytös, terveydentila, lääkitys, ruokinta ja mahdolliset turvallisuusriskit. Lemmikinhoitajat vastaavat itse siitä, onko heillä tarvittava kyky, kokemus, saatavuus ja sopivat olosuhteet hoitaa lemmikkiä turvallisesti.',
+        },
+        {
+          en: 'TassuKaveri verifies users email addresses only. Email verification confirms only that the user has access to the provided email address. It does not confirm the users identity, background, qualifications, experience, reliability, behaviour, or suitability to provide pet care.',
+          fi: 'TassuKaveri vahvistaa vain käyttäjien sähköpostiosoitteet. Sähköpostivahvistus vahvistaa vain, että käyttäjällä on pääsy annettuun sähköpostiosoitteeseen. Se ei vahvista käyttäjän henkilöllisyyttä, taustaa, pätevyyttä, kokemusta, luotettavuutta, käytöstä tai sopivuutta lemmikinhoitoon.',
+        },
+        {
+          en: 'To the extent permitted by applicable law, TassuKaveri is not responsible for disputes, injuries, illnesses, loss, theft, property damage, pet loss, pet injury, or other harm resulting from arrangements or interactions between users. Nothing in these Terms excludes or limits any responsibility that cannot legally be excluded, including responsibility arising from TassuKaveris own unlawful actions or failure to meet its legal obligations.',
+          fi: 'Sovellettavan lain sallimissa rajoissa TassuKaveri ei vastaa käyttäjien välisten järjestelyjen tai vuorovaikutuksen seurauksena syntyvistä riidoista, vammoista, sairauksista, menetyksistä, varkauksista, omaisuusvahingoista, lemmikin katoamisesta, lemmikin loukkaantumisesta tai muusta vahingosta. Mikään näissä ehdoissa ei poista tai rajoita vastuuta, jota ei voida lain mukaan poistaa, mukaan lukien vastuu TassuKaverin omista lainvastaisista toimista tai lakisääteisten velvoitteiden laiminlyönnistä.',
+        },
+      ],
+    },
+    {
+      heading: {
         en: 'Community platform',
         fi: 'Yhteisöalusta',
       },
@@ -473,6 +601,26 @@ export const termsOfServicePageContent = {
         {
           en: 'Members should communicate clearly about availability, expectations, and pet care details before agreeing to an exchange.',
           fi: 'Jäsenten tulee viestiä selkeästi saatavuudesta, odotuksista ja lemmikkihoidon yksityiskohdista ennen vaihdosta sopimista.',
+        },
+      ],
+    },
+    {
+      heading: {
+        en: 'Cancellations and disputes',
+        fi: 'Peruutukset ja riidat',
+      },
+      paragraphs: [
+        {
+          en: 'Open requests can be cancelled by the pet owner before a sitter accepts. After care is accepted, either user can cancel in the service. If the owner cancels more than 24 hours before the start time, reserved credits are returned to the owner. If the owner cancels within 24 hours of the start time, reserved credits may be released to the sitter. If the sitter cancels, reserved credits are returned to the owner.',
+          fi: 'Lemmikinomistaja voi peruuttaa avoimen pyynnön ennen hoitajan hyväksyntää. Kun hoito on hyväksytty, kumpi tahansa käyttäjä voi peruuttaa sen palvelussa. Jos omistaja peruuttaa yli 24 tuntia ennen aloitusta, varatut krediitit palautetaan omistajalle. Jos omistaja peruuttaa alle 24 tuntia ennen aloitusta, varatut krediitit voidaan vapauttaa hoitajalle. Jos hoitaja peruuttaa, varatut krediitit palautetaan omistajalle.',
+        },
+        {
+          en: 'If a user does not attend, provides unsafe care, gives false profile information, or a dispute occurs, the other user should report the issue through the service. TassuKaveri may review reports and take platform action such as warnings, restrictions, suspension, or removal, but does not guarantee that it will resolve private disputes between users.',
+          fi: 'Jos käyttäjä ei saavu paikalle, toimii turvattomasti, antaa vääriä profiilitietoja tai syntyy riita, toisen käyttäjän tulee ilmoittaa asiasta palvelussa. TassuKaveri voi tarkistaa ilmoituksia ja tehdä alustaan liittyviä toimia, kuten antaa varoituksia, rajoittaa käyttöä, jäädyttää tai poistaa tilin, mutta se ei takaa käyttäjien yksityisten riitojen ratkaisemista.',
+        },
+        {
+          en: 'Users remain responsible for agreements made directly with each other, including practical care details, home access, emergency contacts, insurance, and any follow-up needed after the arrangement.',
+          fi: 'Käyttäjät vastaavat edelleen keskenään tekemistään sopimuksista, mukaan lukien käytännön hoitotiedot, pääsy kotiin, hätäyhteystiedot, vakuutukset ja järjestelyn jälkeiset jatkotoimet.',
         },
       ],
     },

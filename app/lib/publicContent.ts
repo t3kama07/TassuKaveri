@@ -12,7 +12,7 @@ export const publicContent = {
     landing: {
       hero: {
         eyebrow: 'Community pet care in Finland',
-        titleStart: 'Find trusted pet sitters near you from your local',
+        titleStart: 'Find pet carers near you through your local',
         titleAccent: 'community',
         body:
           'Earn credits by helping other pet owners, and use them when you need care.',
@@ -27,7 +27,7 @@ export const publicContent = {
       ],
       howItWorks: {
         title: 'How TassuKaveri works',
-        body: 'A simple way to exchange trusted pet care through community credits.',
+        body: 'A simple way to arrange pet care directly with other users through community credits.',
         cards: [
           {
             title: '1. Post your pet care need or offer help',
@@ -35,8 +35,8 @@ export const publicContent = {
               'Tell others what you need or help nearby pet owners.',
           },
           {
-            title: '2. Connect with trusted local pet owners',
-            description: 'Chat safely and choose someone you trust.',
+            title: '2. Connect with local pet owners and carers',
+            description: 'Review profiles, chat, and decide who is suitable for your pet.',
           },
           {
             title: '3. Exchange care using credits',
@@ -48,10 +48,10 @@ export const publicContent = {
       safety: {
         title: 'Trust & safety',
         body:
-          'TassuKaveri is a safe platform for exchanging pet care with peace of mind.',
+          'TassuKaveri gives members tools to communicate, review profiles, report concerns, and make informed choices.',
         features: [
-          'Verified email and profiles',
-          'Safe messaging & reporting',
+          'Email-verified accounts',
+          'Messaging & reporting',
           'Reviews & ratings system',
           'Community moderation',
         ],
@@ -101,13 +101,14 @@ export const publicContent = {
             items: [
               { label: 'FAQ', href: '/faq.html' },
               { label: 'Blog', href: '/blog.html' },
-              { label: 'Contact', href: 'mailto:info@tassukaveri.fi' },
+              { label: 'Contact', href: '/contact.html' },
             ],
           },
           {
             title: 'Legal',
             items: [
               { label: 'Privacy Policy', href: '/privacy-policy.html' },
+              { label: 'Cookie Preferences', href: '/cookie-preferences.html' },
               { label: 'Terms of Service', href: '/terms-of-service.html' },
             ],
           },
@@ -145,12 +146,12 @@ export const publicContent = {
       howItWorks: {
         title: 'Miten se toimii',
         body:
-          'Yksinkertainen tapa vaihtaa luotettavaa lemmikkihoitoa yhteisökrediittien avulla.',
+          'Yksinkertainen tapa sopia lemmikkihoidosta suoraan muiden käyttäjien kanssa yhteisökrediittien avulla.',
         cards: [
           {
             title: '1. Luo profiili',
             description:
-              'Rekisteröidy, vahvista sähköpostisi ja kerro itsestäsi sekä lemmikistäsi.',
+              'Tarkista profiilit, keskustele ja päätä itse, kuka sopii lemmikillesi.',
           },
           {
             title: '2. Selaa pyyntöjä',
@@ -167,10 +168,10 @@ export const publicContent = {
       safety: {
         title: 'Luottamus ja turvallisuus',
         body:
-          'TassuKaveri on turvallinen alusta lemmikkihoidon vaihtamiseen hyvillä mielin.',
+          'TassuKaveri tarjoaa jäsenille työkaluja viestintään, profiilien arviointiin, ilmoituksiin ja harkittujen päätösten tekemiseen.',
         features: [
-          'Vahvistetut sähköpostit ja profiilit',
-          'Turvalliset viestit ja ilmoitukset',
+          'Sähköpostivahvistetut tilit',
+          'Viestit ja ilmoitukset',
           'Arvostelu- ja tähtijärjestelmä',
           'Yhteisön moderointi',
         ],
@@ -220,13 +221,14 @@ export const publicContent = {
             items: [
               { label: 'UKK', href: '/faq.html' },
               { label: 'Blogi', href: '/blog.html' },
-              { label: 'Yhteystiedot', href: 'mailto:info@tassukaveri.fi' },
+              { label: 'Yhteystiedot', href: '/contact.html' },
             ],
           },
           {
             title: 'Lakiasiat',
             items: [
               { label: 'Tietosuojaseloste', href: '/privacy-policy.html' },
+              { label: 'Evasteasetukset', href: '/cookie-preferences.html' },
               { label: 'Käyttöehdot', href: '/terms-of-service.html' },
             ],
           },

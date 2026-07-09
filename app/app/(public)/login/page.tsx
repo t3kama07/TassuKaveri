@@ -42,7 +42,7 @@ export default function LoginPage() {
     setGoogleLoading(true);
 
     try {
-      await signInWithGoogle();
+      await signInWithGoogle('login');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(`We could not start Google login. ${message}`);

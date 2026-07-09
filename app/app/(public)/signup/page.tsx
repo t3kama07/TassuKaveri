@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import CitySelect from '@/components/CitySelect';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { acceptLatestLegalDocuments } from '@/lib/legalAcceptanceService';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -17,14 +18,23 @@ export default function SignupPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [cameFromGoogleLogin, setCameFromGoogleLogin] = useState(false);
   const { signup, signInWithGoogle, user } = useAuth();
   const router = useRouter();
+  const legalAccepted = termsAccepted && privacyAccepted;
 
   useEffect(() => {
     if (user) {
       router.push('/dashboard');
     }
   }, [user, router]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setCameFromGoogleLogin(params.get('from') === 'google-login');
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -37,6 +47,9 @@ export default function SignupPage() {
     if (password !== confirmPassword) {
       return setError('The passwords do not match.');
     }
+    if (!termsAccepted || !privacyAccepted) {
+      return setError('Please accept the Terms of Service and Privacy Policy before creating an account.');
+    }
 
     setLoading(true);
 
@@ -45,6 +58,9 @@ export default function SignupPage() {
         name: trimmedName,
         location: trimmedLocation,
       });
+      if (result.user) {
+        await acceptLatestLegalDocuments(result.user.uid);
+      }
       if (result.requiresEmailVerification) {
         setSuccess(`Account created for ${result.email}. Check your email to confirm it, then log in.`);
         setPassword('');
@@ -63,10 +79,14 @@ export default function SignupPage() {
 
   async function handleGoogleSignup() {
     setError('');
+    if (!termsAccepted || !privacyAccepted) {
+      setError('Please accept the Terms of Service and Privacy Policy before continuing with Google.');
+      return;
+    }
     setGoogleLoading(true);
 
     try {
-      await signInWithGoogle();
+      await signInWithGoogle('signup');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(`We could not start Google signup. ${message}`);
@@ -75,135 +95,196 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-[#0f2640] mb-2">Create your account</h1>
-      <p className="mb-6 text-[#6b7280]">
-        Start by adding your basic details. You can add pets and sitter times after sign-up.
-      </p>
-      
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+    <main className="min-h-[calc(100vh-72px)] bg-[linear-gradient(135deg,#fff7ef_0%,#f4eee5_48%,#eef5ff_100%)] px-4 py-8 sm:py-12">
+      <section className="mx-auto w-full max-w-[30rem] overflow-hidden rounded-[28px] border border-[#ead9ca] bg-white/92 p-5 shadow-[0_22px_70px_rgba(15,38,64,0.14)] sm:p-7">
+        <div className="mb-6 flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ff7a2d] text-xl font-black text-white shadow-sm">
+            T
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e96b2c]">
+              TassuKaveri
+            </p>
+            <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#0f2640]">
+              Create your account
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[#516173]">
+              Join the pet-care exchange. Add pets and sitter times after signup.
+            </p>
+          </div>
         </div>
-      )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded mb-4">
-          <p>{success}</p>
-          <p className="mt-2 text-sm">
-            You can return to{' '}
-            <Link href="/login" className="font-medium text-green-900 underline">
-              login
-            </Link>{' '}
-            after confirming the email.
-          </p>
-        </div>
-      )}
-
-      {!success && (
-        <>
-          <GoogleAuthButton
-            onClick={handleGoogleSignup}
-            disabled={loading || googleLoading}
-          />
-
-          <div className="my-6 flex items-center gap-4 text-sm text-[#6b7280]">
-            <span className="h-px flex-1 bg-gray-200" />
-            <span>or use email</span>
-            <span className="h-px flex-1 bg-gray-200" />
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
           </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="signup-name" className="block text-sm font-medium text-[#0f2640] mb-1">
-              Name
-            </label>
-            <input
-              id="signup-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              placeholder="Your name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
+        {cameFromGoogleLogin && !error && !success && (
+          <div className="mb-4 rounded-2xl border border-[#ead9ca] bg-[#fffaf6] px-4 py-3 text-sm text-[#7a4a1f]">
+            Please register first before using Google login.
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            <p>{success}</p>
+            <p className="mt-2">
+              You can return to{' '}
+              <Link href="/login" className="font-bold text-green-900 underline">
+                login
+              </Link>{' '}
+              after confirming the email.
+            </p>
+          </div>
+        )}
+
+        {!success && (
+          <>
+            <GoogleAuthButton
+              onClick={handleGoogleSignup}
+              disabled={loading || googleLoading}
             />
-          </div>
 
-          <div>
-            <label htmlFor="signup-city" className="block text-sm font-medium text-[#0f2640] mb-1">
-              City
-            </label>
-            <CitySelect
-              id="signup-city"
-              value={location}
-              onChange={setLocation}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-            />
-          </div>
+            <div className="my-5 flex items-center gap-4 text-sm text-[#6b7280]">
+              <span className="h-px flex-1 bg-[#ead9ca]" />
+              <span>or use email</span>
+              <span className="h-px flex-1 bg-[#ead9ca]" />
+            </div>
 
-          <div>
-            <label htmlFor="signup-email" className="block text-sm font-medium text-[#0f2640] mb-1">
-              Email
-            </label>
-            <input
-              id="signup-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-            />
-          </div>
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <div>
+                <label htmlFor="signup-name" className="mb-1 block text-sm font-bold text-[#0f2640]">
+                  Name
+                </label>
+                <input
+                  id="signup-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Your name"
+                  className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="signup-password" className="block text-sm font-medium text-[#0f2640] mb-1">
-              Password
-            </label>
-            <input
-              id="signup-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-            />
-          </div>
+              <div>
+                <label htmlFor="signup-city" className="mb-1 block text-sm font-bold text-[#0f2640]">
+                  City
+                </label>
+                <CitySelect
+                  id="signup-city"
+                  value={location}
+                  onChange={setLocation}
+                  required
+                  className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-[#0f2640] mb-1">
-              Confirm password
-            </label>
-            <input
-              id="signup-confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-            />
-          </div>
+              <div>
+                <label htmlFor="signup-email" className="mb-1 block text-sm font-bold text-[#0f2640]">
+                  Email
+                </label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+                />
+              </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-          </form>
-        </>
-      )}
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="signup-password" className="mb-1 block text-sm font-bold text-[#0f2640]">
+                    Password
+                  </label>
+                  <input
+                    id="signup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+                  />
+                </div>
 
-      <p className="mt-4 text-center text-[#6b7280]">
-        Already have an account?{' '}
-        <Link href="/login" className="text-[#ff7a2d] hover:underline">
-          Log in
-        </Link>
-      </p>
+                <div>
+                  <label htmlFor="signup-confirm-password" className="mb-1 block text-sm font-bold text-[#0f2640]">
+                    Confirm
+                  </label>
+                  <input
+                    id="signup-confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#ead9ca] bg-[#fffaf6] p-4 text-sm text-[#516173]">
+                <p className="mb-3 font-bold text-[#0f2640]">Before creating your account</p>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(event) => setTermsAccepted(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[#ff7a2d]"
+                  />
+                  <span>
+                    I accept the{' '}
+                    <Link href="/terms-of-service.html" className="font-bold text-[#0f2640] underline">
+                      Terms of Service
+                    </Link>
+                    .
+                  </span>
+                </label>
+                <label className="mt-2 flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(event) => setPrivacyAccepted(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[#ff7a2d]"
+                  />
+                  <span>
+                    I accept the{' '}
+                    <Link href="/privacy-policy.html" className="font-bold text-[#0f2640] underline">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+                {!legalAccepted && (
+                  <p className="mt-3 text-xs font-semibold text-[#9a5a22]">
+                    Required for email signup and Google signup.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !legalAccepted}
+                className="w-full rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#e66a1f] disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {loading ? 'Creating account...' : 'Create account'}
+              </button>
+            </form>
+          </>
+        )}
+
+        <p className="mt-5 text-center text-sm text-[#6b7280]">
+          Already have an account?{' '}
+          <Link href="/login" className="font-bold text-[#ff7a2d] hover:underline">
+            Log in
+          </Link>
+        </p>
+      </section>
     </main>
   );
 }
