@@ -75,7 +75,7 @@ test.describe('API authorization', () => {
         requestId: 'forged-request-id',
       },
     });
-    expect(requestWithoutActor.status()).toBe(400);
+    expect(requestWithoutActor.status()).toBe(403);
 
     const walletForgery = await request.post('/api/supabase-sync/wallet', {
       headers,

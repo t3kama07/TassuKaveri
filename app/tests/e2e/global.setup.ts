@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createTestUsers } from '../../lib/testUserService';
 import { deletePlaywrightTestUsers, listPlaywrightAuthUsers } from './helpers/cleanup';
+import { createSeededTestUsers } from './helpers/admin';
 import { loadE2EEnv } from './helpers/env';
 import {
   type E2ERunUsersFile,
@@ -41,24 +41,14 @@ export default async function globalSetup() {
   const runId = Date.now().toString(36);
   const password = process.env.PLAYWRIGHT_TEST_PASSWORD || 'Playwright123!';
   const prefix = `pw${runId}user`;
-  const results = await createTestUsers({
+  const results = await createSeededTestUsers({
+    aliases: USER_ALIASES,
     prefix,
     domain: 'example.com',
-    count: USER_ALIASES.length,
-    startAt: 1,
     password,
     location: 'Oulu',
     country: 'Finland',
   });
-
-  const failedResults = results.filter((result) => result.status === 'failed');
-  if (failedResults.length > 0) {
-    throw new Error(
-      `Playwright seed failed for: ${failedResults
-        .map((result) => `${result.email} (${result.message})`)
-        .join(', ')}`
-    );
-  }
 
   const users = {} as Record<E2EUserAlias, E2EUserAccount>;
 

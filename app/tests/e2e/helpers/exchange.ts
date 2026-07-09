@@ -7,6 +7,22 @@ export async function confirmNextDialog(page: Page) {
   });
 }
 
+export async function confirmInAppDialog(
+  page: Page,
+  title: string | RegExp,
+  confirmLabel: string,
+  options: { acknowledge?: boolean } = {}
+) {
+  const dialog = page.getByRole('dialog', { name: title });
+  await expect(dialog).toBeVisible();
+  if (options.acknowledge) {
+    await dialog
+      .getByLabel(/I understand that TassuKaveri is a connection platform/i)
+      .check();
+  }
+  await dialog.getByRole('button', { name: confirmLabel, exact: true }).click();
+}
+
 export async function createDirectRequestFromProfile(
   page: Page,
   values: {

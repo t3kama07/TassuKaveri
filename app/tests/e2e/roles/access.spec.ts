@@ -1,81 +1,13 @@
 import { expect, test } from '../fixtures/app.fixtures';
 import { login, logout } from '../helpers/auth';
-import { createSupabaseAdminClient } from '../../../lib/supabaseAdmin';
 import {
-  getWalletFromSupabase,
-  getWalletTransactionsFromSupabase,
-  replaceWalletStateInSupabase,
-} from '../../../lib/supabaseWalletStore';
-import type { Transaction, Wallet } from '../../../types/wallet';
-
-async function setProfileRole(uid: string, role: 'admin' | 'user') {
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      role,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('uid', uid);
-
-  if (error) {
-    throw new Error(`Failed to set profile role: ${error.message}`);
-  }
-}
-
-async function setProfileFrozen(uid: string, frozen: boolean) {
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      frozen,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('uid', uid);
-
-  if (error) {
-    throw new Error(`Failed to set profile frozen state: ${error.message}`);
-  }
-}
-
-async function getProfileFrozen(uid: string) {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('frozen')
-    .eq('uid', uid)
-    .maybeSingle<{ frozen: boolean }>();
-
-  if (error) {
-    throw new Error(`Failed to read profile frozen state: ${error.message}`);
-  }
-
-  return Boolean(data?.frozen);
-}
-
-async function getWalletBalance(uid: string) {
-  const wallet = await getWalletFromSupabase(uid);
-  if (!wallet) {
-    throw new Error(`Missing wallet for ${uid}`);
-  }
-
-  return wallet.balance;
-}
-
-async function readWalletState(uid: string): Promise<{
-  wallet: Wallet;
-  transactions: Transaction[];
-}> {
-  const wallet = await getWalletFromSupabase(uid);
-  if (!wallet) {
-    throw new Error(`Missing wallet for ${uid}`);
-  }
-
-  return {
-    wallet,
-    transactions: await getWalletTransactionsFromSupabase(uid),
-  };
-}
+  getProfileFrozen,
+  getWalletBalance,
+  readWalletState,
+  replaceWalletState,
+  setProfileFrozen,
+  setProfileRole,
+} from '../helpers/admin';
 
 function dashboardCreditsCard(page: Parameters<typeof login>[0]) {
   return page.locator('div').filter({
@@ -164,11 +96,11 @@ test.describe('Role-based Access', () => {
       await login(page, appUsers.accessMember);
       await expect(dashboardCreditsCard(page).getByText(String(originalWalletState.wallet.balance + 1), { exact: true })).toBeVisible();
     } finally {
-      await replaceWalletStateInSupabase({
-        userId: targetUserId,
-        wallet: originalWalletState.wallet,
-        transactions: originalWalletState.transactions,
-      });
+      await replaceWalletState(
+        targetUserId,
+        originalWalletState.wallet,
+        originalWalletState.transactions
+      );
       await setProfileRole(appUsers.profileOwner.uid, 'user');
     }
   });

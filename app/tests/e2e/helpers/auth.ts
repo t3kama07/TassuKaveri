@@ -42,4 +42,6 @@ export async function signUp(
   const passwords = form.locator('input[type="password"]');
   await passwords.nth(0).fill(values.password);
   await passwords.nth(1).fill(values.confirmPassword ?? values.password);
+  await form.getByLabel('I accept the Terms of Service.').check();
+  await form.getByLabel('I accept the Privacy Policy.').check();
 }

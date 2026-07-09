@@ -6,7 +6,13 @@ import { readRunUsers, runtimeUsersFile } from './helpers/runtime';
 export default async function globalTeardown() {
   loadE2EEnv();
 
-  const run = readRunUsers();
+  let run;
+  try {
+    run = readRunUsers();
+  } catch {
+    return;
+  }
+
   const generatedAt = new Date(run.generatedAt).getTime();
   const seededUserIds = Object.values(run.users).map((user) => user.uid);
   const usersCreatedDuringRun = (await listPlaywrightAuthUsers())

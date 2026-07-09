@@ -1,12 +1,32 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   COOKIE_CONSENT_EVENT,
   COOKIE_CONSENT_KEY,
   type CookieConsentValue,
 } from '@/lib/cookieConsent';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCookieConsent } from '@/lib/useCookieConsent';
+
+const HIDDEN_PATH_PREFIXES = [
+  '/admin',
+  '/auth',
+  '/dashboard',
+  '/dev-tools',
+  '/exchange',
+  '/messages',
+  '/notifications',
+  '/pets',
+  '/profile',
+  '/requests',
+  '/verify-email',
+];
+
+function shouldHideForPath(pathname: string): boolean {
+  return HIDDEN_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 function saveConsent(value: CookieConsentValue) {
   window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
@@ -15,12 +35,14 @@ function saveConsent(value: CookieConsentValue) {
 
 export default function CookieConsentBanner() {
   const consent = useCookieConsent();
+  const pathname = usePathname();
+  const { user, loading } = useAuth();
 
   function handleChoice(value: CookieConsentValue) {
     saveConsent(value);
   }
 
-  if (consent !== 'unset') {
+  if (consent !== 'unset' || loading || user || shouldHideForPath(pathname)) {
     return null;
   }
 

@@ -2,7 +2,7 @@ import { expect, test } from '../fixtures/app.fixtures';
 import { login } from '../helpers/auth';
 import { buildFutureWindow } from '../helpers/date';
 import {
-  confirmNextDialog,
+  confirmInAppDialog,
   createDirectRequestFromProfile,
   requestCardByText,
   sendChatMessage,
@@ -65,7 +65,7 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await addAvailabilitySlot(sitterPage, sitterAvailability);
 
       await ownerPage.goto(`/sitters/${sitter.uid}`);
-      await expect(ownerPage.getByText('No reviews yet')).toBeVisible();
+      await expect(ownerPage.getByText('No reviews yet', { exact: true })).toBeVisible();
 
       await createDirectRequestFromProfile(ownerPage, {
         sitterUid: sitter.uid,
@@ -87,6 +87,9 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await fieldByLabel(requestForm, 'Notes for the sitter').fill(requestNote);
       await ownerPage.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(ownerPage.getByRole('heading', { name: 'Review your request', exact: true })).toBeVisible();
+      await ownerPage
+        .getByLabel(/I understand that TassuKaveri is a connection platform/i)
+        .check();
       await ownerPage.getByRole('button', { name: 'Ask for pet care', exact: true }).click();
 
       await expect(ownerPage.locator('form')).toHaveCount(0);
@@ -101,8 +104,10 @@ test.describe('Direct Booking, Chat, And Review', () => {
 
       await sitterPage.getByRole('button', { name: 'Open direct requests', exact: true }).click();
       await expect(sitterPage).toHaveURL(/tab=direct-requests/);
-      await confirmNextDialog(sitterPage);
       await sitterPage.getByRole('button', { name: 'Accept direct ask', exact: true }).click();
+      await confirmInAppDialog(sitterPage, 'Accept direct request?', 'Accept request', {
+        acknowledge: true,
+      });
       await expect(sitterPage.getByText(`Direct pet-care request accepted for ${petName}.`)).toBeVisible();
 
       await ownerPage.goto('/exchange?tab=my-requests');
@@ -122,13 +127,13 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await expect(ownerPage.getByText(sitterReply, { exact: true }).last()).toBeVisible();
 
       await sitterPage.goto('/exchange?tab=my-sits');
-      await confirmNextDialog(sitterPage);
       await sitterPage.getByRole('button', { name: 'Mark care as finished', exact: true }).click();
+      await confirmInAppDialog(sitterPage, 'Mark care as finished?', 'Mark finished');
       await expect(sitterPage.getByText('Marked as finished. Waiting for the owner to confirm.')).toBeVisible();
 
       await ownerPage.goto('/exchange?tab=my-requests');
-      await confirmNextDialog(ownerPage);
       await ownerPage.getByRole('button', { name: 'Confirm care is finished', exact: true }).click();
+      await confirmInAppDialog(ownerPage, 'Confirm completed care?', 'Confirm care');
       await expect(ownerPage.getByText('Care confirmed. The sitter received the credits.')).toBeVisible();
 
       await ownerPage.locator('select').filter({ has: ownerPage.locator('option[value="5"]') }).first().selectOption('5');
@@ -140,8 +145,8 @@ test.describe('Direct Booking, Chat, And Review', () => {
       await expect(ownerPage.getByText(reviewComment)).toBeVisible();
 
       await ownerPage.goto(`/sitters/${sitter.uid}`);
-      await expect(ownerPage.getByText('1 reviews')).toBeVisible();
-      await expect(ownerPage.getByText('5.0')).toBeVisible();
+      await expect(ownerPage.getByText('1 review')).toBeVisible();
+      await expect(ownerPage.getByText('5.0', { exact: true })).toBeVisible();
     } finally {
       await Promise.allSettled([ownerContext.close(), sitterContext.close()]);
     }

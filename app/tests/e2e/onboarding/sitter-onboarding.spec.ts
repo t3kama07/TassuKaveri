@@ -44,6 +44,6 @@ test.describe('Sitter Onboarding', () => {
     await page.goto(`/sitters/${sitter.uid}`);
     await expect(page.getByRole('heading', { name: sitterName, exact: true })).toBeVisible();
     await expect(page.getByText('Open for bookings')).toBeVisible();
-    await expect(page.getByText('No reviews yet')).toBeVisible();
+    await expect(page.getByText('No reviews yet', { exact: true })).toBeVisible();
   });
 });

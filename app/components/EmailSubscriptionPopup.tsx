@@ -3,13 +3,31 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const POPUP_DELAY_MS = 3000;
 const CLOSED_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 const SUBSCRIBED_KEY = 'tassukaveri_email_popup_subscribed';
 const CLOSED_UNTIL_KEY = 'tassukaveri_email_popup_closed_until';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const HIDDEN_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth'];
+const HIDDEN_PATH_PREFIXES = [
+  '/admin',
+  '/auth',
+  '/dashboard',
+  '/dev-tools',
+  '/exchange',
+  '/forgot-password',
+  '/login',
+  '/messages',
+  '/notifications',
+  '/pets',
+  '/profile',
+  '/requests',
+  '/reset-password',
+  '/signup',
+  '/sitters',
+  '/verify-email',
+];
 
 function shouldHideForPath(pathname: string): boolean {
   return HIDDEN_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -17,6 +35,7 @@ function shouldHideForPath(pathname: string): boolean {
 
 export default function EmailSubscriptionPopup() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
   const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +43,8 @@ export default function EmailSubscriptionPopup() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (shouldHideForPath(pathname)) {
+    if (loading || user || shouldHideForPath(pathname)) {
+      setVisible(false);
       return;
     }
 
@@ -39,7 +59,7 @@ export default function EmailSubscriptionPopup() {
     }, POPUP_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [pathname]);
+  }, [loading, pathname, user]);
 
   function closePopup() {
     window.localStorage.setItem(CLOSED_UNTIL_KEY, String(Date.now() + CLOSED_FOR_MS));
