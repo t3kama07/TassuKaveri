@@ -86,8 +86,10 @@ export default function SignupPage() {
     setGoogleLoading(true);
 
     try {
+      window.sessionStorage.setItem('tassukaveri_google_signup_legal_accepted', 'true');
       await signInWithGoogle('signup');
     } catch (err: unknown) {
+      window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(`We could not start Google signup. ${message}`);
       setGoogleLoading(false);

@@ -391,6 +391,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async (intent: GoogleAuthIntent = 'signup') => {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem('tassukaveri_google_auth_intent', intent);
+      if (intent === 'login') {
+        window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
+      }
     }
 
     const redirectTo =

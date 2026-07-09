@@ -308,6 +308,15 @@ create table if not exists public.email_subscriptions (
   unique (email, source)
 );
 
+create table if not exists public.legal_acceptances (
+  user_uid text not null references public.profiles(uid) on delete cascade,
+  document text not null
+    check (document in ('terms_of_service', 'privacy_policy')),
+  version text not null,
+  accepted_at timestamptz not null default timezone('utc'::text, now()),
+  primary key (user_uid, document, version)
+);
+
 create table if not exists public.favorites (
   id text primary key,
   owner_uid text not null references public.profiles(uid) on delete cascade,
@@ -377,6 +386,8 @@ create index if not exists idx_notifications_user_uid on public.notifications(us
 create index if not exists idx_notifications_created_at on public.notifications(created_at desc);
 create index if not exists idx_email_subscriptions_submitted_at
   on public.email_subscriptions(submitted_at desc);
+create index if not exists idx_legal_acceptances_user_uid
+  on public.legal_acceptances(user_uid);
 create index if not exists idx_favorites_owner_uid on public.favorites(owner_uid);
 create index if not exists idx_reports_type_status on public.reports(report_type, status);
 create index if not exists idx_reports_created_at on public.reports(created_at desc);
@@ -459,6 +470,7 @@ alter table public.wallets enable row level security;
 alter table public.wallet_transactions enable row level security;
 alter table public.notifications enable row level security;
 alter table public.email_subscriptions enable row level security;
+alter table public.legal_acceptances enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reports enable row level security;
 alter table public.conversations enable row level security;
@@ -473,6 +485,7 @@ revoke all on public.wallets from anon, authenticated;
 revoke all on public.wallet_transactions from anon, authenticated;
 revoke all on public.notifications from anon, authenticated;
 revoke all on public.email_subscriptions from anon, authenticated;
+revoke all on public.legal_acceptances from anon, authenticated;
 revoke all on public.favorites from anon, authenticated;
 revoke all on public.reports from anon, authenticated;
 revoke all on public.conversations from anon, authenticated;

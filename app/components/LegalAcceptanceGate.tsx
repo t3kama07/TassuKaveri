@@ -34,6 +34,17 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
 
       try {
         setChecking(true);
+        if (window.sessionStorage.getItem('tassukaveri_google_signup_legal_accepted') === 'true') {
+          await acceptLatestLegalDocuments(user.uid);
+          window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
+          if (active) {
+            setAccepted(true);
+            setTermsAccepted(false);
+            setPrivacyAccepted(false);
+          }
+          return;
+        }
+
         const status = await getLegalAcceptanceStatus(user.uid);
         if (!status.accepted && window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login') {
           window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
