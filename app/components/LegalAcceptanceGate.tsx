@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { acceptLatestLegalDocuments, getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 
 export default function LegalAcceptanceGate({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [accepted, setAccepted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -33,6 +35,13 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
       try {
         setChecking(true);
         const status = await getLegalAcceptanceStatus(user.uid);
+        if (!status.accepted && window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login') {
+          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+          await logout();
+          router.replace('/signup?from=google-login');
+          return;
+        }
+
         if (active) {
           setAccepted(status.accepted);
           setTermsAccepted(false);
@@ -40,6 +49,13 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
         }
       } catch (statusError) {
         console.error('Failed to check legal acceptance:', statusError);
+        if (window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login') {
+          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+          await logout();
+          router.replace('/signup?from=google-login');
+          return;
+        }
+
         if (active) {
           setAccepted(false);
           setError('We could not check your legal acceptance status. Please try again.');
@@ -56,7 +72,7 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
     return () => {
       active = false;
     };
-  }, [loading, user]);
+  }, [loading, logout, router, user]);
 
   async function handleAccept() {
     if (!user || !termsAccepted || !privacyAccepted) {
