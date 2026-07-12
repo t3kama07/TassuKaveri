@@ -90,7 +90,7 @@ function LanguageSwitcher({
 
 export default function Navbar() {
   const { user, profile, logout } = useAuth();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const router = useRouter();
   const [notificationSummary, setNotificationSummary] = useState({ userId: '', count: 0 });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -122,12 +122,12 @@ export default function Navbar() {
   }
 
   const memberLinks = [
-    { href: '/dashboard', label: 'Home' },
-    { href: '/exchange', label: 'Exchange' },
-    { href: '/sitters', label: 'Sitters' },
-    { href: '/pets', label: 'Pets' },
-    { href: '/messages', label: 'Messages' },
-    { href: '/profile', label: 'Profile' },
+    { href: '/dashboard', label: t('Home', 'Etusivu') },
+    { href: '/exchange', label: t('Exchange', 'Hoitovaihto') },
+    { href: '/sitters', label: t('Sitters', 'Hoitajat') },
+    { href: '/pets', label: t('Pets', 'Lemmikit') },
+    { href: '/messages', label: t('Messages', 'Viestit') },
+    { href: '/profile', label: t('Profile', 'Profiili') },
   ];
 
   const publicLinks = [
@@ -177,10 +177,10 @@ export default function Navbar() {
                 href="/notifications"
                 aria-label={
                   unreadNotifications > 0
-                    ? `${unreadNotifications} unread notifications`
-                    : 'Notifications'
+                    ? t(`${unreadNotifications} unread notifications`, `${unreadNotifications} lukematonta ilmoitusta`)
+                    : t('Notifications', 'Ilmoitukset')
                 }
-                title="Notifications"
+                title={t('Notifications', 'Ilmoitukset')}
                 className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e3e9f0] bg-white text-[#0f2640] shadow-[0_4px_12px_rgba(15,38,64,0.05)] transition-colors hover:bg-[#fff7ef] hover:text-[#ff7a2d]"
               >
                 <BellIcon />
@@ -195,14 +195,14 @@ export default function Navbar() {
                   href="/admin"
                   className="font-medium text-[#0f2640] transition-colors hover:text-[#ff7a2d]"
                 >
-                  Admin
+                  {t('Admin', 'Ylläpito')}
                 </Link>
               )}
               <button
                 onClick={handleLogout}
                 className="rounded-2xl bg-[#ff7a2d] px-5 py-2.5 font-semibold text-white transition-colors hover:bg-[#e66a1f]"
               >
-                Logout
+                {t('Logout', 'Kirjaudu ulos')}
               </button>
             </div>
           ) : (
@@ -257,7 +257,7 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen((open) => !open)}
                 aria-expanded={mobileMenuOpen}
                 aria-controls="mobile-navbar-menu"
-                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-label={mobileMenuOpen ? t('Close menu', 'Sulje valikko') : t('Open menu', 'Avaa valikko')}
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#e3e9f0] bg-white text-[#0f2640] shadow-[0_4px_12px_rgba(15,38,64,0.06)] transition-colors hover:bg-[#fff7ef] hover:text-[#ff7a2d]"
               >
                 <MenuIcon open={mobileMenuOpen} />
@@ -298,7 +298,7 @@ export default function Navbar() {
                           <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#ff7a2d] ring-2 ring-white" />
                         )}
                       </span>
-                      Notifications
+                      {t('Notifications', 'Ilmoitukset')}
                     </span>
                     {unreadNotifications > 0 && (
                       <span className="text-sm font-semibold text-[#ff7a2d]">
@@ -312,7 +312,7 @@ export default function Navbar() {
                       onClick={() => setMobileMenuOpen(false)}
                       className="rounded-2xl px-3 py-2.5 text-[1.02rem] font-medium text-[#0f2640] transition-colors hover:bg-[#fff7ef] hover:text-[#ff7a2d]"
                     >
-                      Admin
+                      {t('Admin', 'Ylläpito')}
                     </Link>
                   )}
                   <div className="mt-3 rounded-[24px] border border-[#e7ebf0] bg-[#f8fafc] p-2">
@@ -320,7 +320,7 @@ export default function Navbar() {
                       onClick={handleLogout}
                       className="w-full rounded-2xl bg-[#ff7a2d] px-5 py-3 text-left font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                     >
-                      Logout
+                      {t('Logout', 'Kirjaudu ulos')}
                     </button>
                   </div>
                 </>

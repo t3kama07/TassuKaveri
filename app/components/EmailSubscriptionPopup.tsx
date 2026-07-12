@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const POPUP_DELAY_MS = 3000;
 const CLOSED_FOR_MS = 7 * 24 * 60 * 60 * 1000;
@@ -36,6 +37,7 @@ function shouldHideForPath(pathname: string): boolean {
 export default function EmailSubscriptionPopup() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -71,7 +73,7 @@ export default function EmailSubscriptionPopup() {
     const nextEmail = email.trim().toLowerCase();
 
     if (!EMAIL_PATTERN.test(nextEmail) || nextEmail.length > 254) {
-      setError('Enter a valid email address.');
+      setError(t('Enter a valid email address.', 'Anna kelvollinen sähköpostiosoite.'));
       return;
     }
 
@@ -87,14 +89,16 @@ export default function EmailSubscriptionPopup() {
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error || 'We could not save your email right now.');
+        throw new Error(
+          payload?.error || t('We could not save your email right now.', 'Sähköpostia ei voitu tallentaa juuri nyt.')
+        );
       }
 
       window.localStorage.setItem(SUBSCRIBED_KEY, 'true');
       window.localStorage.removeItem(CLOSED_UNTIL_KEY);
       setSubmitted(true);
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Please try again.';
+      const message = submitError instanceof Error ? submitError.message : t('Please try again.', 'Yritä uudelleen.');
       setError(message);
     } finally {
       setSubmitting(false);
@@ -117,7 +121,7 @@ export default function EmailSubscriptionPopup() {
           type="button"
           onClick={closePopup}
           className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-[#e6d8ca] bg-white text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#fff7ef] hover:text-[#0f2640]"
-          aria-label="Close email signup popup"
+          aria-label={t('Close email signup popup', 'Sulje sähköpostitilaus')}
         >
           &times;
         </button>
@@ -131,10 +135,13 @@ export default function EmailSubscriptionPopup() {
               TassuKaveri
             </p>
             <h2 id="email-popup-title" className="mt-1 text-lg font-bold leading-tight text-[#0f2640] sm:text-xl">
-              Need pet care now or later?
+              {t('Need pet care now or later?', 'Tarvitsetko lemmikinhoitoa nyt tai myöhemmin?')}
             </h2>
             <p className="mt-2 text-sm leading-5 text-[#516173]">
-              Get sitter updates and TassuKaveri details in your inbox.
+              {t(
+                'Get sitter updates and TassuKaveri details in your inbox.',
+                'Saat hoitajauutisia ja tietoa TassuKaverista sähköpostiisi.'
+              )}
             </p>
           </div>
         </div>
@@ -142,14 +149,14 @@ export default function EmailSubscriptionPopup() {
         {submitted ? (
           <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
             <p className="text-sm font-semibold text-green-700">
-              Thank you! We&rsquo;ll send you more details soon. 🐾
+              {t('Thank you! We’ll send you more details soon. 🐾', 'Kiitos! Lähetämme lisätietoja pian. 🐾')}
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             <div>
               <label htmlFor="email-popup-address" className="block text-sm font-semibold text-[#0f2640]">
-                Email address
+                {t('Email address', 'Sähköpostiosoite')}
               </label>
               <input
                 id="email-popup-address"
@@ -162,9 +169,12 @@ export default function EmailSubscriptionPopup() {
               />
               {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
               <p className="mt-2 text-xs leading-5 text-[#6b7280]">
-                We use this email only for TassuKaveri updates.{' '}
+                {t(
+                  'We use this email only for TassuKaveri updates.',
+                  'Käytämme sähköpostiosoitetta vain TassuKaverin uutisiin.'
+                )}{' '}
                 <Link href="/privacy-policy.html" className="font-semibold text-[#0f2640] underline underline-offset-4">
-                  Privacy policy
+                  {t('Privacy policy', 'Tietosuojaseloste')}
                 </Link>
               </p>
             </div>
@@ -175,13 +185,13 @@ export default function EmailSubscriptionPopup() {
                 disabled={submitting}
                 className="rounded-full bg-[#ff7a2d] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#e66a1f] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? 'Sending...' : 'Send me details'}
+                {submitting ? t('Sending...', 'Lähetetään...') : t('Send me details', 'Lähetä minulle lisätietoja')}
               </button>
               <Link
                 href="/signup"
                 className="rounded-full border border-[#cfd8e3] bg-white/90 px-5 py-2.5 text-center text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
               >
-                Register now
+                {t('Register now', 'Rekisteröidy nyt')}
               </Link>
             </div>
           </form>
@@ -193,7 +203,7 @@ export default function EmailSubscriptionPopup() {
               href="/signup"
               className="inline-flex rounded-full bg-[#ff7a2d] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#e66a1f]"
             >
-              Register now
+              {t('Register now', 'Rekisteröidy nyt')}
             </Link>
           </div>
         )}

@@ -1,11 +1,15 @@
 'use client';
 
+import { useLanguage } from '@/contexts/LanguageContext';
+
 type GoogleAuthButtonProps = {
   disabled?: boolean;
   onClick: () => void;
 };
 
 export default function GoogleAuthButton({ disabled = false, onClick }: GoogleAuthButtonProps) {
+  const { t } = useLanguage();
+
   return (
     <button
       type="button"
@@ -31,7 +35,7 @@ export default function GoogleAuthButton({ disabled = false, onClick }: GoogleAu
           d="M12 5.94c1.47 0 2.79.51 3.83 1.5l2.87-2.88A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"
         />
       </svg>
-      Continue with Google
+      {t('Continue with Google', 'Jatka Google-tilillä')}
     </button>
   );
 }

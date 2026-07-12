@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { acceptLatestLegalDocuments, getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 
 export default function LegalAcceptanceGate({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const { t } = useLanguage();
   const [checking, setChecking] = useState(true);
   const [accepted, setAccepted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -69,7 +71,12 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
 
         if (active) {
           setAccepted(false);
-          setError('We could not check your legal acceptance status. Please try again.');
+          setError(
+            t(
+              'We could not check your legal acceptance status. Please try again.',
+              'Asiakirjojen hyväksyntää ei voitu tarkistaa. Yritä uudelleen.'
+            )
+          );
         }
       } finally {
         if (active) {
@@ -83,7 +90,7 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
     return () => {
       active = false;
     };
-  }, [loading, logout, router, user]);
+  }, [loading, logout, router, t, user]);
 
   async function handleAccept() {
     if (!user || !termsAccepted || !privacyAccepted) {
@@ -96,8 +103,8 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
       await acceptLatestLegalDocuments(user.uid);
       setAccepted(true);
     } catch (acceptError) {
-      const message = acceptError instanceof Error ? acceptError.message : 'Please try again.';
-      setError('We could not save your acceptance right now. ' + message);
+      const message = acceptError instanceof Error ? acceptError.message : t('Please try again.', 'Yritä uudelleen.');
+      setError(t('We could not save your acceptance right now. ', 'Hyväksyntää ei voitu tallentaa juuri nyt. ') + message);
     } finally {
       setSubmitting(false);
     }
@@ -114,12 +121,13 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
           TassuKaveri
         </p>
         <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#0f2640]">
-          Accept updated documents
+          {t('Accept updated documents', 'Hyväksy päivitetyt asiakirjat')}
         </h1>
         <p className="mt-3 text-sm leading-6 text-[#516173]">
-          TassuKaveri is a connection platform. Pet-care arrangements are made directly between
-          pet owners and pet carers. Please accept the current Terms and Privacy Policy before
-          continuing.
+          {t(
+            'TassuKaveri is a connection platform. Pet-care arrangements are made directly between pet owners and pet carers. Please accept the current Terms and Privacy Policy before continuing.',
+            'TassuKaveri on yhteydenpitoalusta. Lemmikinhoitojärjestelyt sovitaan suoraan lemmikinomistajien ja hoitajien välillä. Hyväksy nykyiset käyttöehdot ja tietosuojaseloste ennen jatkamista.'
+          )}
         </p>
 
         <div className="mt-5 space-y-3">
@@ -131,9 +139,9 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
               className="mt-1 h-4 w-4"
             />
             <span>
-              I accept the{' '}
+              {t('I accept the', 'Hyväksyn')}{' '}
               <Link href="/terms-of-service.html" className="font-bold text-[#0f2640] underline">
-                Terms of Service
+                {t('Terms of Service', 'käyttöehdot')}
               </Link>
               .
             </span>
@@ -146,9 +154,9 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
               className="mt-1 h-4 w-4"
             />
             <span>
-              I accept the{' '}
+              {t('I accept the', 'Hyväksyn')}{' '}
               <Link href="/privacy-policy.html" className="font-bold text-[#0f2640] underline">
-                Privacy Policy
+                {t('Privacy Policy', 'tietosuojaselosteen')}
               </Link>
               .
             </span>
@@ -167,7 +175,7 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
           disabled={!termsAccepted || !privacyAccepted || submitting}
           className="mt-5 rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#e66a1f] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? 'Saving...' : 'Accept and continue'}
+          {submitting ? t('Saving...', 'Tallennetaan...') : t('Accept and continue', 'Hyväksy ja jatka')}
         </button>
       </section>
     </main>

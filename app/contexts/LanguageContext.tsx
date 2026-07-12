@@ -7,6 +7,7 @@ export type Language = 'en' | 'fi';
 type LanguageContextType = {
   language: Language;
   setLanguage: (language: Language) => void;
+  t: (english: string, finnish: string) => string;
 };
 
 const STORAGE_KEY = 'tassukaveri-language';
@@ -26,9 +27,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     },
     () => {
       const storedLanguage = window.localStorage.getItem(STORAGE_KEY);
-      return storedLanguage === 'fi' ? 'fi' : 'en';
+      return storedLanguage === 'en' ? 'en' : 'fi';
     },
-    () => 'en'
+    () => 'fi'
   );
 
   const setLanguage = useCallback((nextLanguage: Language) => {
@@ -36,12 +37,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
   }, []);
 
+  const t = useCallback(
+    (english: string, finnish: string) => (language === 'fi' ? finnish : english),
+    [language]
+  );
+
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

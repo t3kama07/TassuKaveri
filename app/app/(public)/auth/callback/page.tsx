@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
 import { profileExists } from '@/lib/profileService';
 import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function getOAuthError(): string | null {
   const query = new URLSearchParams(window.location.search);
@@ -18,6 +19,7 @@ function getOAuthError(): string | null {
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState('');
+  const { t } = useLanguage();
 
   useEffect(() => {
     let active = true;
@@ -41,7 +43,10 @@ export default function AuthCallbackPage() {
 
       if (!data.session) {
         setError(
-          'Google did not create a login session. Check the Google Client Secret in Supabase and try again.'
+          t(
+            'Google did not create a login session. Check the Google Client Secret in Supabase and try again.',
+            'Google ei luonut kirjautumisistuntoa. Tarkista Googlen Client Secret Supabasessa ja yritä uudelleen.'
+          )
         );
         return;
       }
@@ -75,14 +80,16 @@ export default function AuthCallbackPage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [router, t]);
 
   return (
     <main className="mx-auto flex min-h-[55vh] max-w-lg items-center px-4 py-12">
       <div className="w-full rounded-2xl border border-[#e7ebf0] bg-white p-6 shadow-sm">
         {error ? (
           <>
-            <h1 className="text-2xl font-bold text-[#0f2640]">Google login failed</h1>
+            <h1 className="text-2xl font-bold text-[#0f2640]">
+              {t('Google login failed', 'Google-kirjautuminen epäonnistui')}
+            </h1>
             <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
               {error}
             </p>
@@ -90,13 +97,17 @@ export default function AuthCallbackPage() {
               href="/login"
               className="mt-5 inline-block font-semibold text-[#ff7a2d] hover:underline"
             >
-              Return to login
+              {t('Return to login', 'Palaa kirjautumiseen')}
             </Link>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-[#0f2640]">Completing Google login</h1>
-            <p className="mt-3 text-[#6b7280]">Please wait while we open your account.</p>
+            <h1 className="text-2xl font-bold text-[#0f2640]">
+              {t('Completing Google login', 'Viimeistellään Google-kirjautumista')}
+            </h1>
+            <p className="mt-3 text-[#6b7280]">
+              {t('Please wait while we open your account.', 'Odota hetki, kun avaamme tilisi.')}
+            </p>
           </>
         )}
       </div>

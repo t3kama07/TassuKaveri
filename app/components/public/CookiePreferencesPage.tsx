@@ -3,6 +3,7 @@
 import PublicPageShell from '@/components/public/PublicPageShell';
 import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY, type CookieConsentValue } from '@/lib/cookieConsent';
 import { useCookieConsent } from '@/lib/useCookieConsent';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function saveConsent(value: CookieConsentValue) {
   window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
@@ -11,6 +12,7 @@ function saveConsent(value: CookieConsentValue) {
 
 export default function CookiePreferencesPage() {
   const choice = useCookieConsent();
+  const { t } = useLanguage();
 
   function handleChoice(value: CookieConsentValue) {
     saveConsent(value);
@@ -30,14 +32,20 @@ export default function CookiePreferencesPage() {
     >
       <section className="rounded-[24px] border border-[#dbe5f0] bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#ff7a2d]">
-          Current choice
+          {t('Current choice', 'Nykyinen valinta')}
         </p>
         <p className="mt-3 text-2xl font-bold text-[#0f2640]">
-          {choice === 'accepted' ? 'Analytics accepted' : choice === 'declined' ? 'Analytics declined' : 'No choice saved'}
+          {choice === 'accepted'
+            ? t('Analytics accepted', 'Analytiikka hyväksytty')
+            : choice === 'declined'
+              ? t('Analytics declined', 'Analytiikka hylätty')
+              : t('No choice saved', 'Valintaa ei ole tallennettu')}
         </p>
         <p className="mt-4 max-w-3xl text-base leading-8 text-[#516173]">
-          Analytics helps us understand visits and improve TassuKaveri. We only load Google Analytics or Google Tag
-          Manager after you accept optional analytics.
+          {t(
+            'Analytics helps us understand visits and improve TassuKaveri. We only load Google Analytics or Google Tag Manager after you accept optional analytics.',
+            'Analytiikka auttaa meitä ymmärtämään käyntejä ja parantamaan TassuKaveria. Lataamme Google Analyticsin tai Google Tag Managerin vasta, kun hyväksyt valinnaisen analytiikan.'
+          )}
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -46,14 +54,14 @@ export default function CookiePreferencesPage() {
             onClick={() => handleChoice('accepted')}
             className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#e66a1f]"
           >
-            Accept analytics
+            {t('Accept analytics', 'Hyväksy analytiikka')}
           </button>
           <button
             type="button"
             onClick={() => handleChoice('declined')}
             className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#f8fafc]"
           >
-            Decline analytics
+            {t('Decline analytics', 'Hylkää analytiikka')}
           </button>
         </div>
       </section>

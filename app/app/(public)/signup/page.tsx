@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import CitySelect from '@/components/CitySelect';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
 import { acceptLatestLegalDocuments } from '@/lib/legalAcceptanceService';
@@ -24,6 +25,7 @@ export default function SignupPage() {
   const { signup, signInWithGoogle, user } = useAuth();
   const router = useRouter();
   const legalAccepted = termsAccepted && privacyAccepted;
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (user) {
@@ -45,10 +47,13 @@ export default function SignupPage() {
     const trimmedLocation = location.trim();
 
     if (password !== confirmPassword) {
-      return setError('The passwords do not match.');
+      return setError(t('The passwords do not match.', 'Salasanat eivät täsmää.'));
     }
     if (!termsAccepted || !privacyAccepted) {
-      return setError('Please accept the Terms of Service and Privacy Policy before creating an account.');
+      return setError(t(
+        'Please accept the Terms of Service and Privacy Policy before creating an account.',
+        'Hyväksy käyttöehdot ja tietosuojaseloste ennen tilin luomista.'
+      ));
     }
 
     setLoading(true);
@@ -62,7 +67,10 @@ export default function SignupPage() {
         await acceptLatestLegalDocuments(result.user.uid);
       }
       if (result.requiresEmailVerification) {
-        setSuccess(`Account created for ${result.email}. Check your email to confirm it, then log in.`);
+        setSuccess(t(
+          `Account created for ${result.email}. Check your email to confirm it, then log in.`,
+          `Tili luotiin osoitteelle ${result.email}. Vahvista sähköposti viestissä olevasta linkistä ja kirjaudu sitten sisään.`
+        ));
         setPassword('');
         setConfirmPassword('');
         return;
@@ -70,8 +78,11 @@ export default function SignupPage() {
 
       router.push('/dashboard');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not create your account right now. Please check the fields and try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t(
+        'We could not create your account right now. Please check the fields and try again. ',
+        'Tiliä ei voitu luoda juuri nyt. Tarkista tiedot ja yritä uudelleen. '
+      ) + message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +91,10 @@ export default function SignupPage() {
   async function handleGoogleSignup() {
     setError('');
     if (!termsAccepted || !privacyAccepted) {
-      setError('Please accept the Terms of Service and Privacy Policy before continuing with Google.');
+      setError(t(
+        'Please accept the Terms of Service and Privacy Policy before continuing with Google.',
+        'Hyväksy käyttöehdot ja tietosuojaseloste ennen Google-rekisteröitymistä.'
+      ));
       return;
     }
     setGoogleLoading(true);
@@ -90,8 +104,8 @@ export default function SignupPage() {
       await signInWithGoogle('signup');
     } catch (err: unknown) {
       window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`We could not start Google signup. ${message}`);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(`${t('We could not start Google signup.', 'Google-rekisteröitymistä ei voitu aloittaa.')} ${message}`);
       setGoogleLoading(false);
     }
   }
@@ -108,10 +122,13 @@ export default function SignupPage() {
               TassuKaveri
             </p>
             <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#0f2640]">
-              Create your account
+              {t('Create your account', 'Luo tili')}
             </h1>
             <p className="mt-2 text-sm leading-6 text-[#516173]">
-              Join the pet-care exchange. Add pets and sitter times after signup.
+              {t(
+                'Join the pet-care exchange. Add pets and sitter times after signup.',
+                'Liity lemmikinhoitovaihtoon. Voit lisätä lemmikit ja hoitoajat rekisteröitymisen jälkeen.'
+              )}
             </p>
           </div>
         </div>
@@ -124,7 +141,7 @@ export default function SignupPage() {
 
         {cameFromGoogleLogin && !error && !success && (
           <div className="mb-4 rounded-2xl border border-[#ead9ca] bg-[#fffaf6] px-4 py-3 text-sm text-[#7a4a1f]">
-            Please register first before using Google login.
+            {t('Please register first before using Google login.', 'Rekisteröidy ensin ennen Google-kirjautumista.')}
           </div>
         )}
 
@@ -132,11 +149,11 @@ export default function SignupPage() {
           <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             <p>{success}</p>
             <p className="mt-2">
-              You can return to{' '}
+              {t('You can return to', 'Voit palata')}{' '}
               <Link href="/login" className="font-bold text-green-900 underline">
-                login
+                {t('login', 'kirjautumiseen')}
               </Link>{' '}
-              after confirming the email.
+              {t('after confirming the email.', 'sähköpostin vahvistamisen jälkeen.')}
             </p>
           </div>
         )}
@@ -150,14 +167,14 @@ export default function SignupPage() {
 
             <div className="my-5 flex items-center gap-4 text-sm text-[#6b7280]">
               <span className="h-px flex-1 bg-[#ead9ca]" />
-              <span>or use email</span>
+              <span>{t('or use email', 'tai käytä sähköpostia')}</span>
               <span className="h-px flex-1 bg-[#ead9ca]" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label htmlFor="signup-name" className="mb-1 block text-sm font-bold text-[#0f2640]">
-                  Name
+                  {t('Name', 'Nimi')}
                 </label>
                 <input
                   id="signup-name"
@@ -165,14 +182,14 @@ export default function SignupPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
-                  placeholder="Your name"
+                  placeholder={t('Your name', 'Nimesi')}
                   className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
                 />
               </div>
 
               <div>
                 <label htmlFor="signup-city" className="mb-1 block text-sm font-bold text-[#0f2640]">
-                  City
+                  {t('City', 'Kaupunki')}
                 </label>
                 <CitySelect
                   id="signup-city"
@@ -185,7 +202,7 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="signup-email" className="mb-1 block text-sm font-bold text-[#0f2640]">
-                  Email
+                  {t('Email', 'Sähköposti')}
                 </label>
                 <input
                   id="signup-email"
@@ -201,7 +218,7 @@ export default function SignupPage() {
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
                   <label htmlFor="signup-password" className="mb-1 block text-sm font-bold text-[#0f2640]">
-                    Password
+                    {t('Password', 'Salasana')}
                   </label>
                   <input
                     id="signup-password"
@@ -216,7 +233,7 @@ export default function SignupPage() {
 
                 <div>
                   <label htmlFor="signup-confirm-password" className="mb-1 block text-sm font-bold text-[#0f2640]">
-                    Confirm
+                    {t('Confirm', 'Vahvista')}
                   </label>
                   <input
                     id="signup-confirm-password"
@@ -231,7 +248,9 @@ export default function SignupPage() {
               </div>
 
               <div className="rounded-2xl border border-[#ead9ca] bg-[#fffaf6] p-4 text-sm text-[#516173]">
-                <p className="mb-3 font-bold text-[#0f2640]">Before creating your account</p>
+                <p className="mb-3 font-bold text-[#0f2640]">
+                  {t('Before creating your account', 'Ennen tilin luomista')}
+                </p>
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
@@ -240,9 +259,9 @@ export default function SignupPage() {
                     className="mt-1 h-4 w-4 accent-[#ff7a2d]"
                   />
                   <span>
-                    I accept the{' '}
+                    {t('I accept the', 'Hyväksyn')}{' '}
                     <Link href="/terms-of-service.html" className="font-bold text-[#0f2640] underline">
-                      Terms of Service
+                      {t('Terms of Service', 'käyttöehdot')}
                     </Link>
                     .
                   </span>
@@ -255,16 +274,19 @@ export default function SignupPage() {
                     className="mt-1 h-4 w-4 accent-[#ff7a2d]"
                   />
                   <span>
-                    I accept the{' '}
+                    {t('I accept the', 'Hyväksyn')}{' '}
                     <Link href="/privacy-policy.html" className="font-bold text-[#0f2640] underline">
-                      Privacy Policy
+                      {t('Privacy Policy', 'tietosuojaselosteen')}
                     </Link>
                     .
                   </span>
                 </label>
                 {!legalAccepted && (
                   <p className="mt-3 text-xs font-semibold text-[#9a5a22]">
-                    Required for email signup and Google signup.
+                    {t(
+                      'Required for email signup and Google signup.',
+                      'Pakollinen sähköposti- ja Google-rekisteröitymisessä.'
+                    )}
                   </p>
                 )}
               </div>
@@ -274,16 +296,16 @@ export default function SignupPage() {
                 disabled={loading || !legalAccepted}
                 className="w-full rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#e66a1f] disabled:cursor-not-allowed disabled:opacity-55"
               >
-                {loading ? 'Creating account...' : 'Create account'}
+                {loading ? t('Creating account...', 'Luodaan tiliä...') : t('Create account', 'Luo tili')}
               </button>
             </form>
           </>
         )}
 
         <p className="mt-5 text-center text-sm text-[#6b7280]">
-          Already have an account?{' '}
+          {t('Already have an account?', 'Onko sinulla jo tili?')}{' '}
           <Link href="/login" className="font-bold text-[#ff7a2d] hover:underline">
-            Log in
+            {t('Log in', 'Kirjaudu')}
           </Link>
         </p>
       </section>
