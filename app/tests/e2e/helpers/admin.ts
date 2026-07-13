@@ -346,6 +346,40 @@ export async function createSeededTestUsers(options: {
   return users;
 }
 
+export async function clearLegalAcceptances(uid: string): Promise<void> {
+  await withDatabase(async (database) => {
+    await database.query('delete from public.legal_acceptances where user_uid = $1', [uid]);
+  });
+}
+
+export async function restoreLatestLegalAcceptances(uid: string): Promise<void> {
+  const acceptedAt = new Date().toISOString();
+  await withDatabase(async (database) => {
+    for (const [document, version] of Object.entries(LEGAL_DOCUMENT_VERSIONS)) {
+      await database.query(
+        `insert into public.legal_acceptances (user_uid, document, version, accepted_at)
+         values ($1, $2, $3, $4)
+         on conflict (user_uid, document, version)
+         do update set accepted_at = excluded.accepted_at`,
+        [uid, document, version, acceptedAt]
+      );
+    }
+  });
+}
+
+export async function hasLatestLegalAcceptances(uid: string): Promise<boolean> {
+  return withDatabase(async (database) => {
+    const result = await database.query<{ document: string; version: string }>(
+      'select document, version from public.legal_acceptances where user_uid = $1',
+      [uid]
+    );
+
+    return Object.entries(LEGAL_DOCUMENT_VERSIONS).every(([document, version]) =>
+      result.rows.some((row) => row.document === document && row.version === version)
+    );
+  });
+}
+
 export async function setProfileRole(uid: string, role: 'admin' | 'user'): Promise<void> {
   const supabase = createTestSupabaseAdminClient();
   const { error } = await supabase

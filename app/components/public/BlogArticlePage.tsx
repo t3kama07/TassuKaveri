@@ -7,7 +7,7 @@ import { blogArticlePageContent, getBlogArticle } from '@/lib/publicPagesContent
 
 export default function BlogArticlePage({ slug }: { slug: string }) {
   const { language } = useLanguage();
-  const article = getBlogArticle(slug);
+  const article = getBlogArticle(slug, language);
 
   if (!article) {
     return (
@@ -48,12 +48,6 @@ export default function BlogArticlePage({ slug }: { slug: string }) {
           <span aria-hidden="true">•</span>
           <span>{article.readTime}</span>
         </div>
-
-        {language === 'en' && (
-          <div className="mt-6 rounded-[22px] border border-[#dbe5f0] bg-[#f8fafc] px-4 py-3 text-sm leading-7 text-[#516173]">
-            {blogArticlePageContent.note.en}
-          </div>
-        )}
 
         <div className="mt-8 space-y-5 text-[1.05rem] leading-8 text-[#425466]">
           {article.intro.map((paragraph) => (

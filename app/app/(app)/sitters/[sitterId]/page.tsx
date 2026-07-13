@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getUserConversations } from '@/lib/messageService';
 import { getPublicProfile } from '@/lib/publicProfileService';
 import { getSitterCancellationStats, getSitterReviews } from '@/lib/requestService';
@@ -14,22 +15,23 @@ import { PublicUserProfile } from '@/types/profile';
 import { RequestReview } from '@/types/request';
 import type { SitterCancellationStats } from '@/lib/requestService';
 
-function formatDateTimeRange(startAt?: Date, endAt?: Date): string {
+function formatDateTimeRange(startAt: Date | undefined, endAt: Date | undefined, language: 'en' | 'fi'): string {
   if (!startAt || !endAt) {
-    return 'Open for bookings';
+    return language === 'fi' ? 'Ottaa vastaan hoitopyyntöjä' : 'Open for bookings';
   }
 
-  const dateLabel = startAt.toLocaleDateString([], {
+  const locale = language === 'fi' ? 'fi-FI' : 'en-GB';
+  const dateLabel = startAt.toLocaleDateString(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
 
-  const startTime = startAt.toLocaleTimeString([], {
+  const startTime = startAt.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
-  const endTime = endAt.toLocaleTimeString([], {
+  const endTime = endAt.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -37,12 +39,19 @@ function formatDateTimeRange(startAt?: Date, endAt?: Date): string {
   return `${dateLabel}, ${startTime} - ${endTime}`;
 }
 
-function formatList(values: string[], emptyLabel: string): string {
-  return values.length > 0 ? values.join(', ') : emptyLabel;
+function formatList(values: string[], emptyLabel: string, language: 'en' | 'fi'): string {
+  const finnishLabels: Record<string, string> = {
+    dog: 'Koira', cat: 'Kissa', rabbit: 'Kani', bird: 'Lintu',
+    'small-mammal': 'Piennisäkäs', reptile: 'Matelija', fish: 'Kala', other: 'Muu lemmikki',
+    small: 'Pieni', medium: 'Keskikokoinen', large: 'Suuri',
+  };
+  return values.length > 0
+    ? values.map((value) => language === 'fi' ? finnishLabels[value] || value : value).join(', ')
+    : emptyLabel;
 }
 
-function formatReviewDate(date: Date): string {
-  return date.toLocaleDateString([], {
+function formatReviewDate(date: Date, language: 'en' | 'fi'): string {
+  return date.toLocaleDateString(language === 'fi' ? 'fi-FI' : 'en-GB', {
     month: 'short',
     year: 'numeric',
   });
@@ -56,6 +65,7 @@ function renderStars(rating: number): string {
 export default function SitterProfilePage() {
   const params = useParams<{ sitterId: string }>();
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const sitterId = Array.isArray(params.sitterId) ? params.sitterId[0] : params.sitterId;
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -96,7 +106,7 @@ export default function SitterProfilePage() {
         }
 
         if (!publicProfile) {
-          setError('This sitter profile is not available right now.');
+          setError(t('This sitter profile is not available right now.', 'Tämä hoitajaprofiili ei ole tällä hetkellä saatavilla.'));
           setProfile(null);
           setCancellationStats(null);
           setReviews([]);
@@ -129,7 +139,7 @@ export default function SitterProfilePage() {
           return;
         }
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('We could not load this sitter profile right now. Please try again. ' + message);
+        setError(t('We could not load this sitter profile right now. Please try again. ', 'Hoitajaprofiilia ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -142,7 +152,7 @@ export default function SitterProfilePage() {
     return () => {
       active = false;
     };
-  }, [sitterId, user]);
+  }, [sitterId, t, user]);
 
   const isOwnProfile = user?.uid === sitterId;
   const createRequestHref = profile
@@ -157,11 +167,11 @@ export default function SitterProfilePage() {
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/sitters" className="text-sm font-semibold text-[#ff7a2d] hover:underline">
-            Back to sitters
+            {t('Back to sitters', 'Takaisin hoitajiin')}
           </Link>
           {isOwnProfile && (
             <Link href="/profile" className="text-sm font-semibold text-[#0f2640] hover:underline">
-              Edit my profile
+              {t('Edit my profile', 'Muokkaa profiiliani')}
             </Link>
           )}
         </div>
@@ -174,7 +184,7 @@ export default function SitterProfilePage() {
 
         {loading ? (
           <div className="rounded-3xl border border-gray-200 bg-white p-6">
-            <p className="text-[#6b7280]">Loading sitter profile...</p>
+            <p className="text-[#6b7280]">{t('Loading sitter profile...', 'Ladataan hoitajaprofiilia...')}</p>
           </div>
         ) : profile ? (
           <>
@@ -182,7 +192,7 @@ export default function SitterProfilePage() {
               <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
                 <div>
                   <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
-                    Sitter Profile
+                    {t('Sitter Profile', 'Hoitajaprofiili')}
                   </p>
                   <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
                     <ProfileAvatar
@@ -201,7 +211,7 @@ export default function SitterProfilePage() {
                     </div>
                   </div>
                   <p className="mt-4 max-w-3xl text-[#516173]">
-                    {profile.bio || 'This sitter has not added a bio yet.'}
+                    {profile.bio || t('This sitter has not added a bio yet.', 'Hoitaja ei ole vielä lisännyt esittelyä.')}
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">
@@ -210,7 +220,7 @@ export default function SitterProfilePage() {
                         href={createRequestHref}
                         className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                       >
-                        Ask this sitter
+                        {t('Ask this sitter', 'Pyydä tätä hoitajaa')}
                       </Link>
                     )}
 
@@ -219,7 +229,7 @@ export default function SitterProfilePage() {
                         href={messageHref}
                         className="rounded-full border border-[#cfd8e3] bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
                       >
-                        Open messages
+                        {t('Open messages', 'Avaa viestit')}
                       </Link>
                     )}
 
@@ -228,25 +238,25 @@ export default function SitterProfilePage() {
                         type="button"
                         disabled
                         className="cursor-not-allowed rounded-full border border-[#e0e7ef] bg-white px-5 py-3 text-sm font-semibold text-[#9aa6b2]"
-                        title="Messages open after your first request or application."
+                        title={t('Messages open after your first request or application.', 'Viestit avautuvat ensimmäisen pyynnön tai tarjouksen jälkeen.')}
                       >
-                        Messages open after acceptance
+                        {t('Messages open after acceptance', 'Viestit avautuvat hyväksymisen jälkeen')}
                       </button>
                     )}
                   </div>
 
                   {!isOwnProfile && !conversation && (
                     <p className="mt-3 text-sm text-[#6b7280]">
-                      Chat opens after a pet-care request is accepted.
+                      {t('Chat opens after a pet-care request is accepted.', 'Keskustelu avautuu, kun hoitopyyntö on hyväksytty.')}
                     </p>
                   )}
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Rating</p>
+                    <p className="text-sm text-[#6b7280]">{t('Rating', 'Arvosana')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">
-                      {profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : 'New'}
+                      {profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : t('New', 'Uusi')}
                     </p>
                     {profile.ratingCount > 0 && (
                       <p className="mt-1 text-sm tracking-[0.08em] text-[#ffb020]">
@@ -255,39 +265,45 @@ export default function SitterProfilePage() {
                     )}
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.ratingCount > 0
-                        ? `${profile.ratingCount} ${profile.ratingCount === 1 ? 'review' : 'reviews'}`
-                        : 'No reviews yet'}
+                        ? t(
+                            `${profile.ratingCount} ${profile.ratingCount === 1 ? 'review' : 'reviews'}`,
+                            `${profile.ratingCount} ${profile.ratingCount === 1 ? 'arvostelu' : 'arvostelua'}`
+                          )
+                        : t('No reviews yet', 'Ei vielä arvosteluja')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Trust level</p>
+                    <p className="text-sm text-[#6b7280]">{t('Trust level', 'Luottamustaso')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}%</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      Based on profile quality, verified email, completed care, and reviews.
+                      {t('Based on profile quality, verified email, completed care, and reviews.', 'Perustuu profiilin kattavuuteen, vahvistettuun sähköpostiin, toteutuneisiin hoitoihin ja arvosteluihin.')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
-                    <p className="text-sm text-[#6b7280]">Cancellation ratio</p>
+                    <p className="text-sm text-[#6b7280]">{t('Cancellation ratio', 'Peruutusosuus')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">
                       {cancellationStats && cancellationStats.totalFinishedOrCancelled > 0
                         ? `${Math.round(cancellationStats.cancellationRatio * 100)}%`
-                        : 'New'}
+                        : t('New', 'Uusi')}
                     </p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {cancellationStats && cancellationStats.totalFinishedOrCancelled > 0
-                        ? `${cancellationStats.sitterCancelledCount} sitter cancellations from ${cancellationStats.totalFinishedOrCancelled} completed or cancelled care records. ${cancellationStats.sitterLateCancelledCount} were within 24 hours.`
-                        : 'No completed or cancelled care records yet.'}
+                        ? t(
+                            `${cancellationStats.sitterCancelledCount} sitter cancellations from ${cancellationStats.totalFinishedOrCancelled} completed or cancelled care records. ${cancellationStats.sitterLateCancelledCount} were within 24 hours.`,
+                            `Hoitaja on peruuttanut ${cancellationStats.sitterCancelledCount} kertaa ${cancellationStats.totalFinishedOrCancelled} päättyneestä tai peruutetusta hoidosta. Näistä ${cancellationStats.sitterLateCancelledCount} tehtiin alle 24 tuntia ennen hoitoa.`
+                          )
+                        : t('No completed or cancelled care records yet.', 'Päättyneitä tai peruutettuja hoitoja ei vielä ole.')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm sm:col-span-2">
-                    <p className="text-sm text-[#6b7280]">Next time they can help</p>
+                    <p className="text-sm text-[#6b7280]">{t('Next time they can help', 'Seuraava vapaa hoitoaika')}</p>
                     <p className="mt-2 text-lg font-semibold text-[#0f2640]">
-                      {formatDateTimeRange(profile.nextAvailableStartAt, profile.nextAvailableEndAt)}
+                      {formatDateTimeRange(profile.nextAvailableStartAt, profile.nextAvailableEndAt, language)}
                     </p>
                     <p className="mt-1 text-sm text-[#6b7280]">
                       {profile.hasDetailedAvailability
-                        ? 'This sitter has shared a public time summary.'
-                        : 'Some sitters do not list all times. You can ask directly.'}
+                        ? t('This sitter has shared a public time summary.', 'Hoitaja on jakanut julkisen yhteenvedon vapaista ajoistaan.')
+                        : t('Some sitters do not list all times. You can ask directly.', 'Kaikki hoitajat eivät julkaise kaikkia aikojaan. Voit kysyä saatavuutta suoraan.')}
                     </p>
                   </div>
                 </div>
@@ -296,65 +312,65 @@ export default function SitterProfilePage() {
 
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-[#0f2640]">Experience</h2>
+                <h2 className="text-xl font-bold text-[#0f2640]">{t('Experience', 'Kokemus')}</h2>
                 <div className="mt-5 space-y-4">
                   <div>
-                    <p className="text-sm font-semibold text-[#0f2640]">About their care style</p>
+                    <p className="text-sm font-semibold text-[#0f2640]">{t('About their care style', 'Tietoa hoitotavasta')}</p>
                     <p className="mt-1 text-sm text-[#516173]">
-                      {profile.petExperience || 'No experience notes added yet.'}
+                      {profile.petExperience || t('No experience notes added yet.', 'Hoitokokemuksesta ei ole vielä lisätty tietoja.')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#0f2640]">Experience level</p>
-                    <p className="mt-1 text-sm text-[#516173]">{profile.experienceLevel}</p>
+                    <p className="text-sm font-semibold text-[#0f2640]">{t('Experience level', 'Kokemustaso')}</p>
+                    <p className="mt-1 text-sm text-[#516173]">{language === 'fi' ? ({ beginner: 'Aloittelija', intermediate: 'Kokenut', expert: 'Erittäin kokenut' }[profile.experienceLevel] || profile.experienceLevel) : profile.experienceLevel}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#0f2640]">Pet types</p>
+                    <p className="text-sm font-semibold text-[#0f2640]">{t('Pet types', 'Eläinlajit')}</p>
                     <p className="mt-1 text-sm text-[#516173]">
-                      {formatList(profile.petTypeExperience, 'Not specified')}
+                      {formatList(profile.petTypeExperience, t('Not specified', 'Ei määritetty'), language)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#0f2640]">Preferred pet sizes</p>
+                    <p className="text-sm font-semibold text-[#0f2640]">{t('Preferred pet sizes', 'Sopivat lemmikkien koot')}</p>
                     <p className="mt-1 text-sm text-[#516173]">
-                      {formatList(profile.preferredPetSize, 'Not specified')}
+                      {formatList(profile.preferredPetSize, t('Not specified', 'Ei määritetty'), language)}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-[#0f2640]">Good To Know</h2>
+                <h2 className="text-xl font-bold text-[#0f2640]">{t('Good To Know', 'Hyvä tietää')}</h2>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-sm font-medium text-[#0f2640]">
-                    {profile.availability === 'available' ? 'Open for bookings' : 'Not available'}
+                    {profile.availability === 'available' ? t('Open for bookings', 'Ottaa vastaan hoitopyyntöjä') : t('Not available', 'Ei saatavilla')}
                   </span>
                   {profile.experienceWithDogs && (
                     <span className="rounded-full bg-[#fff7ed] px-3 py-1 text-sm font-medium text-[#c2410c]">
-                      Dog experience
+                      {t('Dog experience', 'Kokemusta koirista')}
                     </span>
                   )}
                   {profile.experienceWithCats && (
                     <span className="rounded-full bg-[#f5f3ff] px-3 py-1 text-sm font-medium text-[#6d28d9]">
-                      Cat experience
+                      {t('Cat experience', 'Kokemusta kissoista')}
                     </span>
                   )}
                   {profile.experienceWithLargeDogs && (
                     <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-sm font-medium text-[#1d4ed8]">
-                      Large dog care
+                      {t('Large dog care', 'Suurten koirien hoito')}
                     </span>
                   )}
                   {profile.experienceWithSeniorPets && (
                     <span className="rounded-full bg-[#fef3c7] px-3 py-1 text-sm font-medium text-[#92400e]">
-                      Senior pet care
+                      {t('Senior pet care', 'Ikääntyneiden lemmikkien hoito')}
                     </span>
                   )}
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
-                  <p className="text-sm font-semibold text-[#0f2640]">Best next step</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Best next step', 'Seuraava vaihe')}</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    Ask this sitter for your pet and dates. Chat opens after the request is accepted.
+                    {t('Ask this sitter for your pet and dates. Chat opens after the request is accepted.', 'Lähetä hoitajalle pyyntö lemmikistäsi ja ajankohdasta. Keskustelu avautuu pyynnön hyväksymisen jälkeen.')}
                   </p>
                 </div>
               </div>
@@ -363,9 +379,9 @@ export default function SitterProfilePage() {
             <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-[#0f2640]">Reviews</h2>
+                  <h2 className="text-xl font-bold text-[#0f2640]">{t('Reviews', 'Arvostelut')}</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    Feedback from completed pet-care requests.
+                    {t('Feedback from completed pet-care requests.', 'Palaute toteutuneista hoidoista.')}
                   </p>
                 </div>
                 {reviews.length > 0 && (
@@ -381,7 +397,7 @@ export default function SitterProfilePage() {
               </div>
 
               {reviews.length === 0 ? (
-                <p className="mt-5 text-sm text-[#6b7280]">No reviews yet.</p>
+                <p className="mt-5 text-sm text-[#6b7280]">{t('No reviews yet.', 'Ei vielä arvosteluja.')}</p>
               ) : (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   {reviews.map((review) => (
@@ -398,20 +414,20 @@ export default function SitterProfilePage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-[#0f2640]">
-                            {review.reviewerName || 'Pet owner'}
+                            {review.reviewerName || t('Pet owner', 'Lemmikin omistaja')}
                           </p>
                           <p className="mt-1 text-xs font-medium text-[#6b7280]">
-                            {formatReviewDate(review.reviewedAt)}
+                            {formatReviewDate(review.reviewedAt, language)}
                           </p>
                         </div>
                       </div>
                       {review.comment ? (
                         <p className="mt-4 text-sm leading-6 text-[#516173]">{review.comment}</p>
                       ) : (
-                        <p className="mt-4 text-sm leading-6 text-[#6b7280]">No written comment.</p>
+                        <p className="mt-4 text-sm leading-6 text-[#6b7280]">{t('No written comment.', 'Ei kirjallista kommenttia.')}</p>
                       )}
                       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#9aa6b2]">
-                        Completed care review
+                        {t('Completed care review', 'Arvostelu toteutuneesta hoidosta')}
                       </p>
                     </article>
                   ))}
@@ -421,7 +437,7 @@ export default function SitterProfilePage() {
           </>
         ) : (
           <div className="rounded-3xl border border-gray-200 bg-white p-6">
-            <p className="text-[#6b7280]">This sitter profile could not be found.</p>
+            <p className="text-[#6b7280]">{t('This sitter profile could not be found.', 'Hoitajaprofiilia ei löytynyt.')}</p>
           </div>
         )}
       </div>

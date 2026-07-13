@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getProfile } from '@/lib/profileService';
 import {
   type AdminUserCreditRecord,
@@ -31,14 +32,14 @@ function formatReportDate(date: Date): string {
   }).format(date);
 }
 
-function getTypeLabel(type: ReportType): string {
+function getTypeLabel(type: ReportType, language: 'en' | 'fi'): string {
   switch (type) {
     case 'request':
-      return 'Reported request';
+      return language === 'fi' ? 'Ilmoitettu pyyntö' : 'Reported request';
     case 'user':
-      return 'Reported user';
+      return language === 'fi' ? 'Ilmoitettu käyttäjä' : 'Reported user';
     case 'suspicious':
-      return 'Suspicious activity';
+      return language === 'fi' ? 'Epäilyttävä toiminta' : 'Suspicious activity';
     default:
       return type;
   }
@@ -108,6 +109,7 @@ function ActionButton({
 
 export default function AdminPage() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<ReportRecord[]>([]);
@@ -151,11 +153,11 @@ export default function AdminPage() {
       setAdminUsers(nextAdminUsers);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load admin tools right now. Please try again. ' + message);
+      setError(t('We could not load admin tools right now. Please try again. ', 'Ylläpitotyökaluja ei voitu ladata. Yritä uudelleen. ') + message);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadData();
@@ -180,21 +182,21 @@ export default function AdminPage() {
 
   const reportGroups: ReportGroup[] = [
     {
-      title: 'Reported Requests',
-      description: 'Owners or sitters flagged unsafe, spammy, or inappropriate care requests.',
-      emptyMessage: 'No open request reports.',
+      title: t('Reported Requests', 'Ilmoitetut pyynnöt'),
+      description: t('Owners or sitters flagged unsafe, spammy, or inappropriate care requests.', 'Omistajien tai hoitajien ilmoittamat turvattomat, roskapostia sisältävät tai asiattomat hoitopyynnöt.'),
+      emptyMessage: t('No open request reports.', 'Avoimia pyyntöilmoituksia ei ole.'),
       reports: requestReports,
     },
     {
-      title: 'Reported Users',
-      description: 'Members flagged for behavior, profile content, or communication concerns.',
-      emptyMessage: 'No open user reports.',
+      title: t('Reported Users', 'Ilmoitetut käyttäjät'),
+      description: t('Members flagged for behavior, profile content, or communication concerns.', 'Jäsenet, joista on ilmoitettu käytöksen, profiilisisällön tai viestinnän vuoksi.'),
+      emptyMessage: t('No open user reports.', 'Avoimia käyttäjäilmoituksia ei ole.'),
       reports: userReports,
     },
     {
-      title: 'Suspicious Activity',
-      description: 'Automated signals such as repeated exchange patterns that need admin review.',
-      emptyMessage: 'No suspicious activity reports.',
+      title: t('Suspicious Activity', 'Epäilyttävä toiminta'),
+      description: t('Automated signals such as repeated exchange patterns that need admin review.', 'Automaattiset havainnot, kuten toistuvat vaihtomallit, jotka ylläpidon on tarkistettava.'),
+      emptyMessage: t('No suspicious activity reports.', 'Epäilyttävästä toiminnasta ei ole avoimia ilmoituksia.'),
       reports: suspiciousReports,
     },
   ];
@@ -241,7 +243,7 @@ export default function AdminPage() {
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Admin action failed. Please try again. ' + message);
+      setError(t('Admin action failed. Please try again. ', 'Ylläpitotoiminto epäonnistui. Yritä uudelleen. ') + message);
     } finally {
       setActioningKey(null);
     }
@@ -250,7 +252,7 @@ export default function AdminPage() {
   function handleReportStatus(report: ReportRecord, status: ReportStatus) {
     void runAdminAction(
       `${status}-${report.id}`,
-      status === 'resolved' ? 'Report marked resolved.' : 'Report dismissed.',
+      status === 'resolved' ? t('Report marked resolved.', 'Ilmoitus merkittiin käsitellyksi.') : t('Report dismissed.', 'Ilmoitus hylättiin.'),
       () => updateReportStatus(user?.uid || '', report.id, status)
     );
   }
@@ -258,11 +260,11 @@ export default function AdminPage() {
   function handleFreezeReportTarget(report: ReportRecord) {
     const targetId = getPrimaryTargetId(report);
     if (!targetId) {
-      setError('This report has no target user to freeze.');
+      setError(t('This report has no target user to freeze.', 'Ilmoituksessa ei ole käyttäjää, jonka tilin voisi jäädyttää.'));
       return;
     }
 
-    void runAdminAction(`freeze-${report.id}`, 'Target account frozen.', () =>
+    void runAdminAction(`freeze-${report.id}`, t('Target account frozen.', 'Kohdetili jäädytettiin.'), () =>
       setAccountFrozen(user?.uid || '', targetId, true, `Action from report ${report.id}`)
     );
   }
@@ -270,13 +272,13 @@ export default function AdminPage() {
   function handleAccountFrozenChange(frozen: boolean) {
     const trimmedTarget = targetUserId.trim();
     if (!trimmedTarget) {
-      setError('Enter a target user ID first.');
+      setError(t('Enter a target user ID first.', 'Anna ensin kohdekäyttäjän tunnus.'));
       return;
     }
 
     void runAdminAction(
       `${frozen ? 'freeze' : 'unfreeze'}-${trimmedTarget}`,
-      frozen ? 'Account frozen.' : 'Account unfrozen.',
+      frozen ? t('Account frozen.', 'Tili jäädytettiin.') : t('Account unfrozen.', 'Tilin jäädytys poistettiin.'),
       async () => {
         await setAccountFrozen(
           user?.uid || '',
@@ -294,11 +296,11 @@ export default function AdminPage() {
     const ownerId = reviewOwnerId.trim();
     const requestId = reviewRequestId.trim();
     if (!ownerId || !requestId) {
-      setError('Enter both owner ID and request ID.');
+      setError(t('Enter both owner ID and request ID.', 'Anna sekä omistajan että pyynnön tunnus.'));
       return;
     }
 
-    void runAdminAction('delete-review', 'Review removed and sitter rating recalculated.', async () => {
+    void runAdminAction('delete-review', t('Review removed and sitter rating recalculated.', 'Arvostelu poistettiin ja hoitajan arvosana laskettiin uudelleen.'), async () => {
       await deleteAbusiveReview(user?.uid || '', ownerId, requestId);
       setReviewOwnerId('');
       setReviewRequestId('');
@@ -309,17 +311,17 @@ export default function AdminPage() {
     const trimmedTarget = creditTargetUserId.trim();
     const parsedAmount = Number(creditAmount);
     if (!trimmedTarget) {
-      setError('Enter a target user ID first.');
+      setError(t('Enter a target user ID first.', 'Anna ensin kohdekäyttäjän tunnus.'));
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError('Enter a positive credit amount.');
+      setError(t('Enter a positive credit amount.', 'Anna positiivinen krediittimäärä.'));
       return;
     }
 
     void runAdminAction(
       `${direction}-credits-${trimmedTarget}`,
-      direction === 'add' ? 'Credits added.' : 'Credits deducted.',
+      direction === 'add' ? t('Credits added.', 'Krediitit lisättiin.') : t('Credits deducted.', 'Krediitit vähennettiin.'),
       async () => {
         await adjustUserCredits(
           user?.uid || '',
@@ -348,13 +350,13 @@ export default function AdminPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e96b2c]">
-                TassuKaveri Admin
+                {t('TassuKaveri Admin', 'TassuKaverin ylläpito')}
               </p>
               <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#0f2640] sm:text-4xl">
-                Moderation Dashboard
+                {t('Moderation Dashboard', 'Valvonnan hallintapaneeli')}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5c6b7a] sm:text-base">
-                Review reports, protect members, and keep pet-care exchanges safe and respectful.
+                {t('Review reports, protect members, and keep pet-care exchanges safe and respectful.', 'Tarkista ilmoitukset, suojaa jäseniä ja pidä hoitovaihto turvallisena ja asiallisena.')}
               </p>
             </div>
             {isAdmin && (
@@ -364,7 +366,7 @@ export default function AdminPage() {
                 disabled={loading || actionBusy}
                 className="rounded-full border border-[#d8cbbb] bg-[#fffdf9] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
               >
-                Refresh queue
+                {t('Refresh queue', 'Päivitä jono')}
               </button>
             )}
           </div>
@@ -372,19 +374,19 @@ export default function AdminPage() {
           {isAdmin && (
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl border border-[#eadfce] bg-[#fffaf6] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Open</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Open', 'Avoimet')}</p>
                 <p className="mt-2 text-3xl font-black text-[#0f2640]">{reports.length}</p>
               </div>
               <div className="rounded-2xl border border-[#eadfce] bg-[#fffaf6] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Requests</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Requests', 'Pyynnöt')}</p>
                 <p className="mt-2 text-3xl font-black text-[#0f2640]">{requestReports.length}</p>
               </div>
               <div className="rounded-2xl border border-[#eadfce] bg-[#fffaf6] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Users</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Users', 'Käyttäjät')}</p>
                 <p className="mt-2 text-3xl font-black text-[#0f2640]">{userReports.length}</p>
               </div>
               <div className="rounded-2xl border border-[#eadfce] bg-[#fffaf6] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Signals</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Signals', 'Huomiot')}</p>
                 <p className="mt-2 text-3xl font-black text-[#0f2640]">{suspiciousReports.length}</p>
               </div>
             </div>
@@ -404,18 +406,18 @@ export default function AdminPage() {
 
         {loading ? (
           <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
-            <p className="text-[#6b7280]">Loading admin tools...</p>
+            <p className="text-[#6b7280]">{t('Loading admin tools...', 'Ladataan ylläpitotyökaluja...')}</p>
           </section>
         ) : !isAdmin ? (
           <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
-            <p className="font-semibold text-[#0f2640]">This page is only for admins.</p>
+            <p className="font-semibold text-[#0f2640]">{t('This page is only for admins.', 'Tämä sivu on tarkoitettu vain ylläpitäjille.')}</p>
             <p className="mt-2 text-sm text-[#6b7280]">
-              Log in with an account whose profile role is set to admin.
+              {t('Log in with an account whose profile role is set to admin.', 'Kirjaudu tilillä, jonka profiilin rooliksi on määritetty ylläpitäjä.')}
             </p>
           </section>
         ) : (
           <>
-            <div className="flex flex-wrap gap-3" role="tablist" aria-label="Admin sections">
+            <div className="flex flex-wrap gap-3" role="tablist" aria-label={t('Admin sections', 'Ylläpidon osiot')}>
               <button
                 type="button"
                 role="tab"
@@ -425,7 +427,7 @@ export default function AdminPage() {
                   'users'
                 )}`}
               >
-                Users & Credits
+                {t('Users & Credits', 'Käyttäjät ja krediitit')}
               </button>
               <button
                 type="button"
@@ -436,23 +438,23 @@ export default function AdminPage() {
                   'moderation'
                 )}`}
               >
-                Moderation
+                {t('Moderation', 'Valvonta')}
               </button>
             </div>
 
             {activeTab === 'users' ? (
               <section className="space-y-5">
                 <div className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
-                  <h2 className="text-xl font-bold text-[#0f2640]">Credit Controls</h2>
+                  <h2 className="text-xl font-bold text-[#0f2640]">{t('Credit Controls', 'Krediittien hallinta')}</h2>
                   <p className="mt-2 text-sm leading-6 text-[#6b7280]">
-                    Add or deduct credits for a member wallet. Every change is saved as a transaction.
+                    {t('Add or deduct credits for a member wallet. Every change is saved as a transaction.', 'Lisää tai vähennä jäsenen krediittejä. Jokainen muutos tallennetaan tapahtumana.')}
                   </p>
                   <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)_auto_auto] lg:items-center">
                     <input
                       type="text"
                       value={creditTargetUserId}
                       onChange={(event) => setCreditTargetUserId(event.target.value)}
-                      placeholder="Target user ID"
+                      placeholder={t('Target user ID', 'Kohdekäyttäjän tunnus')}
                       className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                     />
                     <input
@@ -461,14 +463,14 @@ export default function AdminPage() {
                       step="1"
                       value={creditAmount}
                       onChange={(event) => setCreditAmount(event.target.value)}
-                      placeholder="Credits"
+                      placeholder={t('Credits', 'Krediitit')}
                       className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                     />
                     <input
                       type="text"
                       value={creditReason}
                       onChange={(event) => setCreditReason(event.target.value)}
-                      placeholder="Reason or internal note"
+                      placeholder={t('Reason or internal note', 'Syy tai sisäinen huomautus')}
                       className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                     />
                     <ActionButton
@@ -476,14 +478,14 @@ export default function AdminPage() {
                       disabled={actionBusy}
                       onClick={() => handleCreditAdjustment('add')}
                     >
-                      Add credits
+                      {t('Add credits', 'Lisää krediittejä')}
                     </ActionButton>
                     <ActionButton
                       variant="danger"
                       disabled={actionBusy}
                       onClick={() => handleCreditAdjustment('deduct')}
                     >
-                      Deduct credits
+                      {t('Deduct credits', 'Vähennä krediittejä')}
                     </ActionButton>
                   </div>
                 </div>
@@ -492,7 +494,7 @@ export default function AdminPage() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <h2 className="text-2xl font-black tracking-[-0.03em] text-[#0f2640]">
-                        Users & Credits
+                        {t('Users & Credits', 'Käyttäjät ja krediitit')}
                       </h2>
                       <p className="mt-1 text-sm text-[#6b7280]">
                         {filteredAdminUsers.length} of {adminUsers.length} registered members
@@ -503,7 +505,7 @@ export default function AdminPage() {
                         type="search"
                         value={userSearchQuery}
                         onChange={(event) => setUserSearchQuery(event.target.value)}
-                        placeholder="Search users"
+                        placeholder={t('Search users', 'Hae käyttäjiä')}
                         className="w-full rounded-full border border-[#d8cbbb] bg-[#fffdf9] px-4 py-2 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf] sm:w-56"
                       />
                       <button
@@ -512,7 +514,7 @@ export default function AdminPage() {
                         disabled={loading || actionBusy}
                         className="rounded-full border border-[#d8cbbb] bg-[#fffdf9] px-5 py-2 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
                       >
-                        Refresh users
+                        {t('Refresh users', 'Päivitä käyttäjät')}
                       </button>
                     </div>
                   </div>
@@ -521,12 +523,12 @@ export default function AdminPage() {
                     <table className="min-w-[860px] w-full border-collapse text-left text-sm">
                       <thead>
                         <tr className="border-b border-[#eadfce] text-xs uppercase tracking-[0.12em] text-[#7a8794]">
-                          <th className="py-3 pr-4 font-bold">Target ID</th>
-                          <th className="px-4 py-3 font-bold">Users name</th>
-                          <th className="px-4 py-3 font-bold">Email address</th>
-                          <th className="px-4 py-3 font-bold">Credit amount</th>
-                          <th className="px-4 py-3 font-bold">Date Reg</th>
-                          <th className="py-3 pl-4 font-bold">Action</th>
+                          <th className="py-3 pr-4 font-bold">{t('Target ID', 'Kohdetunnus')}</th>
+                          <th className="px-4 py-3 font-bold">{t('Users name', 'Käyttäjän nimi')}</th>
+                          <th className="px-4 py-3 font-bold">{t('Email address', 'Sähköpostiosoite')}</th>
+                          <th className="px-4 py-3 font-bold">{t('Credit amount', 'Krediittimäärä')}</th>
+                          <th className="px-4 py-3 font-bold">{t('Date Reg', 'Rekisteröitynyt')}</th>
+                          <th className="py-3 pl-4 font-bold">{t('Action', 'Toiminto')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#f0e7dc]">
@@ -534,8 +536,8 @@ export default function AdminPage() {
                           <tr>
                             <td colSpan={6} className="py-6 text-center text-[#6b7280]">
                               {adminUsers.length === 0
-                                ? 'No registered members found.'
-                                : 'No users match your search.'}
+                                ? t('No registered members found.', 'Rekisteröityneitä jäseniä ei löytynyt.')
+                                : t('No users match your search.', 'Hakua vastaavia käyttäjiä ei löytynyt.')}
                             </td>
                           </tr>
                         ) : (
@@ -545,7 +547,7 @@ export default function AdminPage() {
                                 {adminUser.uid}
                               </td>
                               <td className="px-4 py-4 font-semibold text-[#0f2640]">
-                                {adminUser.name || 'Unnamed user'}
+                                {adminUser.name || t('Unnamed user', 'Nimetön käyttäjä')}
                               </td>
                               <td className="px-4 py-4 text-[#5c6b7a]">{adminUser.email}</td>
                               <td className="px-4 py-4 font-black text-[#0f2640]">
@@ -559,7 +561,7 @@ export default function AdminPage() {
                                   disabled={actionBusy}
                                   onClick={() => setCreditTargetUserId(adminUser.uid)}
                                 >
-                                  Use ID
+                                  {t('Use ID', 'Käytä tunnusta')}
                                 </ActionButton>
                               </td>
                             </tr>
@@ -581,7 +583,7 @@ export default function AdminPage() {
                         disabled={normalizedUserPage === 1}
                         className="rounded-full border border-[#d8cbbb] bg-white px-4 py-2 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Previous
+                        {t('Previous', 'Edellinen')}
                       </button>
                       <span className="min-w-20 text-center text-sm font-bold text-[#0f2640]">
                         Page {normalizedUserPage} of {userPageCount}
@@ -594,7 +596,7 @@ export default function AdminPage() {
                         disabled={normalizedUserPage === userPageCount}
                         className="rounded-full border border-[#d8cbbb] bg-white px-4 py-2 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Next
+                        {t('Next', 'Seuraava')}
                       </button>
                     </div>
                   </div>
@@ -604,23 +606,23 @@ export default function AdminPage() {
               <section className="space-y-5">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
-                    <h2 className="text-xl font-bold text-[#0f2640]">Account Controls</h2>
+                    <h2 className="text-xl font-bold text-[#0f2640]">{t('Account Controls', 'Tilien hallinta')}</h2>
                     <p className="mt-2 text-sm leading-6 text-[#6b7280]">
-                      Freeze unsafe accounts quickly. Unfreeze accounts after review or appeal.
+                      {t('Freeze unsafe accounts quickly. Unfreeze accounts after review or appeal.', 'Jäädytä turvattomat tilit nopeasti. Poista jäädytys tarkistuksen tai valituksen jälkeen.')}
                     </p>
                     <div className="mt-5 grid gap-3">
                       <input
                         type="text"
                         value={targetUserId}
                         onChange={(event) => setTargetUserId(event.target.value)}
-                        placeholder="Target user ID"
+                        placeholder={t('Target user ID', 'Kohdekäyttäjän tunnus')}
                         className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                       />
                       <input
                         type="text"
                         value={accountReason}
                         onChange={(event) => setAccountReason(event.target.value)}
-                        placeholder="Reason or internal note"
+                        placeholder={t('Reason or internal note', 'Syy tai sisäinen huomautus')}
                         className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                       />
                       <div className="flex flex-col gap-3 sm:flex-row">
@@ -629,20 +631,20 @@ export default function AdminPage() {
                           disabled={actionBusy}
                           onClick={() => handleAccountFrozenChange(true)}
                         >
-                          Freeze account
+                          {t('Freeze account', 'Jäädytä tili')}
                         </ActionButton>
                         <ActionButton
                           disabled={actionBusy}
                           onClick={() => handleAccountFrozenChange(false)}
                         >
-                          Unfreeze account
+                          {t('Unfreeze account', 'Poista tilin jäädytys')}
                         </ActionButton>
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
-                    <h2 className="text-xl font-bold text-[#0f2640]">Review Controls</h2>
+                    <h2 className="text-xl font-bold text-[#0f2640]">{t('Review Controls', 'Arvostelujen hallinta')}</h2>
                     <p className="mt-2 text-sm leading-6 text-[#6b7280]">
                       Remove abusive reviews and recalculate sitter rating/trust values.
                     </p>
@@ -651,14 +653,14 @@ export default function AdminPage() {
                         type="text"
                         value={reviewOwnerId}
                         onChange={(event) => setReviewOwnerId(event.target.value)}
-                        placeholder="Request owner ID"
+                        placeholder={t('Request owner ID', 'Pyynnön omistajan tunnus')}
                         className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                       />
                       <input
                         type="text"
                         value={reviewRequestId}
                         onChange={(event) => setReviewRequestId(event.target.value)}
-                        placeholder="Request ID"
+                        placeholder={t('Request ID', 'Pyynnön tunnus')}
                         className="rounded-xl border border-[#d8cbbb] px-4 py-3 text-sm outline-none focus:border-[#e96b2c] focus:ring-2 focus:ring-[#ffd7bf]"
                       />
                       <div>
@@ -667,7 +669,7 @@ export default function AdminPage() {
                           disabled={actionBusy}
                           onClick={handleDeleteReview}
                         >
-                          Delete abusive review
+                          {t('Delete abusive review', 'Poista asiaton arvostelu')}
                         </ActionButton>
                       </div>
                     </div>
@@ -676,10 +678,10 @@ export default function AdminPage() {
 
                 <div>
                   <h2 className="text-2xl font-black tracking-[-0.03em] text-[#0f2640]">
-                    Moderation Queue
+                    {t('Moderation Queue', 'Valvontajono')}
                   </h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    Resolve when action was taken. Dismiss when the report is not actionable.
+                    {t('Resolve when action was taken. Dismiss when the report is not actionable.', 'Merkitse käsitellyksi, kun tarvittavat toimet on tehty. Hylkää ilmoitus, jos se ei vaadi toimenpiteitä.')}
                   </p>
                 </div>
 
@@ -715,7 +717,7 @@ export default function AdminPage() {
                                     report.type
                                   )}`}
                                 >
-                                  {getTypeLabel(report.type)}
+                                  {getTypeLabel(report.type, language)}
                                 </span>
                                 <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
                                   {report.status}
@@ -741,13 +743,13 @@ export default function AdminPage() {
                                   disabled={actionBusy}
                                   onClick={() => handleReportStatus(report, 'resolved')}
                                 >
-                                  Resolve
+                                  {t('Resolve', 'Merkitse käsitellyksi')}
                                 </ActionButton>
                                 <ActionButton
                                   disabled={actionBusy}
                                   onClick={() => handleReportStatus(report, 'dismissed')}
                                 >
-                                  Dismiss
+                                  {t('Dismiss', 'Hylkää')}
                                 </ActionButton>
                                 {targetId && (
                                   <ActionButton
@@ -755,7 +757,7 @@ export default function AdminPage() {
                                     disabled={actionBusy}
                                     onClick={() => handleFreezeReportTarget(report)}
                                   >
-                                    Freeze target
+                                    {t('Freeze target', 'Jäädytä kohdetili')}
                                   </ActionButton>
                                 )}
                                 {report.targetOwnerId && report.targetRequestId && (
@@ -766,7 +768,7 @@ export default function AdminPage() {
                                       setReviewRequestId(report.targetRequestId || '');
                                     }}
                                   >
-                                    Fill review tool
+                                    {t('Fill review tool', 'Täytä arvostelutyökalu')}
                                   </ActionButton>
                                 )}
                               </div>

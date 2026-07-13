@@ -173,6 +173,11 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
+              <LanguageSwitcher
+                language={language}
+                setLanguage={setLanguage}
+                className="border-[#e2e8f0] bg-[#fbfcfe] p-[3px] text-[0.82rem] shadow-none"
+              />
               <Link
                 href="/notifications"
                 aria-label={
@@ -244,7 +249,7 @@ export default function Navbar() {
           )}
 
           <div className="flex items-center gap-2 md:hidden">
-            {!user && mobileMenuOpen && (
+            {mobileMenuOpen && (
               <LanguageSwitcher
                 language={language}
                 setLanguage={setLanguage}

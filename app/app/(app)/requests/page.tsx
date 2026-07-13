@@ -6,6 +6,7 @@ import CitySelect from '@/components/CitySelect';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getUserRequests,
   getSitterRequests,
@@ -101,7 +102,7 @@ function parseFormDateTime(date: string, time: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function formatRequestDuration(startAt: Date, endAt: Date): string {
+function formatRequestDuration(startAt: Date, endAt: Date, language: 'en' | 'fi'): string {
   const durationMs = endAt.getTime() - startAt.getTime();
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     return '';
@@ -116,14 +117,15 @@ function formatRequestDuration(startAt: Date, endAt: Date): string {
   }
 
   if (minutes === 0) {
-    return `${hours} hr`;
+    return language === 'fi' ? `${hours} t` : `${hours} hr`;
   }
 
-  return `${hours} hr ${minutes} min`;
+  return language === 'fi' ? `${hours} t ${minutes} min` : `${hours} hr ${minutes} min`;
 }
 
-function formatRequestDateTime(date: Date): string {
-  return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], {
+function formatRequestDateTime(date: Date, language: 'en' | 'fi'): string {
+  const locale = language === 'fi' ? 'fi-FI' : 'en-GB';
+  return `${date.toLocaleDateString(locale)} ${language === 'fi' ? 'klo' : 'at'} ${date.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   })}`;
@@ -139,20 +141,34 @@ function isInsideOwnerFreeCancellationWindow(startDate: Date): boolean {
   return startDate.getTime() - Date.now() <= OWNER_FREE_CANCELLATION_HOURS * 60 * 60 * 1000;
 }
 
-function getCancellationCreditNotice(request: Request, viewer: 'owner' | 'sitter'): string {
+function getCancellationCreditNotice(
+  request: Request,
+  viewer: 'owner' | 'sitter',
+  language: 'en' | 'fi'
+): string {
   if (request.status !== 'cancelled') {
     return '';
   }
 
   if (request.cancellationCreditOutcome === 'sitter_paid') {
-    return viewer === 'owner'
-      ? 'Cancelled within 24 hours of the start time. The reserved credits were given to the sitter.'
+    if (viewer === 'owner') {
+      return language === 'fi'
+        ? 'Hoito peruutettiin alle 24 tuntia ennen alkamista. Varatut krediitit annettiin hoitajalle.'
+        : 'Cancelled within 24 hours of the start time. The reserved credits were given to the sitter.';
+    }
+    return language === 'fi'
+      ? 'Hoito peruutettiin alle 24 tuntia ennen alkamista. Varatut krediitit vapautettiin sinulle.'
       : 'Cancelled within 24 hours of the start time. The reserved credits were released to you.';
   }
 
   if (request.cancellationCreditOutcome === 'owner_refunded') {
-    return viewer === 'owner'
-      ? 'The reserved credits were returned to you.'
+    if (viewer === 'owner') {
+      return language === 'fi'
+        ? 'Varatut krediitit palautettiin sinulle.'
+        : 'The reserved credits were returned to you.';
+    }
+    return language === 'fi'
+      ? 'Varatut krediitit palautettiin lemmikin omistajalle.'
       : 'The reserved credits were returned to the pet owner.';
   }
 
@@ -161,6 +177,14 @@ function getCancellationCreditNotice(request: Request, viewer: 'owner' | 'sitter
 
 function RequestsPageContent() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
+  const localizeRequestText = (value: string) => language === 'fi' ? ({
+    'Your pet': 'Lemmikkisi', 'Dates & place': 'Ajankohta ja paikka', 'Care details': 'Hoidon tiedot',
+    Review: 'Tarkistus', Overnight: 'Yöhoito', 'Care that includes an overnight stay.': 'Hoito, johon sisältyy yöpyminen.',
+    'Home visits': 'Kotikäynnit', 'Short visits for feeding, play, cleaning, or check-ins.': 'Lyhyet käynnit ruokintaa, leikkiä, siivousta tai voinnin tarkistamista varten.',
+    'Dog walks': 'Koiran ulkoilutus', 'Walks and outdoor time for dogs.': 'Koirien lenkitys ja ulkoilu.',
+    Boarding: 'Hoito hoitajan luona', "Pet care at the sitter's place, when agreed.": 'Lemmikin hoito hoitajan luona erikseen sovittaessa.',
+  }[value] || value) : value;
   const router = useRouter();
   const searchParams = useSearchParams();
   const wizardAdvanceLockRef = useRef(false);
@@ -239,14 +263,14 @@ function RequestsPageContent() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       if (!options.silent) {
-        setError('We could not load your requests right now. Please try again. ' + message);
+        setError(t('We could not load your requests right now. Please try again. ', 'Hoitopyyntöjäsi ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
       }
     } finally {
       if (!options.silent) {
         setLoading(false);
       }
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadData();
@@ -357,7 +381,7 @@ function RequestsPageContent() {
 
   function handleEdit(request: Request) {
     if (request.status !== 'open') {
-      setError('You can only edit requests that are still open.');
+      setError(t('You can only edit requests that are still open.', 'Voit muokata vain avoimia hoitopyyntöjä.'));
       return;
     }
 
@@ -399,14 +423,14 @@ function RequestsPageContent() {
   async function handleFinalSubmit() {
     if (!user) return;
     if (wizardStepRef.current !== 4 || requestWizardStep !== 4 || !reviewStepReady) {
-      setError('Review your request before sending it.');
+      setError(t('Review your request before sending it.', 'Tarkista hoitopyyntö ennen lähettämistä.'));
       return;
     }
     if (!validateRequestBeforeSubmit()) {
       return;
     }
     if (!arrangementAcknowledged) {
-      setError('Please confirm that you understand TassuKaveri is a connection platform before sending.');
+      setError(t('Please confirm that you understand TassuKaveri is a connection platform before sending.', 'Vahvista ennen lähettämistä, että ymmärrät TassuKaverin olevan yhteydenpitoalusta.'));
       return;
     }
 
@@ -444,10 +468,10 @@ function RequestsPageContent() {
 
       if (editingRequest) {
         await updateRequest(user.uid, editingRequest.id, requestData);
-        setSuccess('Pet-care request updated.');
+        setSuccess(t('Pet-care request updated.', 'Hoitopyyntö päivitetty.'));
       } else {
         await createRequest(user.uid, requestData);
-        setSuccess('Pet-care request sent.');
+        setSuccess(t('Pet-care request sent.', 'Hoitopyyntö lähetetty.'));
       }
 
       setShowForm(false);
@@ -465,7 +489,7 @@ function RequestsPageContent() {
       setArrangementAcknowledged(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not save this request right now. Please check the fields and try again. ' + message);
+      setError(t('We could not save this request right now. Please check the fields and try again. ', 'Hoitopyyntöä ei voitu tallentaa. Tarkista tiedot ja yritä uudelleen. ') + message);
     } finally {
       setSaving(false);
     }
@@ -474,9 +498,9 @@ function RequestsPageContent() {
   async function handleCancelRequest(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Cancel request?',
-      message: 'Sitters will no longer see this pet-care request.',
-      confirmLabel: 'Cancel request',
+      title: t('Cancel request?', 'Peruutetaanko hoitopyyntö?'),
+      message: t('Sitters will no longer see this pet-care request.', 'Hoitajat eivät enää näe tätä hoitopyyntöä.'),
+      confirmLabel: t('Cancel request', 'Peruuta pyyntö'),
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -486,20 +510,20 @@ function RequestsPageContent() {
 
     try {
       await cancelRequest(user.uid, request.id);
-      setSuccess('Pet-care request cancelled.');
+      setSuccess(t('Pet-care request cancelled.', 'Hoitopyyntö peruutettu.'));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not cancel this request right now. Please try again. ' + message);
+      setError(t('We could not cancel this request right now. Please try again. ', 'Hoitopyyntöä ei voitu peruuttaa juuri nyt. Yritä uudelleen. ') + message);
     }
   }
 
   async function handleDelete(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Delete request?',
-      message: 'This pet-care request will be permanently removed for both people.',
-      confirmLabel: 'Delete request',
+      title: t('Delete request?', 'Poistetaanko hoitopyyntö?'),
+      message: t('This pet-care request will be permanently removed for both people.', 'Hoitopyyntö poistetaan pysyvästi molemmilta osapuolilta.'),
+      confirmLabel: t('Delete request', 'Poista pyyntö'),
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -509,20 +533,20 @@ function RequestsPageContent() {
 
     try {
       await deleteRequest(user.uid, request.id);
-      setSuccess('Pet-care request deleted.');
+      setSuccess(t('Pet-care request deleted.', 'Hoitopyyntö poistettu.'));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not delete this request right now. Please try again. ' + message);
+      setError(t('We could not delete this request right now. Please try again. ', 'Hoitopyyntöä ei voitu poistaa juuri nyt. Yritä uudelleen. ') + message);
     }
   }
 
   async function handleMarkAwaitingConfirmation(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Mark care as finished?',
-      message: 'The owner will need to confirm before you receive the credits.',
-      confirmLabel: 'Mark finished',
+      title: t('Mark care as finished?', 'Merkitäänkö hoito päättyneeksi?'),
+      message: t('The owner will need to confirm before you receive the credits.', 'Omistajan on vahvistettava hoito ennen kuin saat krediitit.'),
+      confirmLabel: t('Mark finished', 'Merkitse päättyneeksi'),
     });
     if (!confirmed) return;
 
@@ -532,11 +556,11 @@ function RequestsPageContent() {
 
     try {
       await markAwaitingConfirmation(request.ownerId, request.id, user.uid);
-      setSuccess('Marked as finished. Waiting for the owner to confirm.');
+      setSuccess(t('Marked as finished. Waiting for the owner to confirm.', 'Hoito merkitty päättyneeksi. Odotetaan omistajan vahvistusta.'));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not mark this care as finished. Please try again. ' + message);
+      setError(t('We could not mark this care as finished. Please try again. ', 'Hoitoa ei voitu merkitä päättyneeksi. Yritä uudelleen. ') + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -545,9 +569,9 @@ function RequestsPageContent() {
   async function handleConfirmCompletion(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Confirm completed care?',
-      message: 'The sitter will receive the reserved credits.',
-      confirmLabel: 'Confirm care',
+      title: t('Confirm completed care?', 'Vahvistetaanko päättynyt hoito?'),
+      message: t('The sitter will receive the reserved credits.', 'Hoitaja saa varatut krediitit.'),
+      confirmLabel: t('Confirm care', 'Vahvista hoito'),
     });
     if (!confirmed) return;
 
@@ -557,11 +581,11 @@ function RequestsPageContent() {
 
     try {
       await confirmCompletion(request.ownerId, request.id);
-      setSuccess('Care confirmed. The sitter received the credits.');
+      setSuccess(t('Care confirmed. The sitter received the credits.', 'Hoito vahvistettu. Hoitaja sai krediitit.'));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not confirm this care right now. Please try again. ' + message);
+      setError(t('We could not confirm this care right now. Please try again. ', 'Hoitoa ei voitu vahvistaa juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -573,15 +597,15 @@ function RequestsPageContent() {
     const ownerLateCancellation = actorIsOwner && isInsideOwnerFreeCancellationWindow(request.startDate);
     const sitterLateCancellation = !actorIsOwner && isInsideOwnerFreeCancellationWindow(request.startDate);
     const confirmed = await requestConfirmation({
-      title: 'Cancel this accepted care?',
+      title: t('Cancel this accepted care?', 'Peruutetaanko sovittu hoito?'),
       message: actorIsOwner
         ? ownerLateCancellation
-          ? 'This care starts within 24 hours, so the reserved credits will be given to the sitter.'
-          : 'The reserved credits will be returned to you.'
+          ? t('This care starts within 24 hours, so the reserved credits will be given to the sitter.', 'Hoito alkaa alle 24 tunnin kuluttua, joten varatut krediitit annetaan hoitajalle.')
+          : t('The reserved credits will be returned to you.', 'Varatut krediitit palautetaan sinulle.')
         : sitterLateCancellation
-          ? 'This care starts within 24 hours. Cancelling now may leave the pet owner without help, and the reserved credits will be returned to them.'
-          : 'The reserved credits will be returned to the pet owner.',
-      confirmLabel: 'Cancel care',
+          ? t('This care starts within 24 hours. Cancelling now may leave the pet owner without help, and the reserved credits will be returned to them.', 'Hoito alkaa alle 24 tunnin kuluttua. Peruuttaminen voi jättää lemmikin omistajan ilman apua, ja varatut krediitit palautetaan hänelle.')
+          : t('The reserved credits will be returned to the pet owner.', 'Varatut krediitit palautetaan lemmikin omistajalle.'),
+      confirmLabel: t('Cancel care', 'Peruuta hoito'),
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -595,14 +619,14 @@ function RequestsPageContent() {
       setSuccess(
         actorIsOwner
           ? ownerLateCancellation
-            ? 'Pet care cancelled. The reserved credits were released to the sitter.'
-            : 'Pet care cancelled. The reserved credits were returned to you.'
-          : 'Pet care cancelled. The reserved credits were returned to the pet owner.'
+            ? t('Pet care cancelled. The reserved credits were released to the sitter.', 'Lemmikinhoito peruutettiin. Varatut krediitit vapautettiin hoitajalle.')
+            : t('Pet care cancelled. The reserved credits were returned to you.', 'Lemmikinhoito peruutettiin. Varatut krediitit palautettiin sinulle.')
+          : t('Pet care cancelled. The reserved credits were returned to the pet owner.', 'Lemmikinhoito peruutettiin. Varatut krediitit palautettiin lemmikin omistajalle.')
       );
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not cancel this pet care right now. Please try again. ' + message);
+      setError(t('We could not cancel this pet care right now. Please try again. ', 'Lemmikinhoitoa ei voitu peruuttaa juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -611,9 +635,9 @@ function RequestsPageContent() {
   async function handleAcceptApplicant(request: Request, application: RequestApplication) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: `Choose ${application.sitterName}?`,
-      message: 'Reserved credits will stay held until the care is finished or cancelled.',
-      confirmLabel: 'Choose sitter',
+      title: t(`Choose ${application.sitterName}?`, `Valitaanko ${application.sitterName} hoitajaksi?`),
+      message: t('Reserved credits will stay held until the care is finished or cancelled.', 'Varatut krediitit pidetään varauksessa, kunnes hoito päättyy tai peruutetaan.'),
+      confirmLabel: t('Choose sitter', 'Valitse hoitaja'),
       requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
@@ -624,11 +648,14 @@ function RequestsPageContent() {
 
     try {
       await acceptApplication(request.ownerId, request.id, application.sitterId);
-      setSuccess(`Accepted ${application.sitterName}. Reserved credits stay held until the care is finished or cancelled.`);
+      setSuccess(t(
+        `Accepted ${application.sitterName}. Reserved credits stay held until the care is finished or cancelled.`,
+        `${application.sitterName} valittiin hoitajaksi. Krediitit pysyvät varauksessa, kunnes hoito päättyy tai peruutetaan.`
+      ));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not accept this sitter right now. Please try again. ' + message);
+      setError(t('We could not accept this sitter right now. Please try again. ', 'Hoitajaa ei voitu hyväksyä juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -641,7 +668,7 @@ function RequestsPageContent() {
     const comment = reviewComments[request.id] || '';
 
     if (rating < 1 || rating > 5) {
-      setError('Please select a rating between 1 and 5.');
+      setError(t('Please select a rating between 1 and 5.', 'Valitse arvosana 1–5.'));
       return;
     }
 
@@ -651,11 +678,11 @@ function RequestsPageContent() {
 
     try {
       await submitReview(request.ownerId, request.id, rating, comment);
-      setSuccess('Review sent. Thank you for helping the community.');
+      setSuccess(t('Review sent. Thank you for helping the community.', 'Arvostelu lähetetty. Kiitos, että autat yhteisöä.'));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not send your review right now. Please try again. ' + message);
+      setError(t('We could not send your review right now. Please try again. ', 'Arvostelua ei voitu lähettää juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setActioningRequestId(null);
     }
@@ -669,9 +696,12 @@ function RequestsPageContent() {
   async function handleApply(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Send offer?',
-      message: `Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits.`,
-      confirmLabel: 'Send offer',
+      title: t('Send offer?', 'Lähetetäänkö tarjous?'),
+      message: t(
+        `Offer to help with ${request.petNames.join(', ')} for ${request.creditsOffered} credits.`,
+        `Tarjoa apuasi lemmikille ${request.petNames.join(', ')} ${request.creditsOffered} krediitillä.`
+      ),
+      confirmLabel: t('Send offer', 'Lähetä tarjous'),
       requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
@@ -687,11 +717,11 @@ function RequestsPageContent() {
         user.uid,
         applicationMessages[request.id] || ''
       );
-      setSuccess(`Offer sent for ${request.petNames.join(', ')}.`);
+      setSuccess(t(`Offer sent for ${request.petNames.join(', ')}.`, `Tarjous lähetettiin lemmikille ${request.petNames.join(', ')}.`));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not send your offer right now. Please try again. ' + message);
+      setError(t('We could not send your offer right now. Please try again. ', 'Tarjousta ei voitu lähettää juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -700,9 +730,12 @@ function RequestsPageContent() {
   async function handleAcceptDirectRequest(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Accept direct request?',
-      message: `Accept this direct pet-care request for ${request.petNames.join(', ')}.`,
-      confirmLabel: 'Accept request',
+      title: t('Accept direct request?', 'Hyväksytäänkö suora pyyntö?'),
+      message: t(
+        `Accept this direct pet-care request for ${request.petNames.join(', ')}.`,
+        `Hyväksy suora hoitopyyntö lemmikille ${request.petNames.join(', ')}.`
+      ),
+      confirmLabel: t('Accept request', 'Hyväksy pyyntö'),
       requiresArrangementAcknowledgement: true,
     });
     if (!confirmed) return;
@@ -713,14 +746,17 @@ function RequestsPageContent() {
 
     try {
       await acceptRequest(request.ownerId, request.id, user.uid);
-      setSuccess(`Direct pet-care request accepted for ${request.petNames.join(', ')}.`);
+      setSuccess(t(
+        `Direct pet-care request accepted for ${request.petNames.join(', ')}.`,
+        `Suora hoitopyyntö hyväksyttiin lemmikille ${request.petNames.join(', ')}.`
+      ));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(
         isOwnerCreditError(err)
-          ? 'The pet owner does not currently have enough credits reserved for this request. Ask them to add credits or send a shorter request.'
-          : 'We could not accept this direct request right now. Please try again. ' + message
+          ? t('The pet owner does not currently have enough credits reserved for this request. Ask them to add credits or send a shorter request.', 'Lemmikin omistajalla ei ole tällä hetkellä riittävästi krediittejä varattuna tähän pyyntöön. Pyydä häntä lisäämään krediittejä tai lähettämään lyhyempi pyyntö.')
+          : t('We could not accept this direct request right now. Please try again. ', 'Suoraa pyyntöä ei voitu hyväksyä juuri nyt. Yritä uudelleen. ') + message
       );
     } finally {
       setProcessingCommunityRequestId(null);
@@ -730,9 +766,9 @@ function RequestsPageContent() {
   async function handleWithdraw(request: Request) {
     if (!user) return;
     const confirmed = await requestConfirmation({
-      title: 'Withdraw offer?',
-      message: 'The owner will no longer see your offer for this request.',
-      confirmLabel: 'Withdraw offer',
+      title: t('Withdraw offer?', 'Perutaanko tarjous?'),
+      message: t('The owner will no longer see your offer for this request.', 'Omistaja ei enää näe tarjoustasi tähän pyyntöön.'),
+      confirmLabel: t('Withdraw offer', 'Peru tarjous'),
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -743,11 +779,11 @@ function RequestsPageContent() {
 
     try {
       await withdrawApplication(request.ownerId, request.id, user.uid);
-      setSuccess(`Offer withdrawn for ${request.petNames.join(', ')}.`);
+      setSuccess(t(`Offer withdrawn for ${request.petNames.join(', ')}.`, `Tarjous peruttiin lemmikille ${request.petNames.join(', ')}.`));
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not withdraw your offer right now. Please try again. ' + message);
+      setError(t('We could not withdraw your offer right now. Please try again. ', 'Tarjousta ei voitu perua juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setProcessingCommunityRequestId(null);
     }
@@ -803,7 +839,7 @@ function RequestsPageContent() {
 
     try {
       await reportRequest(user.uid, reportingRequest.ownerId, reportingRequest.id, reason);
-      setSuccess('Request reported. An admin will review it.');
+      setSuccess(t('Request reported. An admin will review it.', 'Pyynnöstä on ilmoitettu. Ylläpito tarkistaa sen.'));
       setReportingRequest(null);
       setReportReason('');
     } catch (err: unknown) {
@@ -836,11 +872,11 @@ function RequestsPageContent() {
 
     if (requestWizardStep === 1) {
       if (pets.length === 0) {
-        setError('Add your first pet before you ask for care.');
+        setError(t('Add your first pet before you ask for care.', 'Lisää ensimmäinen lemmikkisi ennen hoitopyynnön tekemistä.'));
         return false;
       }
       if (selectedPetIds.length === 0) {
-        setError('Choose at least one pet that needs care.');
+        setError(t('Choose at least one pet that needs care.', 'Valitse vähintään yksi hoitoa tarvitseva lemmikki.'));
         return false;
       }
     }
@@ -850,22 +886,22 @@ function RequestsPageContent() {
       const parsedEndDate = parseFormDateTime(endDate, endTime);
 
       if (!parsedStartDate || !parsedEndDate) {
-        setError('Please choose a start and end date with times.');
+        setError(t('Please choose a start and end date with times.', 'Valitse alkamis- ja päättymispäivä sekä kellonajat.'));
         return false;
       }
       if (parsedEndDate.getTime() <= parsedStartDate.getTime()) {
-        setError('End date must be after start date');
+        setError(t('End date must be after start date', 'Päättymisajan on oltava alkamisajan jälkeen'));
         return false;
       }
       if (!location.trim()) {
-        setError('Select the city where the care is needed.');
+        setError(t('Select the city where the care is needed.', 'Valitse kaupunki, jossa hoitoa tarvitaan.'));
         return false;
       }
     }
 
     if (requestWizardStep === 3) {
       if (!hasCareDetails() && !careDetailsConfirmed) {
-        setError('Add a short care note, or confirm that no extra care notes are needed.');
+        setError(t('Add a short care note, or confirm that no extra care notes are needed.', 'Lisää lyhyt hoito-ohje tai vahvista, ettei lisäohjeita tarvita.'));
         return false;
       }
     }
@@ -875,7 +911,7 @@ function RequestsPageContent() {
 
   function validateRequestBeforeSubmit(): boolean {
     if (selectedPetIds.length === 0) {
-      setError('Choose at least one pet that needs care.');
+      setError(t('Choose at least one pet that needs care.', 'Valitse vähintään yksi hoitoa tarvitseva lemmikki.'));
       wizardStepRef.current = 1;
       setRequestWizardStep(1);
       setReviewStepReady(false);
@@ -885,7 +921,7 @@ function RequestsPageContent() {
     const parsedStartDate = parseFormDateTime(startDate, startTime);
     const parsedEndDate = parseFormDateTime(endDate, endTime);
     if (!parsedStartDate || !parsedEndDate || parsedEndDate.getTime() <= parsedStartDate.getTime() || !location.trim()) {
-      setError('Check the dates, times, and city before sending.');
+      setError(t('Check the dates, times, and city before sending.', 'Tarkista päivämäärät, kellonajat ja kaupunki ennen lähettämistä.'));
       wizardStepRef.current = 2;
       setRequestWizardStep(2);
       setReviewStepReady(false);
@@ -893,7 +929,7 @@ function RequestsPageContent() {
     }
 
     if (!hasCareDetails() && !careDetailsConfirmed) {
-      setError('Add a short care note, or confirm that no extra care notes are needed.');
+      setError(t('Add a short care note, or confirm that no extra care notes are needed.', 'Lisää lyhyt hoito-ohje tai vahvista, ettei lisäohjeita tarvita.'));
       wizardStepRef.current = 3;
       setRequestWizardStep(3);
       setReviewStepReady(false);
@@ -961,15 +997,15 @@ function RequestsPageContent() {
   function getStatusText(status: string) {
     switch (status) {
       case 'open':
-        return 'Open';
+        return t('Open', 'Avoin');
       case 'accepted':
-        return 'Accepted';
+        return t('Accepted', 'Hyväksytty');
       case 'awaiting_confirmation':
-        return 'Waiting for owner';
+        return t('Waiting for owner', 'Odottaa omistajan vahvistusta');
       case 'completed':
-        return 'Completed';
+        return t('Completed', 'Valmis');
       case 'cancelled':
-        return 'Cancelled';
+        return t('Cancelled', 'Peruutettu');
       default:
         return status;
     }
@@ -978,10 +1014,10 @@ function RequestsPageContent() {
   function getRequestStatusText(request: Request) {
     if (request.status === 'cancelled') {
       if (request.cancelledBy === 'owner') {
-        return 'Cancelled by pet owner';
+        return t('Cancelled by pet owner', 'Lemmikin omistaja peruutti');
       }
       if (request.cancelledBy === 'sitter') {
-        return 'Cancelled by sitter';
+        return t('Cancelled by sitter', 'Hoitaja peruutti');
       }
     }
 
@@ -990,10 +1026,10 @@ function RequestsPageContent() {
 
   function getCareTypeLabel(careType: string): string {
     const labels: Record<string, string> = {
-      'daily-visit': 'Visit at home',
-      overnight: 'Overnight care',
-      boarding: 'Boarding',
-      walking: 'Dog walk',
+      'daily-visit': t('Visit at home', 'Kotikäynti'),
+      overnight: t('Overnight care', 'Yöhoito'),
+      boarding: t('Boarding', 'Hoito hoitajan luona'),
+      walking: t('Dog walk', 'Koiran ulkoilutus'),
     };
     return labels[careType] || careType;
   }
@@ -1042,23 +1078,23 @@ function RequestsPageContent() {
     ? calculateCreditsForRequestWindow(formStartAt!, formEndAt!)
     : 0;
   const requestDurationLabel = hasValidRequestWindow
-    ? formatRequestDuration(formStartAt!, formEndAt!)
+    ? formatRequestDuration(formStartAt!, formEndAt!, language)
     : '';
   const selectedPets = pets.filter((pet) => selectedPetIds.includes(pet.id));
   const selectedPetNames = selectedPets.map((pet) => pet.name);
   const selectedPetLabel =
-    selectedPetNames.length > 0 ? selectedPetNames.join(', ') : 'your pet';
+    selectedPetNames.length > 0 ? selectedPetNames.join(', ') : t('your pet', 'lemmikkisi');
   const requestFormTitle =
     !editingRequest && requestedSitterName
-      ? `Ask ${requestedSitterName} to care for ${selectedPetLabel}`
+      ? t(`Ask ${requestedSitterName} to care for ${selectedPetLabel}`, `Pyydä hoitajaa ${requestedSitterName} hoitamaan lemmikkiä ${selectedPetLabel}`)
       : editingRequest
-        ? 'Edit pet-care request'
-        : 'Ask for pet care';
+        ? t('Edit pet-care request', 'Muokkaa hoitopyyntöä')
+        : t('Ask for pet care', 'Pyydä lemmikinhoitoa');
   const selectedCareTypeLabel = getCareTypeLabel(careType);
   const requestDateSummary =
     hasValidRequestWindow && formStartAt && formEndAt
       ? `${formStartAt.toLocaleDateString()} - ${formEndAt.toLocaleDateString()}`
-      : 'Dates not selected';
+      : t('Dates not selected', 'Ajankohtaa ei ole valittu');
   const showRequestWizard = activeTab === 'my-requests' && showForm && !success;
 
   return (
@@ -1075,13 +1111,13 @@ function RequestsPageContent() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
-                Exchange
+                {t('Exchange', 'Hoitovaihto')}
               </p>
               <h1 className="mt-3 text-3xl font-bold text-[#0f2640] sm:text-4xl">
-                Ask for pet care or offer to help
+                {t('Ask for pet care or offer to help', 'Pyydä lemmikinhoitoa tai tarjoa apuasi')}
               </h1>
               <p className="mt-3 max-w-3xl text-[#516173]">
-                Keep your pet-care requests, direct invites, and sitter jobs in one place.
+                {t('Keep your pet-care requests, direct invites, and sitter jobs in one place.', 'Hallitse omia hoitopyyntöjäsi, suoria pyyntöjä ja hoitotehtäviäsi yhdessä paikassa.')}
               </p>
             </div>
 
@@ -1090,30 +1126,30 @@ function RequestsPageContent() {
                 onClick={handleAddNew}
                 className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
               >
-                Ask for pet care
+                {t('Ask for pet care', 'Pyydä lemmikinhoitoa')}
               </button>
             )}
           </div>
 
           <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">My pet-care requests</p>
+              <p className="text-sm text-[#6b7280]">{t('My pet-care requests', 'Omat hoitopyyntöni')}</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{requests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Direct asks</p>
+              <p className="text-sm text-[#6b7280]">{t('Direct asks', 'Suorat pyynnöt')}</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{directRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Requests to help</p>
+              <p className="text-sm text-[#6b7280]">{t('Requests to help', 'Avoimet hoitopyynnöt')}</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{communityRequests.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Care I give</p>
+              <p className="text-sm text-[#6b7280]">{t('Care I give', 'Antamani hoito')}</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{sitterJobs.length}</p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-              <p className="text-sm text-[#6b7280]">Pets added</p>
+              <p className="text-sm text-[#6b7280]">{t('Pets added', 'Lisätyt lemmikit')}</p>
               <p className="mt-2 text-3xl font-bold text-[#0f2640]">{pets.length}</p>
             </div>
           </div>
@@ -1130,7 +1166,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            My requests
+            {t('My requests', 'Omat pyynnöt')}
           </button>
           <button
             onClick={() => selectTab('direct-requests')}
@@ -1140,7 +1176,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Direct asks
+            {t('Direct asks', 'Suorat pyynnöt')}
           </button>
           <button
             onClick={() => selectTab('community')}
@@ -1150,7 +1186,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Requests to help
+            {t('Requests to help', 'Avoimet hoitopyynnöt')}
           </button>
           <button
             onClick={() => selectTab('my-sits')}
@@ -1160,7 +1196,7 @@ function RequestsPageContent() {
                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-gray-50'
             }`}
           >
-            Care I give
+            {t('Care I give', 'Antamani hoito')}
           </button>
         </div>
         )}
@@ -1187,7 +1223,7 @@ function RequestsPageContent() {
 
         {activeTab === 'my-requests' && pets.length === 0 && !loading && !showForm && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
-            Add your pet before you ask for pet care.
+            {t('Add your pet before you ask for pet care.', 'Lisää lemmikkisi ennen hoitopyynnön tekemistä.')}
           </div>
         )}
 
@@ -1200,7 +1236,7 @@ function RequestsPageContent() {
               className="inline-flex items-center gap-2 text-sm font-semibold text-[#425266] hover:text-[#0f2640] disabled:opacity-50"
             >
               <span aria-hidden="true">&larr;</span>
-              Cancel request
+              {t('Cancel request', 'Peruuta pyyntö')}
             </button>
 
             <h2 className="mt-6 text-3xl font-bold tracking-[-0.03em] text-[#0f2640]">
@@ -1241,7 +1277,7 @@ function RequestsPageContent() {
                         isActive ? 'text-[#0f2640]' : 'text-[#7a8794]'
                       }`}
                     >
-                      {item.label}
+                      {localizeRequestText(item.label)}
                     </span>
                     <span className="hidden h-px flex-1 bg-[#ded6ca] sm:block" />
                   </button>
@@ -1258,16 +1294,16 @@ function RequestsPageContent() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-xl font-bold tracking-[-0.02em] text-[#0f2640]">
-                        Who needs care, and what kind?
+                        {t('Who needs care, and what kind?', 'Kuka tarvitsee hoitoa ja millaista?')}
                       </h3>
                       <p className="mt-2 text-sm text-[#516173]">
-                        Choose your pet and the type of care you are looking for.
+                        {t('Choose your pet and the type of care you are looking for.', 'Valitse lemmikki ja tarvitsemasi hoitomuoto.')}
                       </p>
                     </div>
 
                     <div>
                       <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
-                        Your pet
+                        {t('Your pet', 'Lemmikkisi')}
                       </p>
                       {pets.length > 0 ? (
                         <div className="space-y-3">
@@ -1316,14 +1352,14 @@ function RequestsPageContent() {
                       ) : (
                         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
                           <p className="text-sm font-semibold text-blue-900">
-                            Add your first pet before you ask for care.
+                            {t('Add your first pet before you ask for care.', 'Lisää ensimmäinen lemmikkisi ennen hoitopyynnön tekemistä.')}
                           </p>
                           <button
                             type="button"
                             onClick={() => router.push('/pets')}
                             className="mt-3 rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e66a1f]"
                           >
-                            Add your first pet
+                            {t('Add your first pet', 'Lisää ensimmäinen lemmikkisi')}
                           </button>
                         </div>
                       )}
@@ -1331,7 +1367,7 @@ function RequestsPageContent() {
 
                     <div>
                       <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
-                        Type of care
+                        {t('Type of care', 'Hoitomuoto')}
                       </p>
                       <div className="grid gap-2 sm:grid-cols-4">
                         {careTypeOptions.map((option) => {
@@ -1348,7 +1384,7 @@ function RequestsPageContent() {
                                   : 'border-[#e3d7c7] bg-white text-[#0f2640] hover:bg-[#fffaf6]'
                               }`}
                             >
-                              {option.label}
+                              {localizeRequestText(option.label)}
                             </button>
                           );
                         })}
@@ -1360,16 +1396,16 @@ function RequestsPageContent() {
                 {requestWizardStep === 2 && (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-xl font-bold text-[#0f2640]">When and where?</h3>
+                      <h3 className="text-xl font-bold text-[#0f2640]">{t('When and where?', 'Milloin ja missä?')}</h3>
                       <p className="mt-2 text-sm text-[#516173]">
-                        Pick the dates, times, and city where the care is needed.
+                        {t('Pick the dates, times, and city where the care is needed.', 'Valitse hoidon päivämäärät, kellonajat ja paikkakunta.')}
                       </p>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Start date
+                          {t('Start date', 'Alkamispäivä')}
                         </label>
                         <input
                           type="date"
@@ -1381,7 +1417,7 @@ function RequestsPageContent() {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Start time
+                          {t('Start time', 'Alkamisaika')}
                         </label>
                         <input
                           type="time"
@@ -1393,7 +1429,7 @@ function RequestsPageContent() {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          End date
+                          {t('End date', 'Päättymispäivä')}
                         </label>
                         <input
                           type="date"
@@ -1405,7 +1441,7 @@ function RequestsPageContent() {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          End time
+                          {t('End time', 'Päättymisaika')}
                         </label>
                         <input
                           type="time"
@@ -1419,7 +1455,7 @@ function RequestsPageContent() {
 
                     <div>
                       <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                        Location
+                        {t('Location', 'Sijainti')}
                       </label>
                       <CitySelect
                         value={location}
@@ -1432,10 +1468,13 @@ function RequestsPageContent() {
                     <div className="rounded-2xl bg-[#fff1e7] p-4 text-sm text-[#7c3b19]">
                       {hasValidRequestWindow ? (
                         <span>
-                          {requestDurationLabel} = {autoCalculatedCredits} credits, reserved until the care is finished.
+                          {t(
+                            `${requestDurationLabel} = ${autoCalculatedCredits} credits, reserved until the care is finished.`,
+                            `${requestDurationLabel} = ${autoCalculatedCredits} krediittiä, jotka varataan hoidon päättymiseen asti.`
+                          )}
                         </span>
                       ) : (
-                        <span>Select valid start and end times to calculate credits.</span>
+                        <span>{t('Select valid start and end times to calculate credits.', 'Valitse kelvolliset alkamis- ja päättymisajat krediittien laskemista varten.')}</span>
                       )}
                     </div>
                   </div>
@@ -1448,13 +1487,13 @@ function RequestsPageContent() {
                         Care notes for {selectedPetLabel}
                       </h3>
                       <p className="mt-2 text-sm text-[#516173]">
-                        Add only what the sitter needs to know. These details can be short.
+                        {t('Add only what the sitter needs to know. These details can be short.', 'Kerro vain hoidon kannalta tarpeelliset asiat. Lyhyet tiedot riittävät.')}
                       </p>
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                        Notes for the sitter
+                        {t('Notes for the sitter', 'Lisätiedot hoitajalle')}
                       </label>
                       <textarea
                         value={notes}
@@ -1464,14 +1503,14 @@ function RequestsPageContent() {
                         }}
                         rows={3}
                         className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                        placeholder="Feeding, walking, medicine, behavior, or anything important."
+                        placeholder={t('Feeding, walking, medicine, behavior, or anything important.', 'Ruokailu, ulkoilu, lääkitys, käytös tai muu tärkeä tieto.')}
                       />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Feeding
+                          {t('Feeding', 'Ruokinta')}
                         </label>
                         <textarea
                           value={feedingSchedule}
@@ -1481,12 +1520,12 @@ function RequestsPageContent() {
                           }}
                           rows={2}
                           className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                          placeholder="Times and food portions"
+                          placeholder={t('Times and food portions', 'Ruokailuajat ja annoskoot')}
                         />
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Walks
+                          {t('Walks', 'Ulkoilu')}
                         </label>
                         <textarea
                           value={walkSchedule}
@@ -1496,12 +1535,12 @@ function RequestsPageContent() {
                           }}
                           rows={2}
                           className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                          placeholder="Walk times and duration"
+                          placeholder={t('Walk times and duration', 'Ulkoiluajat ja lenkkien kesto')}
                         />
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Medicine
+                          {t('Medicine', 'Lääkitys')}
                         </label>
                         <textarea
                           value={medicationInstructions}
@@ -1511,12 +1550,12 @@ function RequestsPageContent() {
                           }}
                           rows={2}
                           className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                          placeholder="Medicine dose and timing"
+                          placeholder={t('Medicine dose and timing', 'Lääkeannos ja ajankohta')}
                         />
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                          Sleep
+                          {t('Sleep', 'Nukkuminen')}
                         </label>
                         <textarea
                           value={sleepInstructions}
@@ -1526,14 +1565,14 @@ function RequestsPageContent() {
                           }}
                           rows={2}
                           className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                          placeholder="Where and how the pet should sleep"
+                          placeholder={t('Where and how the pet should sleep', 'Missä ja miten lemmikki nukkuu')}
                         />
                       </div>
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-semibold text-[#0f2640]">
-                        Important warnings
+                        {t('Important warnings', 'Tärkeät huomioitavat asiat')}
                       </label>
                       <textarea
                         value={specialWarnings}
@@ -1543,7 +1582,7 @@ function RequestsPageContent() {
                         }}
                         rows={2}
                         className="w-full rounded-xl border border-[#d8cbbb] px-3 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-                        placeholder="Anything the sitter must avoid or watch closely"
+                        placeholder={t('Anything the sitter must avoid or watch closely', 'Asiat, joita hoitajan pitää välttää tai tarkkailla erityisesti')}
                       />
                     </div>
 
@@ -1562,11 +1601,13 @@ function RequestsPageContent() {
                       />
                       <span>
                         <span className="block font-semibold text-[#0f2640]">
-                          No extra care notes needed
+                          {t('No extra care notes needed', 'Erillisiä hoito-ohjeita ei tarvita')}
                         </span>
                         <span className="mt-1 block">
-                          Choose this only if the sitter does not need feeding, walking,
-                          medicine, sleep, or warning details yet.
+                          {t(
+                            'Choose this only if the sitter does not need feeding, walking, medicine, sleep, or warning details yet.',
+                            'Valitse tämä vain, jos hoitaja ei vielä tarvitse ruokintaan, ulkoiluun, lääkitykseen, nukkumiseen tai varoituksiin liittyviä tietoja.'
+                          )}
                         </span>
                       </span>
                     </label>
@@ -1576,18 +1617,18 @@ function RequestsPageContent() {
                 {requestWizardStep === 4 && (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-xl font-bold text-[#0f2640]">Review your request</h3>
+                      <h3 className="text-xl font-bold text-[#0f2640]">{t('Review your request', 'Tarkista hoitopyyntö')}</h3>
                       <p className="mt-2 text-sm text-[#516173]">
-                        Check the details, then send it.
+                        {t('Check the details, then send it.', 'Tarkista tiedot ja lähetä pyyntö.')}
                       </p>
                     </div>
 
                     <div className="overflow-hidden rounded-2xl border border-[#e3d7c7]">
                       {[
-                        ['Pet', selectedPetLabel],
-                        ['Care type', selectedCareTypeLabel],
-                        ['Dates', `${requestDateSummary} - ${requestDurationLabel || 'Duration not set'}`],
-                        ['Where', location || 'Location not selected'],
+                        [t('Pet', 'Lemmikki'), selectedPetLabel],
+                        [t('Care type', 'Hoitomuoto'), selectedCareTypeLabel],
+                        [t('Dates', 'Ajankohta'), `${requestDateSummary} - ${requestDurationLabel || t('Duration not set', 'Kestoa ei ole asetettu')}`],
+                        [t('Where', 'Paikka'), location || t('Location not selected', 'Sijaintia ei ole valittu')],
                       ].map(([label, value]) => (
                         <div
                           key={label}
@@ -1600,26 +1641,26 @@ function RequestsPageContent() {
                         </div>
                       ))}
                       <div className="flex items-center justify-between gap-4 bg-[#fff1e7] px-4 py-3">
-                        <span className="text-sm font-bold text-[#7c3b19]">Credits reserved</span>
+                        <span className="text-sm font-bold text-[#7c3b19]">{t('Credits reserved', 'Varatut krediitit')}</span>
                         <span className="text-sm font-bold text-[#d96522]">
-                          {hasValidRequestWindow ? `${autoCalculatedCredits} credits` : '--'}
+                          {hasValidRequestWindow ? t(`${autoCalculatedCredits} credits`, `${autoCalculatedCredits} krediittiä`) : '--'}
                         </span>
                       </div>
                     </div>
 
                     {(notes || feedingSchedule || walkSchedule || medicationInstructions || sleepInstructions || specialWarnings) && (
                       <div className="rounded-2xl border border-[#e3d7c7] bg-[#fcfbf8] p-4">
-                        <p className="text-sm font-bold text-[#0f2640]">Care notes included</p>
+                        <p className="text-sm font-bold text-[#0f2640]">{t('Care notes included', 'Hoito-ohjeet lisätty')}</p>
                         <p className="mt-1 text-sm text-[#6b7280]">
-                          The sitter will see your notes after you send this request.
+                          {t('The sitter will see your notes after you send this request.', 'Hoitaja näkee ohjeesi, kun olet lähettänyt pyynnön.')}
                         </p>
                       </div>
                     )}
 
                     <div className="rounded-2xl border border-[#d8cbbb] bg-[#fcfbf8] p-4 text-sm text-[#516173]">
-                      <p className="font-bold text-[#0f2640]">Before confirming</p>
-                      <p className="mt-2 leading-6">{PLATFORM_ROLE_NOTICE}</p>
-                      <p className="mt-2 leading-6">{MEET_AND_GREET_RECOMMENDATION}</p>
+                      <p className="font-bold text-[#0f2640]">{t('Before confirming', 'Ennen vahvistamista')}</p>
+                      <p className="mt-2 leading-6">{t(PLATFORM_ROLE_NOTICE, 'TassuKaveri auttaa lemmikin omistajia ja hoitajia löytämään toisensa. Hoidosta sovitaan suoraan käyttäjien kesken. Keskustelkaa ennen vahvistamista lemmikin tarpeista, käyttäytymisestä, lääkityksestä, hätäyhteystiedoista, kotiin pääsystä, krediiteistä, vakuutuksista ja muista hoitoehdoista.')}</p>
+                      <p className="mt-2 leading-6">{t(MEET_AND_GREET_RECOMMENDATION, 'Turvallisuuden ja lemmikin hyvinvoinnin vuoksi suosittelemme tutustumistapaamista ennen ensimmäisen hoidon vahvistamista. Tämä on suositus, ei TassuKaverin antama takuu.')}</p>
                       <label className="mt-4 flex cursor-pointer items-start gap-3">
                         <input
                           type="checkbox"
@@ -1628,13 +1669,13 @@ function RequestsPageContent() {
                           className="mt-1 h-4 w-4"
                         />
                         <span className="font-semibold text-[#0f2640]">
-                          {PLATFORM_ROLE_ACKNOWLEDGEMENT}
+                          {t(PLATFORM_ROLE_ACKNOWLEDGEMENT, 'Ymmärrän, että TassuKaveri on yhteydenpitoalusta ja että lemmikin omistaja ja hoitaja sopivat hoidosta suoraan keskenään.')}
                         </span>
                       </label>
                     </div>
 
                     <div className="rounded-2xl bg-[#e8f3ec] p-4 text-sm text-[#245d45]">
-                      Your credits are reserved when you send this request, and released after you confirm the care is finished.
+                      {t('Your credits are reserved when you send this request, and released after you confirm the care is finished.', 'Krediitit varataan, kun lähetät pyynnön, ja vapautetaan hoitajalle, kun vahvistat hoidon päättyneeksi.')}
                     </div>
                   </div>
                 )}
@@ -1646,7 +1687,7 @@ function RequestsPageContent() {
                     disabled={saving}
                     className="rounded-full px-4 py-2 text-sm font-semibold text-[#0f2640] hover:bg-[#f7fafc] disabled:opacity-50"
                   >
-                    {requestWizardStep === 1 ? 'Cancel' : 'Back'}
+                    {requestWizardStep === 1 ? t('Cancel', 'Peruuta') : t('Back', 'Takaisin')}
                   </button>
 
                   {requestWizardStep < 4 ? (
@@ -1656,7 +1697,7 @@ function RequestsPageContent() {
                       disabled={saving || pets.length === 0}
                       className="rounded-full bg-[#ff7a2d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
                     >
-                      Continue
+                      {t('Continue', 'Jatka')}
                     </button>
                   ) : (
                     <button
@@ -1666,12 +1707,12 @@ function RequestsPageContent() {
                       className="rounded-full bg-[#ff7a2d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
                     >
                       {saving
-                        ? 'Saving...'
+                        ? t('Saving...', 'Tallennetaan...')
                         : !reviewStepReady
-                          ? 'Review first'
+                          ? t('Review first', 'Tarkista ensin')
                           : editingRequest
-                            ? 'Update request'
-                            : 'Ask for pet care'}
+                            ? t('Update request', 'Päivitä pyyntö')
+                            : t('Ask for pet care', 'Pyydä lemmikinhoitoa')}
                     </button>
                   )}
                 </div>
@@ -1679,7 +1720,7 @@ function RequestsPageContent() {
 
               <aside className="rounded-[18px] border border-[#ded3c2] bg-white p-6 shadow-sm lg:sticky lg:top-6 lg:self-start">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">
-                  {requestedSitterName ? 'Your sitter' : 'Request summary'}
+                  {requestedSitterName ? t('Your sitter', 'Valitsemasi hoitaja') : t('Request summary', 'Pyynnön yhteenveto')}
                 </p>
                 <div className="mt-4 flex items-center gap-3">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#fff1e7] text-lg font-bold text-[#d96522]">
@@ -1687,37 +1728,37 @@ function RequestsPageContent() {
                   </div>
                   <div>
                     <p className="font-bold text-[#0f2640]">
-                      {requestedSitterName || 'Community request'}
+                      {requestedSitterName || t('Community request', 'Yhteisölle näkyvä pyyntö')}
                     </p>
                     <p className="text-sm text-[#6b7280]">
-                      {requestedSitterName ? 'Selected sitter' : 'Visible to available sitters'}
+                      {requestedSitterName ? t('Selected sitter', 'Valittu hoitaja') : t('Visible to available sitters', 'Näkyy vapaana oleville hoitajille')}
                     </p>
                   </div>
                 </div>
 
                 {requestedSitterName && (
                   <div className="mt-4 inline-flex rounded-full bg-[#e8f3ec] px-3 py-2 text-xs font-bold text-[#245d45]">
-                    Direct request
+                    {t('Direct request', 'Suora pyyntö')}
                   </div>
                 )}
 
                 <div className="mt-5 border-t border-[#eee4d8] pt-5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#516173]">
-                      {requestDurationLabel || 'Duration'}
+                      {requestDurationLabel || t('Duration', 'Kesto')}
                     </span>
                     <span className="font-bold text-[#0f2640]">
                       {hasValidRequestWindow ? autoCalculatedCredits : '--'}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="font-bold text-[#0f2640]">Total reserved</span>
+                    <span className="font-bold text-[#0f2640]">{t('Total reserved', 'Varattu yhteensä')}</span>
                     <span className="text-2xl font-bold text-[#ff7a2d]">
                       {hasValidRequestWindow ? autoCalculatedCredits : '--'}
                     </span>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-[#6b7280]">
-                    No money changes hands. Credits are only released after the owner confirms the care is finished.
+                    {t('No money changes hands. Credits are only released after the owner confirms the care is finished.', 'Rahaa ei siirry osapuolten välillä. Krediitit vapautetaan vasta, kun omistaja vahvistaa hoidon päättyneeksi.')}
                   </p>
                 </div>
               </aside>
@@ -1727,17 +1768,20 @@ function RequestsPageContent() {
 
         {loading ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">Loading requests...</p>
+            <p className="text-[#6b7280]">{t('Loading requests...', 'Ladataan hoitopyyntöjä...')}</p>
           </div>
         ) : (
           <>
             {activeTab === 'my-requests' && (
               <div className="mb-8">
-              <h2 className="text-2xl font-bold text-[#0f2640] mb-4">My pet-care requests</h2>
+              <h2 className="text-2xl font-bold text-[#0f2640] mb-4">{t('My pet-care requests', 'Omat hoitopyyntöni')}</h2>
               {requests.length === 0 ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <p className="text-[#6b7280]">
-                    You have not asked for pet care yet. {pets.length > 0 ? 'Use "Ask for pet care" to start.' : 'Add your first pet first.'}
+                    {t('You have not asked for pet care yet.', 'Et ole vielä tehnyt hoitopyyntöjä.')}{' '}
+                    {pets.length > 0
+                      ? t('Use "Ask for pet care" to start.', 'Aloita valitsemalla ”Pyydä lemmikinhoitoa”.')
+                      : t('Add your first pet first.', 'Lisää ensin ensimmäinen lemmikkisi.')}
                   </p>
                 </div>
               ) : (
@@ -1758,44 +1802,44 @@ function RequestsPageContent() {
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
+                          <p className="text-lg font-bold text-[#ff7a2d]">{t(`${request.creditsOffered} credits`, `${request.creditsOffered} krediittiä`)}</p>
                           {request.status === 'accepted' && (
-                            <p className="text-xs text-[#6b7280]">Reserved until care is finished or cancelled</p>
+                            <p className="text-xs text-[#6b7280]">{t('Reserved until care is finished or cancelled', 'Varattu, kunnes hoito päättyy tai peruutetaan')}</p>
                           )}
                           {request.status === 'awaiting_confirmation' && (
-                            <p className="text-xs text-[#6b7280]">Reserved until you confirm the care is finished</p>
+                            <p className="text-xs text-[#6b7280]">{t('Reserved until you confirm the care is finished', 'Varattu, kunnes vahvistat hoidon päättyneeksi')}</p>
                           )}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                         <div>
-                          <p className="text-[#6b7280]">Care type:</p>
+                          <p className="text-[#6b7280]">{t('Care type:', 'Hoitomuoto:')}</p>
                           <p className="text-[#0f2640] font-medium">
                             {getCareTypeLabel(request.careType)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Location:</p>
+                          <p className="text-[#6b7280]">{t('Location:', 'Sijainti:')}</p>
                           <p className="text-[#0f2640] font-medium">{request.location}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Starts:</p>
+                          <p className="text-[#6b7280]">{t('Starts:', 'Alkaa:')}</p>
                           <p className="text-[#0f2640] font-medium">
-                            {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatRequestDateTime(request.startDate, language)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Ends:</p>
+                          <p className="text-[#6b7280]">{t('Ends:', 'Päättyy:')}</p>
                           <p className="text-[#0f2640] font-medium">
-                            {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatRequestDateTime(request.endDate, language)}
                           </p>
                         </div>
                       </div>
 
                       {request.notes && (
                         <div className="mb-4">
-                          <p className="text-sm text-[#6b7280]">Notes:</p>
+                          <p className="text-sm text-[#6b7280]">{t('Notes:', 'Lisätiedot:')}</p>
                           <p className="text-sm text-[#0f2640]">{request.notes}</p>
                         </div>
                       )}
@@ -1806,34 +1850,34 @@ function RequestsPageContent() {
                         request.sleepInstructions ||
                         request.specialWarnings) && (
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg text-sm space-y-1">
-                          <p className="font-medium text-[#0f2640]">Care Instructions</p>
+                          <p className="font-medium text-[#0f2640]">{t('Care Instructions', 'Hoito-ohjeet')}</p>
                           {request.feedingSchedule && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Feeding:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Feeding:', 'Ruokinta:')}</span>{' '}
                               {request.feedingSchedule}
                             </p>
                           )}
                           {request.walkSchedule && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Walks:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Walks:', 'Ulkoilu:')}</span>{' '}
                               {request.walkSchedule}
                             </p>
                           )}
                           {request.medicationInstructions && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Medication:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Medication:', 'Lääkitys:')}</span>{' '}
                               {request.medicationInstructions}
                             </p>
                           )}
                           {request.sleepInstructions && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Sleep:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Sleep:', 'Nukkuminen:')}</span>{' '}
                               {request.sleepInstructions}
                             </p>
                           )}
                           {request.specialWarnings && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Warnings:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Warnings:', 'Huomioitavaa:')}</span>{' '}
                               {request.specialWarnings}
                             </p>
                           )}
@@ -1842,25 +1886,25 @@ function RequestsPageContent() {
 
                       {request.sitterName && (
                         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <p className="text-sm text-[#6b7280]">Sitter:</p>
+                          <p className="text-sm text-[#6b7280]">{t('Sitter:', 'Hoitaja:')}</p>
                           <p className="text-sm text-[#0f2640] font-medium">{request.sitterName}</p>
                         </div>
                       )}
 
                       {request.audience === 'direct' && request.requestedSitterName && request.status === 'open' && (
                         <div className="mb-4 p-3 bg-[#fff7ef] border border-[#ffd7bf] rounded-lg">
-                          <p className="text-sm text-[#6b7280]">Direct request sent to:</p>
+                          <p className="text-sm text-[#6b7280]">{t('Direct request sent to:', 'Suora pyyntö lähetetty:')}</p>
                           <p className="text-sm text-[#0f2640] font-medium">{request.requestedSitterName}</p>
                           <p className="mt-1 text-sm text-[#516173]">
-                            This sitter can see it in Direct asks.
+                            {t('This sitter can see it in Direct asks.', 'Tämä hoitaja näkee pyynnön suorissa pyynnöissään.')}
                           </p>
                         </div>
                       )}
 
-                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'owner') && (
+                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'owner', language) && (
                         <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3">
                           <p className="text-sm font-medium text-red-700">
-                            {getCancellationCreditNotice(request, 'owner')}
+                            {getCancellationCreditNotice(request, 'owner', language)}
                           </p>
                         </div>
                       )}
@@ -1868,10 +1912,10 @@ function RequestsPageContent() {
                       {request.status === 'open' && request.audience !== 'direct' && (
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg">
                           <p className="text-sm text-[#6b7280] mb-2">
-                            Offers to help: {request.applications?.length || 0}
+                            {t('Offers to help:', 'Tarjouksia avuksi:')} {request.applications?.length || 0}
                           </p>
                           {!request.applications || request.applications.length === 0 ? (
-                            <p className="text-sm text-[#6b7280]">No offers yet.</p>
+                            <p className="text-sm text-[#6b7280]">{t('No offers yet.', 'Ei vielä tarjouksia.')}</p>
                           ) : (
                             <div className="space-y-2">
                               {request.applications.map((application) => (
@@ -1892,7 +1936,7 @@ function RequestsPageContent() {
                                     disabled={actioningRequestId === request.id}
                                     className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    {actioningRequestId === request.id ? 'Processing...' : 'Choose sitter'}
+                                    {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Choose sitter', 'Valitse hoitaja')}
                                   </button>
                                 </div>
                               ))}
@@ -1905,13 +1949,13 @@ function RequestsPageContent() {
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg">
                           {request.review ? (
                             <>
-                              <p className="text-sm font-medium text-[#0f2640] mb-1">Your review</p>
+                              <p className="text-sm font-medium text-[#0f2640] mb-1">{t('Your review', 'Arvostelusi')}</p>
                               <p className="text-sm text-[#0f2640]">Rating: {request.review.rating}/5</p>
-                              <p className="text-sm text-[#6b7280]">{request.review.comment || 'No comment'}</p>
+                              <p className="text-sm text-[#6b7280]">{request.review.comment || t('No comment', 'Ei kommenttia')}</p>
                             </>
                           ) : (
                             <>
-                              <p className="text-sm font-medium text-[#0f2640] mb-2">Rate this sitter</p>
+                              <p className="text-sm font-medium text-[#0f2640] mb-2">{t('Rate this sitter', 'Arvostele hoitaja')}</p>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 <select
                                   value={reviewRatings[request.id] || ''}
@@ -1923,7 +1967,7 @@ function RequestsPageContent() {
                                   }
                                   className="px-2 py-1 border border-gray-300 rounded text-sm"
                                 >
-                                  <option value="">Rating</option>
+                                  <option value="">{t('Rating', 'Arvosana')}</option>
                                   <option value="1">1</option>
                                   <option value="2">2</option>
                                   <option value="3">3</option>
@@ -1939,7 +1983,7 @@ function RequestsPageContent() {
                                       [request.id]: e.target.value,
                                     }))
                                   }
-                                  placeholder="Short comment"
+                                  placeholder={t('Short comment', 'Lyhyt kommentti')}
                                   className="px-2 py-1 border border-gray-300 rounded text-sm md:col-span-2"
                                 />
                               </div>
@@ -1948,7 +1992,7 @@ function RequestsPageContent() {
                                 disabled={actioningRequestId === request.id}
                                 className="mt-2 px-3 py-1 text-sm bg-[#ff7a2d] text-white rounded hover:bg-[#e66a1f] transition-colors disabled:opacity-50"
                               >
-                                {actioningRequestId === request.id ? 'Submitting...' : 'Send review'}
+                                {actioningRequestId === request.id ? t('Submitting...', 'Lähetetään...') : t('Send review', 'Lähetä arvostelu')}
                               </button>
                             </>
                           )}
@@ -1979,14 +2023,14 @@ function RequestsPageContent() {
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Confirm care is finished'}
+                              {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Confirm care is finished', 'Vahvista hoito päättyneeksi')}
                             </button>
                             <button
                               onClick={() => handleCancelAcceptedRequest(request)}
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
+                              {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Cancel pet care', 'Peruuta lemmikinhoito')}
                             </button>
                           </>
                         )}
@@ -1997,7 +2041,7 @@ function RequestsPageContent() {
                               disabled={actioningRequestId === request.id}
                               className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                             >
-                              {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
+                              {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Cancel pet care', 'Peruuta lemmikinhoito')}
                             </button>
                           </>
                         )}
@@ -2007,7 +2051,7 @@ function RequestsPageContent() {
                             onClick={() => handleDelete(request)}
                             className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500 hover:text-white transition-colors"
                           >
-                            Delete
+                            {t('Delete', 'Poista')}
                           </button>
                         )}
                       </div>
@@ -2021,15 +2065,15 @@ function RequestsPageContent() {
             {activeTab === 'direct-requests' && (
               <div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct asks</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">{t('Direct asks', 'Suorat pyynnöt')}</h2>
                   <p className="mt-2 text-sm text-[#6b7280]">
-                    These pet-care requests were sent only to you.
+                    {t('These pet-care requests were sent only to you.', 'Nämä hoitopyynnöt on lähetetty vain sinulle.')}
                   </p>
                 </div>
 
                 {directRequests.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                    <p className="text-[#6b7280]">No direct asks right now.</p>
+                    <p className="text-[#6b7280]">{t('No direct asks right now.', 'Ei suoria hoitopyyntöjä juuri nyt.')}</p>
                   </div>
                 ) : (
                   <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -2044,7 +2088,7 @@ function RequestsPageContent() {
                             <p className="text-sm text-[#6b7280]">Owner: {request.ownerName}</p>
                           </div>
                           <span className="rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
-                            Direct ask
+                            {t('Direct ask', 'Suora pyyntö')}
                           </span>
                         </div>
 
@@ -2056,34 +2100,34 @@ function RequestsPageContent() {
 
                         <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                           <div>
-                            <p className="text-[#6b7280]">Starts</p>
+                            <p className="text-[#6b7280]">{t('Starts', 'Alkaa')}</p>
                             <p className="font-medium text-[#0f2640]">
-                              {formatRequestDateTime(request.startDate)}
+                              {formatRequestDateTime(request.startDate, language)}
                             </p>
                           </div>
                           <div>
-                            <p className="text-[#6b7280]">Ends</p>
+                            <p className="text-[#6b7280]">{t('Ends', 'Päättyy')}</p>
                             <p className="font-medium text-[#0f2640]">
-                              {formatRequestDateTime(request.endDate)}
+                              {formatRequestDateTime(request.endDate, language)}
                             </p>
                           </div>
                           <div>
-                            <p className="text-[#6b7280]">Credits you earn</p>
+                            <p className="text-[#6b7280]">{t('Credits you earn', 'Ansaitsemasi krediitit')}</p>
                             <p className="font-medium text-[#ff7a2d]">{request.creditsOffered}</p>
                           </div>
                           <div className="col-span-2">
-                            <p className="text-[#6b7280]">Location</p>
+                            <p className="text-[#6b7280]">{t('Location', 'Sijainti')}</p>
                             <p className="font-medium text-[#0f2640]">{request.location}</p>
                           </div>
                         </div>
 
                         <div className="mb-4 rounded-xl border border-[#d7e1eb] bg-[#f7fafc] p-3 text-sm text-[#516173]">
-                          You can accept this direct ask even if you have not added a public availability slot.
+                          {t('You can accept this direct ask even if you have not added a public availability slot.', 'Voit hyväksyä tämän suoran pyynnön, vaikka et olisi lisännyt julkista vapaata aikaa.')}
                         </div>
 
                         {request.notes && (
                           <div className="mb-4 rounded-xl bg-gray-50 p-3">
-                            <p className="text-sm text-[#6b7280] mb-1">Notes</p>
+                            <p className="text-sm text-[#6b7280] mb-1">{t('Notes', 'Lisätiedot')}</p>
                             <p className="text-sm text-[#0f2640]">{request.notes}</p>
                           </div>
                         )}
@@ -2093,7 +2137,7 @@ function RequestsPageContent() {
                           disabled={processingCommunityRequestId === request.id}
                           className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                         >
-                          {processingCommunityRequestId === request.id ? 'Processing...' : 'Accept direct ask'}
+                          {processingCommunityRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Accept direct ask', 'Hyväksy suora pyyntö')}
                         </button>
                       </div>
                     ))}
@@ -2113,16 +2157,16 @@ function RequestsPageContent() {
                     >
                       &larr; Browse all requests
                     </button>
-                    <h2 className="mt-4 text-2xl font-bold text-[#0f2640]">Request details</h2>
+                    <h2 className="mt-4 text-2xl font-bold text-[#0f2640]">{t('Request details', 'Pyynnön tiedot')}</h2>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      This is the request you selected from your dashboard.
+                      {t('This is the request you selected from your dashboard.', 'Tämä on hallintapaneelista valitsemasi pyyntö.')}
                     </p>
                   </div>
                 ) : (
                   <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                       <div className="w-full md:max-w-sm">
-                        <label htmlFor="community-requests-city" className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
+                        <label htmlFor="community-requests-city" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('City', 'Kaupunki')}</label>
                         <CitySelect
                           id="community-requests-city"
                           value={cityFilter}
@@ -2135,11 +2179,11 @@ function RequestsPageContent() {
                         onClick={handleBrowseAllCommunityRequests}
                         className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-[#0f2640] transition-colors hover:bg-gray-50"
                       >
-                        Browse all
+                        {t('Browse all', 'Näytä kaikki')}
                       </button>
                     </div>
                     <p className="mt-3 text-sm text-[#6b7280]">
-                      These are pet-care requests from owners. Offer to help only when the time works for you.
+                      {t('These are pet-care requests from owners. Offer to help only when the time works for you.', 'Nämä ovat omistajien hoitopyyntöjä. Tarjoudu auttamaan vain silloin, kun ajankohta sopii sinulle.')}
                     </p>
                   </div>
                 )}
@@ -2148,13 +2192,13 @@ function RequestsPageContent() {
                   <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
                     <p className="text-[#6b7280]">
                       {highlightedRequestId
-                        ? 'This request could not be found or is no longer open.'
-                        : 'No open pet-care requests found.'}
+                        ? t('This request could not be found or is no longer open.', 'Pyyntöä ei löytynyt tai se ei ole enää avoin.')
+                        : t('No open pet-care requests found.', 'Avoimia hoitopyyntöjä ei löytynyt.')}
                     </p>
                     <p className="mt-2 text-sm text-[#6b7280]">
                       {highlightedRequestId
-                        ? 'Browse all open requests to see what is currently available.'
-                        : 'Try changing the city.'}
+                        ? t('Browse all open requests to see what is currently available.', 'Selaa kaikkia avoimia pyyntöjä nähdäksesi tämänhetkisen tarjonnan.')
+                        : t('Try changing the city.', 'Kokeile vaihtaa paikkakuntaa.')}
                     </p>
                     {highlightedRequestId && (
                       <button
@@ -2162,7 +2206,7 @@ function RequestsPageContent() {
                         onClick={handleBrowseAllCommunityRequests}
                         className="mt-4 rounded-full bg-[#ff7a2d] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                       >
-                        Browse all requests
+                        {t('Browse all requests', 'Selaa kaikkia pyyntöjä')}
                       </button>
                     )}
                   </div>
@@ -2190,22 +2234,22 @@ function RequestsPageContent() {
                           >
                           {isHighlighted && (
                             <p className="mb-3 inline-flex rounded-full bg-[#fff1e7] px-3 py-1 text-xs font-bold text-[#b94f1d]">
-                              Selected request
+                              {t('Selected request', 'Valittu pyyntö')}
                             </p>
                           )}
                           <div className="mb-4 flex items-start justify-between gap-3">
                             <div className="flex min-w-0 items-start gap-3">
                               <ProfileAvatar
                                 uid={request.ownerId}
-                                name={request.ownerName || 'Pet owner'}
+                                name={request.ownerName || t('Pet owner', 'Lemmikin omistaja')}
                                 className="h-12 w-12 shrink-0 rounded-full border border-[#efe3ee]"
                               />
                               <div className="min-w-0">
                                 <h3 className="truncate text-lg font-bold text-[#0f2640]">
-                                  {request.ownerName || 'Pet owner'}
+                                  {request.ownerName || t('Pet owner', 'Lemmikin omistaja')}
                                 </h3>
                                 <p className="truncate text-sm text-[#6b7280]">
-                                  {request.petNames.join(', ') || 'Pet care request'}
+                                  {request.petNames.join(', ') || t('Pet care request', 'Hoitopyyntö')}
                                 </p>
                               </div>
                             </div>
@@ -2222,24 +2266,24 @@ function RequestsPageContent() {
 
                           <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                             <div>
-                              <p className="text-[#6b7280]">Dates</p>
+                              <p className="text-[#6b7280]">{t('Dates', 'Päivämäärät')}</p>
                               <p className="font-medium text-[#0f2640]">
                                 {request.startDate.toLocaleDateString()} - {request.endDate.toLocaleDateString()}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[#6b7280]">Credits you earn</p>
+                              <p className="text-[#6b7280]">{t('Credits you earn', 'Ansaitsemasi krediitit')}</p>
                               <p className="font-medium text-[#ff7a2d]">{request.creditsOffered}</p>
                             </div>
                             <div className="col-span-2">
-                              <p className="text-[#6b7280]">Location</p>
+                              <p className="text-[#6b7280]">{t('Location', 'Sijainti')}</p>
                               <p className="font-medium text-[#0f2640]">{request.location}</p>
                             </div>
                           </div>
 
                           {request.notes && (
                             <div className="mb-4 rounded-xl bg-gray-50 p-3">
-                              <p className="text-sm text-[#6b7280] mb-1">Notes</p>
+                              <p className="text-sm text-[#6b7280] mb-1">{t('Notes', 'Lisätiedot')}</p>
                               <p className="text-sm text-[#0f2640]">{request.notes}</p>
                             </div>
                           )}
@@ -2250,30 +2294,30 @@ function RequestsPageContent() {
                             request.sleepInstructions ||
                             request.specialWarnings) && (
                             <div className="mb-4 p-3 border border-gray-200 rounded-xl text-sm space-y-1">
-                              <p className="font-medium text-[#0f2640]">Care Instructions</p>
+                              <p className="font-medium text-[#0f2640]">{t('Care Instructions', 'Hoito-ohjeet')}</p>
                               {request.feedingSchedule && (
                                 <p className="text-[#6b7280]">
-                                  <span className="font-medium text-[#0f2640]">Feeding:</span> {request.feedingSchedule}
+                                  <span className="font-medium text-[#0f2640]">{t('Feeding:', 'Ruokinta:')}</span> {request.feedingSchedule}
                                 </p>
                               )}
                               {request.walkSchedule && (
                                 <p className="text-[#6b7280]">
-                                  <span className="font-medium text-[#0f2640]">Walks:</span> {request.walkSchedule}
+                                  <span className="font-medium text-[#0f2640]">{t('Walks:', 'Ulkoilu:')}</span> {request.walkSchedule}
                                 </p>
                               )}
                               {request.medicationInstructions && (
                                 <p className="text-[#6b7280]">
-                                  <span className="font-medium text-[#0f2640]">Medication:</span> {request.medicationInstructions}
+                                  <span className="font-medium text-[#0f2640]">{t('Medication:', 'Lääkitys:')}</span> {request.medicationInstructions}
                                 </p>
                               )}
                               {request.sleepInstructions && (
                                 <p className="text-[#6b7280]">
-                                  <span className="font-medium text-[#0f2640]">Sleep:</span> {request.sleepInstructions}
+                                  <span className="font-medium text-[#0f2640]">{t('Sleep:', 'Nukkuminen:')}</span> {request.sleepInstructions}
                                 </p>
                               )}
                               {request.specialWarnings && (
                                 <p className="text-[#6b7280]">
-                                  <span className="font-medium text-[#0f2640]">Warnings:</span> {request.specialWarnings}
+                                  <span className="font-medium text-[#0f2640]">{t('Warnings:', 'Huomioitavaa:')}</span> {request.specialWarnings}
                                 </p>
                               )}
                             </div>
@@ -2289,7 +2333,7 @@ function RequestsPageContent() {
                                 }))
                               }
                               rows={2}
-                              placeholder="Optional message to the owner"
+                              placeholder={t('Optional message to the owner', 'Valinnainen viesti omistajalle')}
                               className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                             />
                           )}
@@ -2300,7 +2344,7 @@ function RequestsPageContent() {
                               disabled={processingCommunityRequestId === request.id}
                               className="w-full border border-gray-400 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
                             >
-                              {processingCommunityRequestId === request.id ? 'Processing...' : 'Withdraw offer'}
+                              {processingCommunityRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Withdraw offer', 'Peru tarjous')}
                             </button>
                           ) : (
                             <button
@@ -2308,7 +2352,7 @@ function RequestsPageContent() {
                               disabled={processingCommunityRequestId === request.id}
                               className="w-full bg-[#ff7a2d] text-white py-2 px-4 rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                             >
-                              {processingCommunityRequestId === request.id ? 'Sending...' : 'Offer to help'}
+                              {processingCommunityRequestId === request.id ? t('Sending...', 'Lähetetään...') : t('Offer to help', 'Tarjoudu auttamaan')}
                             </button>
                           )}
                           <button
@@ -2316,7 +2360,7 @@ function RequestsPageContent() {
                             onClick={() => openReportModal(request)}
                             className="w-full mt-2 border border-red-300 text-red-700 py-2 px-4 rounded-lg hover:bg-red-50 transition-colors font-medium"
                           >
-                            Report request
+                            {t('Report request', 'Ilmoita pyynnöstä')}
                           </button>
                           </div>
                         );
@@ -2329,11 +2373,11 @@ function RequestsPageContent() {
 
             {activeTab === 'my-sits' && (
               <div>
-                <h2 className="text-2xl font-bold text-[#0f2640] mb-4">Care I give</h2>
+                <h2 className="text-2xl font-bold text-[#0f2640] mb-4">{t('Care I give', 'Antamani hoito')}</h2>
                 {sitterJobs.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <p className="text-[#6b7280]">
-                      You are not helping with any pet care yet. Check Direct asks or browse Requests to help.
+                      {t('You are not helping with any pet care yet. Check Direct asks or browse Requests to help.', 'Et ole vielä mukana yhdessäkään hoidossa. Tarkista suorat pyynnöt tai selaa avoimia hoitopyyntöjä.')}
                     </p>
                   </div>
                 ) : (
@@ -2354,51 +2398,51 @@ function RequestsPageContent() {
                           </span>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-[#ff7a2d]">{request.creditsOffered} credits</p>
+                          <p className="text-lg font-bold text-[#ff7a2d]">{t(`${request.creditsOffered} credits`, `${request.creditsOffered} krediittiä`)}</p>
                           {request.status === 'accepted' && (
-                            <p className="text-xs text-green-600">You receive these after the owner confirms the care is finished.</p>
+                            <p className="text-xs text-green-600">{t('You receive these after the owner confirms the care is finished.', 'Saat krediitit, kun omistaja vahvistaa hoidon päättyneeksi.')}</p>
                           )}
                           {request.status === 'awaiting_confirmation' && (
-                            <p className="text-xs text-yellow-600">Waiting for the owner to confirm.</p>
+                            <p className="text-xs text-yellow-600">{t('Waiting for the owner to confirm.', 'Odotetaan omistajan vahvistusta.')}</p>
                           )}
                           {request.status === 'completed' && (
-                            <p className="text-xs text-green-600">(Earned)</p>
+                            <p className="text-xs text-green-600">{t('(Earned)', '(Ansaittu)')}</p>
                           )}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                         <div>
-                          <p className="text-[#6b7280]">Owner:</p>
+                          <p className="text-[#6b7280]">{t('Owner:', 'Omistaja:')}</p>
                           <p className="text-[#0f2640] font-medium">{request.ownerName}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Care type:</p>
+                          <p className="text-[#6b7280]">{t('Care type:', 'Hoitomuoto:')}</p>
                           <p className="text-[#0f2640] font-medium">
                             {getCareTypeLabel(request.careType)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Location:</p>
+                          <p className="text-[#6b7280]">{t('Location:', 'Sijainti:')}</p>
                           <p className="text-[#0f2640] font-medium">{request.location}</p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Starts:</p>
+                          <p className="text-[#6b7280]">{t('Starts:', 'Alkaa:')}</p>
                           <p className="text-[#0f2640] font-medium">
-                            {request.startDate.toLocaleDateString()} at {request.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatRequestDateTime(request.startDate, language)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#6b7280]">Ends:</p>
+                          <p className="text-[#6b7280]">{t('Ends:', 'Päättyy:')}</p>
                           <p className="text-[#0f2640] font-medium">
-                            {request.endDate.toLocaleDateString()} at {request.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatRequestDateTime(request.endDate, language)}
                           </p>
                         </div>
                       </div>
 
                       {request.notes && (
                         <div className="mb-4">
-                          <p className="text-sm text-[#6b7280]">Notes:</p>
+                          <p className="text-sm text-[#6b7280]">{t('Notes:', 'Lisätiedot:')}</p>
                           <p className="text-sm text-[#0f2640]">{request.notes}</p>
                         </div>
                       )}
@@ -2409,44 +2453,44 @@ function RequestsPageContent() {
                         request.sleepInstructions ||
                         request.specialWarnings) && (
                         <div className="mb-4 p-3 border border-gray-200 rounded-lg text-sm space-y-1">
-                          <p className="font-medium text-[#0f2640]">Care Instructions</p>
+                          <p className="font-medium text-[#0f2640]">{t('Care Instructions', 'Hoito-ohjeet')}</p>
                           {request.feedingSchedule && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Feeding:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Feeding:', 'Ruokinta:')}</span>{' '}
                               {request.feedingSchedule}
                             </p>
                           )}
                           {request.walkSchedule && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Walks:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Walks:', 'Ulkoilu:')}</span>{' '}
                               {request.walkSchedule}
                             </p>
                           )}
                           {request.medicationInstructions && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Medication:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Medication:', 'Lääkitys:')}</span>{' '}
                               {request.medicationInstructions}
                             </p>
                           )}
                           {request.sleepInstructions && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Sleep:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Sleep:', 'Nukkuminen:')}</span>{' '}
                               {request.sleepInstructions}
                             </p>
                           )}
                           {request.specialWarnings && (
                             <p className="text-[#6b7280]">
-                              <span className="font-medium text-[#0f2640]">Warnings:</span>{' '}
+                              <span className="font-medium text-[#0f2640]">{t('Warnings:', 'Huomioitavaa:')}</span>{' '}
                               {request.specialWarnings}
                             </p>
                           )}
                         </div>
                       )}
 
-                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'sitter') && (
+                      {request.status === 'cancelled' && getCancellationCreditNotice(request, 'sitter', language) && (
                         <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3">
                           <p className="text-sm font-medium text-red-700">
-                            {getCancellationCreditNotice(request, 'sitter')}
+                            {getCancellationCreditNotice(request, 'sitter', language)}
                           </p>
                         </div>
                       )}
@@ -2458,28 +2502,28 @@ function RequestsPageContent() {
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Mark care as finished'}
+                            {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Mark care as finished', 'Merkitse hoito päättyneeksi')}
                           </button>
                           <button
                             onClick={() => handleCancelAcceptedRequest(request)}
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
+                            {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Cancel pet care', 'Peruuta lemmikinhoito')}
                           </button>
                         </div>
                       )}
                       {request.status === 'awaiting_confirmation' && (
                         <div className="flex gap-2">
                           <div className="px-3 py-1 text-sm bg-yellow-50 border border-yellow-300 text-yellow-700 rounded">
-                            Awaiting owner confirmation
+                            {t('Awaiting owner confirmation', 'Odottaa omistajan vahvistusta')}
                           </div>
                           <button
                             onClick={() => handleCancelAcceptedRequest(request)}
                             disabled={actioningRequestId === request.id}
                             className="px-3 py-1 text-sm border border-gray-400 text-gray-600 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
                           >
-                            {actioningRequestId === request.id ? 'Processing...' : 'Cancel pet care'}
+                            {actioningRequestId === request.id ? t('Processing...', 'Käsitellään...') : t('Cancel pet care', 'Peruuta lemmikinhoito')}
                           </button>
                         </div>
                       )}
@@ -2514,7 +2558,7 @@ function RequestsPageContent() {
                 type="button"
                 onClick={() => closeConfirmationDialog(false)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e6d8ca] text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#fff7ef]"
-                aria-label="Close confirmation dialog"
+                aria-label={t('Close confirmation dialog', 'Sulje vahvistusikkuna')}
               >
                 x
               </button>
@@ -2525,9 +2569,9 @@ function RequestsPageContent() {
             </p>
             {confirmationDialog.requiresArrangementAcknowledgement && (
               <div className="mt-5 rounded-2xl border border-[#d8cbbb] bg-[#fcfbf8] p-4 text-sm text-[#516173]">
-                <p className="font-bold text-[#0f2640]">Before confirming</p>
-                <p className="mt-2 leading-6">{PLATFORM_ROLE_NOTICE}</p>
-                <p className="mt-2 leading-6">{MEET_AND_GREET_RECOMMENDATION}</p>
+                <p className="font-bold text-[#0f2640]">{t('Before confirming', 'Ennen vahvistamista')}</p>
+                <p className="mt-2 leading-6">{t(PLATFORM_ROLE_NOTICE, 'TassuKaveri auttaa lemmikin omistajia ja hoitajia löytämään toisensa. Hoidosta sovitaan suoraan käyttäjien kesken. Keskustelkaa ennen vahvistamista lemmikin tarpeista, käyttäytymisestä, lääkityksestä, hätäyhteystiedoista, kotiin pääsystä, krediiteistä, vakuutuksista ja muista hoitoehdoista.')}</p>
+                <p className="mt-2 leading-6">{t(MEET_AND_GREET_RECOMMENDATION, 'Turvallisuuden ja lemmikin hyvinvoinnin vuoksi suosittelemme tutustumistapaamista ennen ensimmäisen hoidon vahvistamista. Tämä on suositus, ei TassuKaverin antama takuu.')}</p>
                 <label className="mt-4 flex cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
@@ -2536,7 +2580,7 @@ function RequestsPageContent() {
                     className="mt-1 h-4 w-4"
                   />
                   <span className="font-semibold text-[#0f2640]">
-                    {PLATFORM_ROLE_ACKNOWLEDGEMENT}
+                    {t(PLATFORM_ROLE_ACKNOWLEDGEMENT, 'Ymmärrän, että TassuKaveri on yhteydenpitoalusta ja että lemmikin omistaja ja hoitaja sopivat hoidosta suoraan keskenään.')}
                   </span>
                 </label>
               </div>
@@ -2548,7 +2592,7 @@ function RequestsPageContent() {
                 onClick={() => closeConfirmationDialog(false)}
                 className="rounded-full border border-[#d8cbbb] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef]"
               >
-                {confirmationDialog.cancelLabel ?? 'Cancel'}
+                {confirmationDialog.cancelLabel ?? t('Cancel', 'Peruuta')}
               </button>
               <button
                 type="button"
@@ -2586,10 +2630,10 @@ function RequestsPageContent() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e96b2c]">
-                  Report request
+                  {t('Report request', 'Ilmoita pyynnöstä')}
                 </p>
                 <h2 id="report-request-title" className="mt-2 text-2xl font-bold text-[#0f2640]">
-                  Tell us what feels wrong
+                  {t('Tell us what feels wrong', 'Kerro, mikä pyynnössä on vialla')}
                 </h2>
               </div>
               <button
@@ -2597,7 +2641,7 @@ function RequestsPageContent() {
                 onClick={closeReportModal}
                 disabled={reportSubmitting}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#e6d8ca] text-xl leading-none text-[#6b7280] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
-                aria-label="Close report dialog"
+                aria-label={t('Close report dialog', 'Sulje ilmoitusikkuna')}
               >
                 x
               </button>
@@ -2606,21 +2650,21 @@ function RequestsPageContent() {
             <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[#fff7ef] p-3">
               <ProfileAvatar
                 uid={reportingRequest.ownerId}
-                name={reportingRequest.ownerName || 'Pet owner'}
+                name={reportingRequest.ownerName || t('Pet owner', 'Lemmikin omistaja')}
                 className="h-11 w-11 shrink-0 rounded-full border border-[#efe3ee]"
               />
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-[#0f2640]">
-                  {reportingRequest.ownerName || 'Pet owner'}
+                  {reportingRequest.ownerName || t('Pet owner', 'Lemmikin omistaja')}
                 </p>
                 <p className="truncate text-sm text-[#6b7280]">
-                  {reportingRequest.petNames.join(', ') || 'Pet care request'}
+                  {reportingRequest.petNames.join(', ') || t('Pet care request', 'Hoitopyyntö')}
                 </p>
               </div>
             </div>
 
             <label htmlFor="report-reason" className="mt-5 block text-sm font-semibold text-[#0f2640]">
-              Reason
+              {t('Reason', 'Syy')}
             </label>
             <textarea
               id="report-reason"
@@ -2633,7 +2677,7 @@ function RequestsPageContent() {
               }}
               rows={5}
               disabled={reportSubmitting}
-              placeholder="Describe the problem, for example unsafe details, spam, or inappropriate content."
+              placeholder={t('Describe the problem, for example unsafe details, spam, or inappropriate content.', 'Kuvaile ongelma, esimerkiksi turvattomat tiedot, roskaposti tai asiaton sisältö.')}
               className="mt-2 w-full resize-none rounded-2xl border border-[#d8cbbb] px-4 py-3 text-sm text-[#0f2640] outline-none transition-colors placeholder:text-[#8a95a3] focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ffd6bf] disabled:bg-gray-50"
             />
 
@@ -2650,14 +2694,14 @@ function RequestsPageContent() {
                 disabled={reportSubmitting}
                 className="rounded-full border border-[#d8cbbb] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef] disabled:opacity-50"
               >
-                Cancel
+                {t('Cancel', 'Peruuta')}
               </button>
               <button
                 type="submit"
                 disabled={reportSubmitting}
                 className="rounded-full bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23] disabled:opacity-50"
               >
-                {reportSubmitting ? 'Sending...' : 'Send report'}
+                {reportSubmitting ? t('Sending...', 'Lähetetään...') : t('Send report', 'Lähetä ilmoitus')}
               </button>
             </div>
           </form>
@@ -2668,11 +2712,13 @@ function RequestsPageContent() {
 }
 
 export default function RequestsPage() {
+  const { t } = useLanguage();
+
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <div className="text-[#6b7280]">Loading requests...</div>
+          <div className="text-[#6b7280]">{t('Loading requests...', 'Ladataan hoitopyyntöjä...')}</div>
         </div>
       }
     >

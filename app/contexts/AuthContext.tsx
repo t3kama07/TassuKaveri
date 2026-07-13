@@ -15,7 +15,11 @@ import { initializeWallet } from '@/lib/walletService';
 import { CreateProfileData, UserProfile } from '@/types/profile';
 import type { AuthUser } from '@/types/auth';
 import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
-import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
+import { acceptLatestLegalDocuments, getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
+import {
+  clearPendingGoogleSignupConsent,
+  hasPendingGoogleSignupConsent,
+} from '@/lib/googleSignupConsent';
 
 type SignupResult = {
   user: AuthUser | null;
@@ -260,6 +264,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await ensureSupportedLocation(authUser.uid);
       await initializeWallet(authUser.uid);
       await setEmailVerifiedStatus(authUser.uid, authUser.emailVerified);
+
+      if (hasPendingGoogleSignupConsent()) {
+        try {
+          await acceptLatestLegalDocuments(authUser.uid);
+          clearPendingGoogleSignupConsent();
+        } catch (acceptanceError) {
+          // Keep the pending marker so LegalAcceptanceGate can retry after navigation.
+          console.error('Failed to finalize Google signup legal acceptance:', acceptanceError);
+        }
+      }
+
       return getProfile(authUser.uid);
     })();
 
@@ -392,7 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem('tassukaveri_google_auth_intent', intent);
       if (intent === 'login') {
-        window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
+        clearPendingGoogleSignupConsent();
       }
     }
 

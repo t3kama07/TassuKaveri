@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import PublicPageShell from '@/components/public/PublicPageShell';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { blogArticles, blogIndexContent } from '@/lib/publicPagesContent';
+import { blogArticles, blogIndexContent, localizeBlogArticle } from '@/lib/publicPagesContent';
 
 export default function BlogIndexPage() {
   const { language } = useLanguage();
@@ -28,7 +28,9 @@ export default function BlogIndexPage() {
       </div>
 
       <section className="mt-8 grid gap-6 md:grid-cols-2">
-        {blogArticles.map((article) => (
+        {blogArticles.map((sourceArticle) => {
+          const article = localizeBlogArticle(sourceArticle, language);
+          return (
           <article
             key={article.slug}
             className="flex h-full flex-col rounded-[28px] border border-[#dbe5f0] bg-white p-6 shadow-sm"
@@ -58,7 +60,8 @@ export default function BlogIndexPage() {
               </Link>
             </div>
           </article>
-        ))}
+          );
+        })}
       </section>
     </PublicPageShell>
   );

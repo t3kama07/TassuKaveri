@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getLatestMessage,
   getUserConversations,
@@ -22,6 +23,7 @@ interface ConversationWithMeta extends Conversation {
 
 function MessagesPageContent() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams.get('conversationId');
   const [conversations, setConversations] = useState<ConversationWithMeta[]>([]);
@@ -67,12 +69,12 @@ function MessagesPageContent() {
         setSelectedConversationId((current) => current || conversationsWithPreview[0].conversationId);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load your messages right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not load your messages right now. Please try again. ', 'Viestejä ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadConversations();
@@ -152,7 +154,7 @@ function MessagesPageContent() {
         draft
       );
       setDraft('');
-      setSuccess('Message sent.');
+      setSuccess(t('Message sent.', 'Viesti lähetetty.'));
       await markMessagesAsRead(
         selectedConversation.ownerId,
         selectedConversation.requestId,
@@ -161,8 +163,8 @@ function MessagesPageContent() {
       );
       await loadConversations();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not send this message right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not send this message right now. Please try again. ', 'Viestiä ei voitu lähettää juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setSending(false);
     }
@@ -173,9 +175,9 @@ function MessagesPageContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#0f2640]">Messages</h1>
+            <h1 className="text-3xl font-bold text-[#0f2640]">{t('Messages', 'Viestit')}</h1>
             <p className="mt-2 text-sm text-[#6b7280]">
-              Chat opens after a pet-care request is accepted.
+              {t('Chat opens after a pet-care request is accepted.', 'Keskustelu avautuu, kun hoitopyyntö on hyväksytty.')}
             </p>
           </div>
         </div>
@@ -193,15 +195,15 @@ function MessagesPageContent() {
 
         {loading ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[#6b7280]">Loading conversations...</p>
+            <p className="text-[#6b7280]">{t('Loading conversations...', 'Ladataan keskusteluja...')}</p>
           </div>
         ) : conversations.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <p className="text-[#6b7280]">
-              No messages yet.
+              {t('No messages yet.', 'Ei vielä viestejä.')}
             </p>
             <p className="mt-2 text-sm text-[#6b7280]">
-              Messages will appear after a pet-care request is accepted.
+              {t('Messages will appear after a pet-care request is accepted.', 'Viestit tulevat näkyviin, kun hoitopyyntö on hyväksytty.')}
             </p>
           </div>
         ) : (
@@ -242,7 +244,7 @@ function MessagesPageContent() {
 
             <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4 flex flex-col h-[65vh]">
               {!selectedConversation ? (
-                <p className="text-[#6b7280]">Select a conversation.</p>
+                <p className="text-[#6b7280]">{t('Select a conversation.', 'Valitse keskustelu.')}</p>
               ) : (
                 <>
                   <div className="mb-3 pb-3 border-b border-gray-100">
@@ -265,7 +267,7 @@ function MessagesPageContent() {
 
                   <div className="flex-1 overflow-y-auto space-y-2 mb-3">
                     {messages.length === 0 ? (
-                      <p className="text-[#6b7280] text-sm">No messages yet. Say hello when you are ready.</p>
+                      <p className="text-[#6b7280] text-sm">{t('No messages yet. Say hello when you are ready.', 'Ei vielä viestejä. Aloita keskustelu, kun olet valmis.')}</p>
                     ) : (
                       messages.map((message) => {
                         const mine = message.senderId === user?.uid;
@@ -281,7 +283,7 @@ function MessagesPageContent() {
                             <p className="text-xs opacity-80 mb-1">{message.senderName}</p>
                             <p className="text-sm">{message.text}</p>
                             <p className="text-[10px] opacity-70 mt-1">
-                              {message.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {message.createdAt.toLocaleTimeString(language === 'fi' ? 'fi-FI' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         );
@@ -294,7 +296,7 @@ function MessagesPageContent() {
                       type="text"
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      placeholder="Type a message..."
+                      placeholder={t('Type a message...', 'Kirjoita viesti...')}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -308,7 +310,7 @@ function MessagesPageContent() {
                       disabled={sending || !draft.trim()}
                       className="px-4 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
                     >
-                      Send
+                      {sending ? t('Sending...', 'Lähetetään...') : t('Send', 'Lähetä')}
                     </button>
                   </div>
                 </>
@@ -322,11 +324,13 @@ function MessagesPageContent() {
 }
 
 export default function MessagesPage() {
+  const { t } = useLanguage();
+
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <div className="text-[#6b7280]">Loading messages...</div>
+          <div className="text-[#6b7280]">{t('Loading messages...', 'Ladataan viestejä...')}</div>
         </div>
       }
     >

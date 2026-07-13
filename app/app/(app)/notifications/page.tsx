@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getUserNotifications, markNotificationRead } from '@/lib/notificationService';
 import { AppNotification } from '@/types/notification';
 
@@ -78,6 +79,14 @@ function NotificationCard({
   onOpen: (notification: AppNotification) => Promise<void>;
 }) {
   const intent = getNotificationIntent(notification);
+  const { language, t } = useLanguage();
+  const intentFi: Record<string, string> = {
+    'Direct request': 'Suora pyyntö', 'Open direct requests': 'Avaa suorat pyynnöt',
+    Offer: 'Tarjous', 'Open my requests': 'Avaa omat pyynnöt', Accepted: 'Hyväksytty',
+    'Open care I give': 'Avaa antamani hoito', Message: 'Viesti', 'Open messages': 'Avaa viestit',
+    Review: 'Arvostelu', 'Open profile': 'Avaa profiili', Completion: 'Valmistuminen',
+    'Open requests': 'Avaa pyynnöt', Update: 'Päivitys', Open: 'Avaa',
+  };
 
   return (
     <article
@@ -89,16 +98,16 @@ function NotificationCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${intent.badgeClassName}`}>
-              {intent.badge}
+              {language === 'fi' ? intentFi[intent.badge] || intent.badge : intent.badge}
             </span>
             {!notification.read && (
               <span className="inline-flex rounded-full bg-[#0f2640] px-2.5 py-1 text-xs font-semibold text-white">
-                New
+                {t('New', 'Uusi')}
               </span>
             )}
           </div>
           <p className="mt-3 text-base font-medium leading-7 text-[#0f2640]">{notification.message}</p>
-          <p className="mt-2 text-sm text-[#6b7280]">{notification.createdAt.toLocaleString()}</p>
+          <p className="mt-2 text-sm text-[#6b7280]">{notification.createdAt.toLocaleString(language === 'fi' ? 'fi-FI' : 'en-US')}</p>
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
@@ -108,7 +117,7 @@ function NotificationCard({
               onClick={() => void onOpen(notification)}
               className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
             >
-              {intent.ctaLabel}
+              {language === 'fi' ? intentFi[intent.ctaLabel] || intent.ctaLabel : intent.ctaLabel}
             </button>
           )}
           {!notification.read && (
@@ -117,7 +126,7 @@ function NotificationCard({
               onClick={() => void onMarkRead(notification.id)}
               className="rounded-full border border-[#d7e1eb] px-4 py-2 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
             >
-              Mark as read
+              {t('Mark as read', 'Merkitse luetuksi')}
             </button>
           )}
         </div>
@@ -128,6 +137,7 @@ function NotificationCard({
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,12 +156,12 @@ export default function NotificationsPage() {
       const userNotifications = await getUserNotifications(user.uid);
       setNotifications(userNotifications);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load your updates right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not load your updates right now. Please try again. ', 'Päivityksiä ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadNotifications();
@@ -166,8 +176,8 @@ export default function NotificationsPage() {
         )
       );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not update this item right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not update this item right now. Please try again. ', 'Tätä kohdetta ei voitu päivittää juuri nyt. Yritä uudelleen. ') + message);
     }
   }
 
@@ -200,16 +210,16 @@ export default function NotificationsPage() {
     <ProtectedRoute>
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
         <section className="rounded-[28px] border border-[#dbe5f0] bg-[linear-gradient(135deg,#fff8f1_0%,#ffffff_40%,#eef5ff_100%)] p-6 sm:p-8">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">Updates</p>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">{t('Updates', 'Päivitykset')}</p>
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">See what needs your attention</h1>
+              <h1 className="text-3xl font-bold text-[#0f2640] sm:text-4xl">{t('See what needs your attention', 'Katso, mikä tarvitsee huomiotasi')}</h1>
               <p className="mt-3 max-w-2xl text-base leading-7 text-[#516173]">
-                Updates about requests, messages, and reviews appear here.
+                {t('Updates about requests, messages, and reviews appear here.', 'Hoitopyyntöihin, viesteihin ja arvosteluihin liittyvät päivitykset näkyvät täällä.')}
               </p>
             </div>
             <div className="rounded-2xl border border-white/70 bg-white/80 px-5 py-4 shadow-[0_10px_26px_rgba(15,38,64,0.08)]">
-              <p className="text-sm text-[#6b7280]">Unread updates</p>
+              <p className="text-sm text-[#6b7280]">{t('Unread updates', 'Lukemattomat päivitykset')}</p>
               <p className="mt-1 text-3xl font-bold text-[#0f2640]">{unreadCount}</p>
             </div>
           </div>
@@ -223,32 +233,32 @@ export default function NotificationsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-2xl border border-[#e6edf5] bg-white p-6 shadow-[0_10px_24px_rgba(15,38,64,0.05)]">
-            <p className="text-[#6b7280]">Loading updates...</p>
+            <p className="text-[#6b7280]">{t('Loading updates...', 'Ladataan päivityksiä...')}</p>
           </div>
         ) : notifications.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-[#e6edf5] bg-white p-8 text-center shadow-[0_10px_24px_rgba(15,38,64,0.05)]">
-            <h2 className="text-xl font-semibold text-[#0f2640]">No notifications yet</h2>
-            <p className="mt-2 text-[#6b7280]">Updates about requests, messages, and reviews will appear here.</p>
+            <h2 className="text-xl font-semibold text-[#0f2640]">{t('No notifications yet', 'Ei vielä ilmoituksia')}</h2>
+            <p className="mt-2 text-[#6b7280]">{t('Updates about requests, messages, and reviews will appear here.', 'Hoitopyyntöihin, viesteihin ja arvosteluihin liittyvät päivitykset tulevat näkyviin täällä.')}</p>
           </div>
         ) : (
           <div className="mt-8 space-y-8">
             <section className="rounded-[28px] border border-[#ffd7be] bg-[#fffaf6] p-5 sm:p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Direct asks</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">{t('Direct asks', 'Suorat pyynnöt')}</h2>
                   <p className="mt-1 text-sm leading-6 text-[#6b7280]">
-                    Pet owners sent these requests only to you.
+                    {t('Pet owners sent these requests only to you.', 'Lemmikinomistajat ovat lähettäneet nämä pyynnöt vain sinulle.')}
                   </p>
                 </div>
                 <span className="inline-flex self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-[#ff7a2d] shadow-sm">
-                  {directRequestNotifications.length} update{directRequestNotifications.length === 1 ? '' : 's'}
+                  {language === 'fi' ? `${directRequestNotifications.length} päivitystä` : `${directRequestNotifications.length} update${directRequestNotifications.length === 1 ? '' : 's'}`}
                 </span>
               </div>
 
               <div className="mt-5 space-y-4">
                 {directRequestNotifications.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#ffd7be] bg-white/80 p-5 text-sm text-[#6b7280]">
-                    No direct asks right now.
+                    {t('No direct asks right now.', 'Ei suoria pyyntöjä juuri nyt.')}
                   </div>
                 ) : (
                   directRequestNotifications.map((notification) => (
@@ -266,20 +276,20 @@ export default function NotificationsPage() {
             <section className="rounded-[28px] border border-[#dbe5f0] bg-white p-5 shadow-[0_10px_24px_rgba(15,38,64,0.05)] sm:p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0f2640]">Other Activity</h2>
+                  <h2 className="text-2xl font-bold text-[#0f2640]">{t('Other Activity', 'Muu toiminta')}</h2>
                   <p className="mt-1 text-sm leading-6 text-[#6b7280]">
-                    Offers, finished care, reviews, and messages.
+                    {t('Offers, finished care, reviews, and messages.', 'Tarjoukset, päättyneet hoidot, arvostelut ja viestit.')}
                   </p>
                 </div>
                 <span className="inline-flex self-start rounded-full bg-[#f4f7fb] px-3 py-1 text-sm font-semibold text-[#0f2640]">
-                  {activityNotifications.length} update{activityNotifications.length === 1 ? '' : 's'}
+                  {language === 'fi' ? `${activityNotifications.length} päivitystä` : `${activityNotifications.length} update${activityNotifications.length === 1 ? '' : 's'}`}
                 </span>
               </div>
 
               <div className="mt-5 space-y-4">
                 {activityNotifications.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#dbe5f0] bg-[#f8fbfd] p-5 text-sm text-[#6b7280]">
-                    No other activity updates right now.
+                    {t('No other activity updates right now.', 'Ei muita päivityksiä juuri nyt.')}
                   </div>
                 ) : (
                   activityNotifications.map((notification) => (

@@ -9,6 +9,7 @@ import {
   updateAvailabilitySlot,
 } from '@/lib/availabilityService';
 import { AvailabilitySlot } from '@/types/availability';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AvailabilityPlannerProps {
   userId: string;
@@ -128,6 +129,7 @@ async function fetchUpcomingSlots(userId: string): Promise<AvailabilitySlot[]> {
 export default function AvailabilityPlanner({
   userId,
 }: AvailabilityPlannerProps) {
+  const { t } = useLanguage();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -151,7 +153,7 @@ export default function AvailabilityPlanner({
         }
 
         const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('We could not load your times right now. Please try again. ' + message);
+        setError(t('We could not load your times right now. Please try again. ', 'Vapaita aikojasi ei voitu ladata. Yritä uudelleen. ') + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -164,7 +166,7 @@ export default function AvailabilityPlanner({
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [t, userId]);
 
   async function refreshSlots() {
     try {
@@ -172,7 +174,7 @@ export default function AvailabilityPlanner({
       setSlots(await fetchUpcomingSlots(userId));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load your times right now. Please try again. ' + message);
+      setError(t('We could not load your times right now. Please try again. ', 'Vapaita aikojasi ei voitu ladata. Yritä uudelleen. ') + message);
     } finally {
       setLoading(false);
     }
@@ -245,19 +247,20 @@ export default function AvailabilityPlanner({
 
       if (editor.mode === 'edit' && editor.slotId) {
         await updateAvailabilitySlot(userId, editor.slotId, range);
-        setSuccess('Time slot updated.');
+        setSuccess(t('Time slot updated.', 'Vapaa aika päivitetty.'));
       } else {
         await createAvailabilitySlot(userId, range);
-        setSuccess('Time slot added.');
+        setSuccess(t('Time slot added.', 'Vapaa aika lisätty.'));
       }
 
       setEditor(null);
       await refreshSlots();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(
-        `${editor.mode === 'edit' ? 'We could not update this time' : 'We could not add this time'}. Please check the dates and try again. ${message}`
-      );
+      setError(t(
+        `${editor.mode === 'edit' ? 'We could not update this time' : 'We could not add this time'}. Please check the dates and try again. ${message}`,
+        `${editor.mode === 'edit' ? 'Tätä aikaa ei voitu päivittää' : 'Tätä aikaa ei voitu lisätä'}. Tarkista päivämäärät ja yritä uudelleen. ${message}`
+      ));
     } finally {
       setSaving(false);
     }
@@ -268,14 +271,14 @@ export default function AvailabilityPlanner({
       setSaving(true);
       clearMessages();
       await deleteAvailabilitySlot(userId, slotId);
-      setSuccess('Time slot removed.');
+      setSuccess(t('Time slot removed.', 'Vapaa aika poistettu.'));
       if (editor?.mode === 'edit' && editor.slotId === slotId) {
         setEditor(null);
       }
       await refreshSlots();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not remove this time right now. Please try again. ' + message);
+      setError(t('We could not remove this time right now. Please try again. ', 'Aikaa ei voitu poistaa juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setSaving(false);
     }
@@ -294,7 +297,7 @@ export default function AvailabilityPlanner({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#6b7280]">
-                Start Date
+                {t('Start Date', 'Alkamispäivä')}
               </span>
               <input
                 type="date"
@@ -306,7 +309,7 @@ export default function AvailabilityPlanner({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#6b7280]">
-                End Date
+                {t('End Date', 'Päättymispäivä')}
               </span>
               <input
                 type="date"
@@ -321,7 +324,7 @@ export default function AvailabilityPlanner({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#6b7280]">
-                Start Time
+                {t('Start Time', 'Alkamisaika')}
               </span>
               <input
                 type="time"
@@ -332,7 +335,7 @@ export default function AvailabilityPlanner({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#6b7280]">
-                End Time
+                {t('End Time', 'Päättymisaika')}
               </span>
               <input
                 type="time"
@@ -350,7 +353,7 @@ export default function AvailabilityPlanner({
               onClick={closeEditor}
               className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-[#0f2640] hover:bg-gray-50 disabled:opacity-50"
             >
-              Cancel
+              {t('Cancel', 'Peruuta')}
             </button>
             <button
               type="button"
@@ -358,7 +361,7 @@ export default function AvailabilityPlanner({
               onClick={handleSaveEditor}
               className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-medium text-white hover:bg-[#e66a1f] disabled:opacity-50"
             >
-              {saving ? 'Saving...' : editor.mode === 'edit' ? 'Save' : 'Add'}
+              {saving ? t('Saving...', 'Tallennetaan...') : editor.mode === 'edit' ? t('Save', 'Tallenna') : t('Add', 'Lisää')}
             </button>
           </div>
         </div>
@@ -370,9 +373,9 @@ export default function AvailabilityPlanner({
     <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
       <div className="mb-6">
         <div>
-          <h2 className="text-xl font-bold text-[#0f2640]">Times I can help</h2>
+          <h2 className="text-xl font-bold text-[#0f2640]">{t('Times I can help', 'Ajat, jolloin voin auttaa')}</h2>
           <p className="mt-1 text-sm text-[#6b7280]">
-            Add the dates and times when you can care for pets.
+            {t('Add the dates and times when you can care for pets.', 'Lisää päivät ja kellonajat, jolloin voit hoitaa lemmikkejä.')}
           </p>
         </div>
       </div>
@@ -391,9 +394,9 @@ export default function AvailabilityPlanner({
       <div className="rounded-2xl border border-[#d9e6f2] bg-[#f8fbff] p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-[#0f2640]">Your saved times</p>
+            <p className="text-sm font-medium text-[#0f2640]">{t('Your saved times', 'Tallentamasi ajat')}</p>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Pet owners can use these times when they ask for help.
+              {t('Pet owners can use these times when they ask for help.', 'Lemmikinomistajat näkevät nämä ajat pyytäessään apua.')}
             </p>
           </div>
           <button
@@ -402,14 +405,14 @@ export default function AvailabilityPlanner({
             onClick={() => openCreateEditor()}
             className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-medium text-white hover:bg-[#e66a1f] disabled:opacity-50"
           >
-            Add time
+            {t('Add time', 'Lisää aika')}
           </button>
         </div>
 
         <div className="hidden rounded-xl border border-[#d9e6f2] bg-white px-4 py-3 text-xs font-medium uppercase tracking-wide text-[#6b7280] xl:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1.3fr)_auto]">
-          <span>Dates</span>
-          <span>Times</span>
-          <span className="text-right">Actions</span>
+          <span>{t('Dates', 'Päivämäärät')}</span>
+          <span>{t('Times', 'Kellonajat')}</span>
+          <span className="text-right">{t('Actions', 'Toiminnot')}</span>
         </div>
 
         <div className="mt-3 space-y-3">
@@ -417,11 +420,11 @@ export default function AvailabilityPlanner({
 
           {loading ? (
             <div className="rounded-2xl border border-dashed border-[#c9d8e6] bg-white px-4 py-8 text-center text-sm text-[#6b7280]">
-              Loading time slots...
+              {t('Loading time slots...', 'Ladataan vapaita aikoja...')}
             </div>
           ) : slots.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#c9d8e6] bg-white px-4 py-8 text-center text-sm text-[#6b7280]">
-              No times added yet. Add times you can help.
+              {t('No times added yet. Add times you can help.', 'Et ole vielä lisännyt vapaita aikoja. Lisää ajat, jolloin voit auttaa.')}
             </div>
           ) : (
             slots.map((slot) => (
@@ -433,14 +436,14 @@ export default function AvailabilityPlanner({
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1.3fr)_auto] xl:items-center">
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-[#6b7280] xl:hidden">
-                          Dates
+                          {t('Dates', 'Päivämäärät')}
                         </p>
                         <p className="text-sm font-semibold text-[#0f2640]">{formatDateRange(slot)}</p>
                       </div>
 
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-[#6b7280] xl:hidden">
-                          Times
+                          {t('Times', 'Kellonajat')}
                         </p>
                         <p className="text-sm font-semibold text-[#23405f]">{formatTimeRange(slot)}</p>
                       </div>
@@ -452,7 +455,7 @@ export default function AvailabilityPlanner({
                           onClick={() => openEditEditor(slot)}
                           className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium text-[#0f2640] hover:bg-gray-50 disabled:opacity-50"
                         >
-                          Edit
+                          {t('Edit', 'Muokkaa')}
                         </button>
                         <button
                           type="button"
@@ -460,7 +463,7 @@ export default function AvailabilityPlanner({
                           onClick={() => handleDeleteSlot(slot.id)}
                           className="rounded-full border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                         >
-                          Delete
+                          {t('Delete', 'Poista')}
                         </button>
                       </div>
                     </div>

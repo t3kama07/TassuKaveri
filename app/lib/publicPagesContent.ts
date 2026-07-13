@@ -289,8 +289,8 @@ export const blogIndexContent = {
     fi: 'Nämä artikkelit vastaavat kysymyksiin, joita suomalaiset lemmikinomistajat oikeasti etsivät: miten löytää luotettava hoito, suunnitella poissaoloja ja hyödyntää yhteisöllisiä vaihtoehtoja.',
   },
   note: {
-    en: 'Most articles are published in Finnish to preserve local search intent and relevance for Finnish pet owners.',
-    fi: 'Suurin osa artikkeleista julkaistaan suomeksi, jotta ne vastaavat suomalaisten lemmikinomistajien hakuihin mahdollisimman hyvin.',
+    en: 'Choose EN or FI at any time. Every guide is available in both languages.',
+    fi: 'Voit vaihtaa kieltä milloin tahansa. Kaikki oppaat ovat saatavilla sekä suomeksi että englanniksi.',
   },
   readMoreLabel: {
     en: 'Read article',
@@ -980,6 +980,324 @@ export const blogArticles: BlogArticle[] = [
   },
 ];
 
-export function getBlogArticle(slug: string) {
-  return blogArticles.find((article) => article.slug === slug);
+type BlogArticleTranslation = Pick<
+  BlogArticle,
+  'title' | 'description' | 'excerpt' | 'author' | 'readTime' | 'intro' | 'sections'
+>;
+
+const englishBlogArticles: Record<string, BlogArticleTranslation> = {
+  'lemmikinhoito-oulussa.html': {
+    title: 'Pet care in Oulu – the best options for pet owners',
+    description: 'Looking for pet care in Oulu? Compare reliable options for dogs and cats, including local community-based care.',
+    excerpt: 'Looking for pet care in Oulu? This guide compares the most common options for dogs and cats, including local community-based solutions.',
+    author: 'TassuKaveri Team',
+    readTime: '5 min',
+    intro: [
+      'Arranging pet care can be difficult for pet owners in Oulu, especially during holidays and busy working weeks. Many people wonder where they can find reliable care without unnecessary stress or high costs.',
+      'This guide explains the most common pet-care options in Oulu and helps you choose an arrangement that suits both you and your pet.',
+    ],
+    sections: [
+      {
+        heading: 'Why is the need for pet care growing in Oulu?',
+        paragraphs: [
+          'Oulu is a growing city where many residents live far from their families and relatives. Business travel, student exchanges, and holidays all increase the need for dependable pet care.',
+          'Taking a pet along is not always possible, so arranging suitable care becomes essential.',
+        ],
+      },
+      {
+        heading: 'The most common pet-care options in Oulu',
+        paragraphs: ['When looking for pet care in Oulu, you can consider the following options:'],
+        bullets: [
+          'Family and friends – a familiar and trusted choice, but not always available.',
+          'Professional pet sitters – skilled care that can be expensive.',
+          'Boarding facilities – supervised care in an environment that may not suit every pet.',
+          'Care at home – a sitter visits the pet in its own home.',
+        ],
+      },
+      {
+        heading: 'Dog care in Oulu',
+        paragraphs: [
+          'Dog care usually requires regular walks, activity, and human company. Dogs often do best when their familiar routines are maintained.',
+          'Care at home or help from a local sitter can be less stressful for a dog than staying at a boarding facility.',
+        ],
+      },
+      {
+        heading: 'Cat care in Oulu',
+        paragraphs: [
+          'Cats are often most comfortable when cared for at home. They can be sensitive to changes in their surroundings, and a familiar environment helps reduce stress.',
+          'For shorter absences, regular home visits are often enough.',
+        ],
+      },
+      {
+        heading: 'What should you consider when choosing a sitter?',
+        paragraphs: ['Whichever option you choose, make sure the sitter:'],
+        bullets: [
+          'Is reliable and easy to reach.',
+          'Understands your pet’s individual needs.',
+          'Receives clear instructions about feeding and routines.',
+          'Knows what to do in an emergency.',
+        ],
+      },
+      {
+        heading: 'Community-based pet care in Oulu',
+        paragraphs: [
+          'Community-based pet care is becoming more common in Oulu. Local pet owners help one another in return, making care more flexible and affordable.',
+          'This approach can keep a pet in familiar surroundings while giving the owner peace of mind.',
+        ],
+      },
+      {
+        heading: 'A local and reliable solution',
+        paragraphs: [
+          'Community services such as TassuKaveri are designed for local use. They connect pet owners in the Oulu area and make it possible to arrange care with credits instead of direct payments.',
+        ],
+      },
+      {
+        heading: 'Summary',
+        paragraphs: [
+          'There are many ways to arrange pet care in Oulu. The right choice depends on your pet’s needs, your schedule, and the options available nearby. Local community-based care gives a growing number of owners a flexible and dependable alternative.',
+        ],
+      },
+    ],
+  },
+  'ilmainen-lemmikinhoito.html': {
+    title: 'Free pet care – is it really possible?',
+    description: 'Can pet care be free? Explore realistic low-cost options and community-based ways to arrange safe care without high expenses.',
+    excerpt: 'How can you arrange pet care without high costs? We look at free and affordable options and explain when they work best.',
+    author: 'TassuKaveri Team',
+    readTime: '5 min',
+    intro: [
+      'Pet care can be expensive, particularly during holidays and longer absences. This leaves many pet owners wondering whether free pet care is genuinely possible or only a rare exception.',
+      'This guide takes a realistic look at free and affordable pet-care options and the situations in which they work best.',
+    ],
+    sections: [
+      {
+        heading: 'Why does pet care usually cost so much?',
+        paragraphs: [
+          'Professional pet care involves responsibility, time, and often insurance. Prices can therefore become high when care is needed for several days or weeks.',
+          'For many owners, cost becomes a barrier even when the need for care is genuine.',
+        ],
+      },
+      {
+        heading: 'When is free pet care possible?',
+        paragraphs: ['Free pet care is possible in some situations, especially when it is based on reciprocity or community support.'],
+        bullets: [
+          'Family members or friends offer to help.',
+          'Neighbours provide short-term care.',
+          'Pet owners take turns helping one another.',
+        ],
+      },
+      {
+        heading: 'Free pet care compared with paid care',
+        paragraphs: [
+          'The clear advantage of free pet care is the lack of direct cost, but it often requires flexibility and good advance planning.',
+          'Paid care may provide professional experience and greater certainty, but it is not affordable for everyone.',
+        ],
+      },
+      {
+        heading: 'Pet care without money – how does it work in practice?',
+        paragraphs: [
+          'Care without money works best as an exchange: you might care for another person’s pet today and receive help with your own pet later.',
+          'This model requires clear expectations, trust, and openness from both people.',
+        ],
+      },
+      {
+        heading: 'Community-based pet care in Finland',
+        paragraphs: [
+          'Community-based pet care is growing in Finland as more owners look for alternatives to traditional boarding facilities.',
+          'Local communities and platforms help people arrange care close to home, which can also reduce stress for the pet.',
+        ],
+      },
+      {
+        heading: 'Who is free pet care suitable for?',
+        paragraphs: ['Free or reciprocal pet care is particularly suitable for:'],
+        bullets: [
+          'Pet owners who can be flexible with schedules.',
+          'People who are also willing to help others.',
+          'Local residents who value community connections.',
+        ],
+      },
+      {
+        heading: 'A community-based solution for pet care',
+        paragraphs: [
+          'Community services such as TassuKaveri offer a structured model in which pet owners help one another using credits instead of money. Care is built on reciprocity and local trust.',
+          'This combines the benefits of free pet care with a clearer, more organised way of arranging it.',
+        ],
+      },
+      {
+        heading: 'Summary',
+        paragraphs: [
+          'Free pet care is possible, but it needs the right model and a supportive community. Reciprocity, trust, and advance planning are essential for arranging safe care without high costs.',
+        ],
+      },
+    ],
+  },
+  'ei-loydy-lemmikinhoitajaa.html': {
+    title: 'What to do when you cannot find a pet sitter – practical solutions',
+    description: 'Cannot find a pet sitter? Read practical solutions and tips for arranging dog or cat care when time is short.',
+    excerpt: 'Even when a sitter is unavailable at the last minute, you still have options. This guide covers quick solutions, common mistakes, and ways to prepare better next time.',
+    author: 'TassuKaveri Team',
+    readTime: '5 min',
+    intro: [
+      'Many pet owners know the situation: a trip is approaching, work or family plans change suddenly, and no pet sitter is available. It is stressful because the pet’s wellbeing must always come first.',
+      'This guide offers practical steps for finding care when time is short, with specific advice for both dogs and cats.',
+    ],
+    sections: [
+      {
+        heading: 'Why can finding a pet sitter be difficult?',
+        paragraphs: [
+          'Finding a sitter can be particularly difficult during busy holiday periods such as summer and Christmas. Many owners look for care at the same time, so professionals and boarding facilities fill up quickly.',
+          'Not every sitter is suitable for every pet. Special needs, schedules, and questions of trust can narrow the available choices further.',
+        ],
+      },
+      {
+        heading: 'Common mistakes when looking for a pet sitter',
+        paragraphs: ['A lack of suitable care is often linked to these common mistakes rather than simple bad luck:'],
+        bullets: [
+          'Starting the search too late.',
+          'Not giving the sitter clear instructions.',
+          'Setting expectations that are too restrictive.',
+          'Relying on one option without a backup plan.',
+        ],
+      },
+      {
+        heading: 'Quick solutions when time is short',
+        paragraphs: [
+          'If you are left without a sitter at the last minute, stay calm but act quickly. Start with people nearby: neighbours, friends, acquaintances, and colleagues.',
+          'Local social-media groups and communities may also provide a quick solution, particularly for short-term care.',
+        ],
+      },
+      {
+        heading: 'Pet care in an emergency',
+        paragraphs: [
+          'In an unexpected situation, try to arrange care in surroundings that are familiar to the pet. Care at home can reduce stress and make the sitter’s task easier.',
+          'Always leave written feeding and medication instructions, along with veterinary contact details for emergencies.',
+        ],
+      },
+      {
+        heading: 'Caring for a dog when your usual sitter is unavailable',
+        paragraphs: [
+          'Dogs need regular exercise and human contact. When a sitter is found at short notice, make sure they understand the dog’s daily routines and behaviour.',
+          'Discuss walking times, feeding, and any special needs before the care begins.',
+        ],
+      },
+      {
+        heading: 'Caring for a cat at short notice',
+        paragraphs: [
+          'Cats often adapt best to care at home. During shorter absences, a daily visit to provide food and water and clean the litter tray may be enough.',
+          'Keeping the cat’s familiar routines and environment is especially important.',
+        ],
+      },
+      {
+        heading: 'How can you avoid the same situation next time?',
+        paragraphs: [
+          'The best way to reduce future stress is to prepare. Begin looking for care early and keep more than one possible sitter in mind.',
+          'Local community-based solutions can help you build a dependable long-term network for your pet.',
+        ],
+      },
+      {
+        heading: 'A community solution for pet care',
+        paragraphs: [
+          'For many owners, the main problem is not the price but finding someone trustworthy. Community services such as TassuKaveri are based on reciprocity: pet owners help one another and exchange care with credits instead of money.',
+          'This makes pet care more flexible, affordable, and local.',
+        ],
+      },
+      {
+        heading: 'Summary',
+        paragraphs: [
+          'If you cannot find a pet sitter, options still exist. Acting early, staying flexible, and using local communities can help ensure safe and dependable care even when plans change unexpectedly.',
+        ],
+      },
+    ],
+  },
+  'kuka-hoitaa-lemmikin-lomalla.html': {
+    title: 'Who will care for your pet during a holiday? How to find a reliable solution',
+    description: 'Planning a trip raises an important question: who will care for your pet? Compare dependable options for dogs and cats while you are away.',
+    excerpt: 'One of the most important parts of planning a holiday is deciding who will care for your pet. This guide compares the best options and provides a practical pre-travel checklist.',
+    author: 'TassuKaveri Team',
+    readTime: '6 min',
+    intro: [
+      'Planning a holiday should be enjoyable, but pet owners often face one worrying question: who will look after the pet? Not everyone has family or friends who can help, and boarding facilities can be expensive. Fortunately, several alternatives are available when you know where to look.',
+      'This guide compares the best holiday pet-care options, provides practical advice for dogs and cats, and explains what to do when finding a sitter seems difficult.',
+    ],
+    sections: [
+      {
+        heading: 'Why does holiday pet care worry so many owners?',
+        paragraphs: [
+          'A pet is part of the family, and its wellbeing matters deeply to its owner. The thought of leaving it alone or in an unfamiliar place can cause stress well before the trip.',
+          'Last-minute travel, peak seasons, and limited sitter availability can make suitable care difficult to arrange.',
+        ],
+      },
+      {
+        heading: 'The most common holiday pet-care options',
+        paragraphs: ['When arranging care while travelling, you can consider several options:'],
+        bullets: [
+          'Family or friends: a familiar person is often the most trusted choice.',
+          'A professional pet sitter: professional care brings experience and confidence, but costs can be high.',
+          'A pet hotel or boarding facility: supervised care that may feel stressful to some pets because of the unfamiliar environment.',
+          'Community-based pet care: neighbours and local pet owners help one another close to home.',
+        ],
+      },
+      {
+        heading: 'Dog care during a holiday – essential advice',
+        paragraphs: [
+          'Holiday care for a dog requires planning. Dogs need exercise, routines, and human contact. Make sure the sitter understands your dog’s daily needs, feeding times, and walking routine.',
+          'Leave clear details about any medication and provide the veterinarian’s contact information for emergencies.',
+        ],
+      },
+      {
+        heading: 'Cat care during a holiday – what owners should know',
+        paragraphs: [
+          'Arranging holiday care for a cat may be simpler than for a dog, but cats can be sensitive to change. Care at home is often best because it lets the cat remain in familiar surroundings.',
+          'Ask the sitter to visit regularly, check food and water, clean the litter tray, and spend some time with the cat.',
+        ],
+      },
+      {
+        heading: 'What if you cannot find a pet sitter?',
+        paragraphs: ['If finding a sitter is proving difficult, try these steps:'],
+        bullets: [
+          'Start looking early.',
+          'Ask in local groups and communities.',
+          'Use community-based platforms.',
+          'Avoid last-minute arrangements whenever possible.',
+        ],
+      },
+      {
+        heading: 'Checklist before your trip',
+        paragraphs: ['Before leaving, make sure the sitter has:'],
+        bullets: [
+          'Clear feeding and care instructions.',
+          'Your veterinarian’s contact details.',
+          'Keys and the access needed to enter your home.',
+          'Information about your pet’s routines and preferences.',
+        ],
+      },
+      {
+        heading: 'An affordable community-based alternative',
+        paragraphs: [
+          'For many owners, finding a trustworthy person is as important as the price. Community services such as TassuKaveri let pet owners help one another. Care is exchanged with credits instead of money, and help can often be found close to home.',
+          'This model makes pet care more affordable while strengthening the local community.',
+        ],
+      },
+      {
+        heading: 'Summary',
+        paragraphs: [
+          'There are several answers to the question of who should care for your pet during a holiday. Finding the right arrangement takes planning, but your pet’s wellbeing makes the effort worthwhile. The most important thing is that your pet receives safe and caring attention while you are away.',
+        ],
+      },
+    ],
+  },
+};
+
+export function localizeBlogArticle(article: BlogArticle, language: Language): BlogArticle {
+  if (language === 'fi') {
+    return article;
+  }
+
+  const translation = englishBlogArticles[article.slug];
+  return translation ? { ...article, ...translation } : article;
+}
+
+export function getBlogArticle(slug: string, language: Language = 'fi') {
+  const article = blogArticles.find((item) => item.slug === slug);
+  return article ? localizeBlogArticle(article, language) : undefined;
 }

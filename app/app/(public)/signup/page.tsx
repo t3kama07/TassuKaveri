@@ -8,6 +8,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import CitySelect from '@/components/CitySelect';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
 import { acceptLatestLegalDocuments } from '@/lib/legalAcceptanceService';
+import {
+  clearPendingGoogleSignupConsent,
+  markPendingGoogleSignupConsent,
+} from '@/lib/googleSignupConsent';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -100,10 +104,10 @@ export default function SignupPage() {
     setGoogleLoading(true);
 
     try {
-      window.sessionStorage.setItem('tassukaveri_google_signup_legal_accepted', 'true');
+      markPendingGoogleSignupConsent();
       await signInWithGoogle('signup');
     } catch (err: unknown) {
-      window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
+      clearPendingGoogleSignupConsent();
       const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
       setError(`${t('We could not start Google signup.', 'Google-rekisteröitymistä ei voitu aloittaa.')} ${message}`);
       setGoogleLoading(false);

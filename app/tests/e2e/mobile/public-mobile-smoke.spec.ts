@@ -3,6 +3,12 @@ import { devices, expect, test } from '@playwright/test';
 test.use({ ...devices['Pixel 5'] });
 
 test.describe('Mobile public smoke', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('tassukaveri-language', 'en');
+    });
+  });
+
   test('opens the mobile menu and keeps auth forms usable', async ({ page }) => {
     await page.goto('/');
 

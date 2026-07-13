@@ -8,6 +8,7 @@ import { mapSupabaseUserToAuthUser } from '@/lib/supabaseAuthClient';
 import { profileExists } from '@/lib/profileService';
 import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { clearPendingGoogleSignupConsent } from '@/lib/googleSignupConsent';
 
 function getOAuthError(): string | null {
   const query = new URLSearchParams(window.location.search);
@@ -27,6 +28,7 @@ export default function AuthCallbackPage() {
     async function finishGoogleLogin() {
       const oauthError = getOAuthError();
       if (oauthError) {
+        clearPendingGoogleSignupConsent();
         setError(oauthError);
         return;
       }
@@ -37,11 +39,13 @@ export default function AuthCallbackPage() {
       }
 
       if (sessionError) {
+        clearPendingGoogleSignupConsent();
         setError(sessionError.message);
         return;
       }
 
       if (!data.session) {
+        clearPendingGoogleSignupConsent();
         setError(
           t(
             'Google did not create a login session. Check the Google Client Secret in Supabase and try again.',

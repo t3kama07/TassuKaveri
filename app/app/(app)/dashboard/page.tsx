@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getAvailabilitySlots } from '@/lib/availabilityService';
 import { getUserPets } from '@/lib/petService';
 import { getProfile, isProfileCompleted } from '@/lib/profileService';
@@ -23,33 +24,15 @@ type OnboardingChoice = 'need-care' | 'help-sitter' | 'both';
 
 const ONBOARDING_CHOICE_KEY = 'tassukaveri-onboarding-choice';
 
-const ONBOARDING_CHOICES: Array<{ value: OnboardingChoice; label: string; description: string }> = [
-  {
-    value: 'need-care',
-    label: 'I need pet care',
-    description: 'Find a trusted sitter for your pet.',
-  },
-  {
-    value: 'help-sitter',
-    label: 'I want to help',
-    description: 'Care for pets nearby and earn credits.',
-  },
-  {
-    value: 'both',
-    label: 'A bit of both',
-    description: 'Find care and help others too.',
-  },
-];
-
-function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString([], {
+function formatDateLabel(date: Date, language: 'en' | 'fi'): string {
+  return date.toLocaleDateString(language === 'fi' ? 'fi-FI' : 'en-US', {
     month: 'short',
     day: 'numeric',
   });
 }
 
-function formatDateRange(startDate: Date, endDate: Date): string {
-  return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
+function formatDateRange(startDate: Date, endDate: Date, language: 'en' | 'fi'): string {
+  return `${formatDateLabel(startDate, language)}–${formatDateLabel(endDate, language)}`;
 }
 
 function OnboardingIcon({ type }: { type: OnboardingChoice }) {
@@ -119,6 +102,7 @@ function getPreviewRequests(requests: Request[], profile: UserProfile | null): R
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [openItems, setOpenItems] = useState(0);
@@ -204,8 +188,11 @@ export default function DashboardPage() {
         if (!active) {
           return;
         }
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setError('We could not load your home page right now. Please try again. ' + message);
+        const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+        setError(t(
+          'We could not load your home page right now. Please try again. ',
+          'Etusivua ei voitu ladata juuri nyt. Yritä uudelleen. '
+        ) + message);
       } finally {
         if (active) {
           setLoading(false);
@@ -218,9 +205,9 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [t, user]);
 
-  const welcomeName = profile?.name.trim() || user?.email?.split('@')[0] || 'there';
+  const welcomeName = profile?.name.trim() || user?.email?.split('@')[0] || t('there', 'sinä');
   const profileIncomplete = !profile || !isProfileCompleted(profile);
   const hasPets = petCount > 0;
   const hasAvailability = availabilityCount > 0;
@@ -232,58 +219,64 @@ export default function DashboardPage() {
 
   const checklistItems = [
     {
-      label: 'Step 1: Complete your profile',
+      label: t('Complete your profile', 'Täydennä profiilisi'),
       done: !profileIncomplete,
       href: '/profile',
-      action: 'Complete your profile',
+      action: t('Complete your profile', 'Täydennä profiilisi'),
     },
     {
-      label: 'Step 2: Add your pet',
+      label: t('Add your pet', 'Lisää lemmikkisi'),
       done: hasPets,
       href: '/pets',
-      action: 'Add your first pet',
+      action: t('Add your first pet', 'Lisää ensimmäinen lemmikkisi'),
     },
     {
-      label: 'Step 3: Choose what you want to do',
+      label: t('Choose what you want to do', 'Valitse, mitä haluat tehdä'),
       done: Boolean(onboardingChoice),
       href: '/dashboard',
-      action: 'Choose a goal',
+      action: t('Choose a goal', 'Valitse tavoitteesi'),
     },
     {
-      label: 'Step 4: Ask for pet care or offer to help',
+      label: t('Ask for pet care or offer to help', 'Pyydä lemmikinhoitoa tai tarjoa apuasi'),
       done: hasPets || hasAvailability,
       href: hasPets ? '/exchange?tab=my-requests&create=1' : '/profile',
-      action: hasPets ? 'Ask for pet care' : 'Add times you can help',
+      action: hasPets ? t('Ask for pet care', 'Pyydä lemmikinhoitoa') : t('Add times you can help', 'Lisää ajat, jolloin voit auttaa'),
     },
     {
-      label: 'Step 5: Check messages and notifications',
+      label: t('Check messages and notifications', 'Tarkista viestit ja ilmoitukset'),
       done: openItems > 0,
       href: '/notifications',
-      action: 'Check updates',
+      action: t('Check updates', 'Tarkista päivitykset'),
     },
   ];
 
   const nextActions = [
     profileIncomplete
-      ? { label: 'Complete your profile', href: '/profile' }
+      ? { label: t('Complete your profile', 'Täydennä profiilisi'), href: '/profile' }
       : null,
     onboardingChoice !== 'help-sitter' && !hasPets
-      ? { label: 'Add your first pet', href: '/pets' }
+      ? { label: t('Add your first pet', 'Lisää ensimmäinen lemmikkisi'), href: '/pets' }
       : null,
     !hasAvailability
-      ? { label: 'Add times you can help', href: '/profile' }
+      ? { label: t('Add times you can help', 'Lisää ajat, jolloin voit auttaa'), href: '/profile' }
       : null,
     onboardingChoice !== 'help-sitter' && hasPets
-      ? { label: 'Ask for pet care', href: '/exchange?tab=my-requests&create=1' }
+      ? { label: t('Ask for pet care', 'Pyydä lemmikinhoitoa'), href: '/exchange?tab=my-requests&create=1' }
       : null,
     (onboardingChoice === 'help-sitter' || onboardingChoice === 'both') && hasAvailability
-      ? { label: 'Find requests to help with', href: '/exchange?tab=community&view=all' }
+      ? { label: t('Find requests to help with', 'Etsi hoitopyyntöjä, joissa voit auttaa'), href: '/exchange?tab=community&view=all' }
       : null,
   ].filter((item): item is { label: string; href: string } => item !== null);
   const completedSetupCount = checklistItems.filter((item) => item.done).length;
   const setupProgressPercent = Math.round((completedSetupCount / checklistItems.length) * 100);
   const primaryNextAction =
-    nextActions[0] || { label: 'View notifications', href: '/notifications' };
+    nextActions[0] || { label: t('View notifications', 'Näytä ilmoitukset'), href: '/notifications' };
+
+  const onboardingChoices: Array<{ value: OnboardingChoice; label: string; description: string }> = [
+    { value: 'need-care', label: t('I need pet care', 'Tarvitsen lemmikinhoitoa'), description: t('Find a trusted sitter for your pet.', 'Löydä lemmikillesi luotettava hoitaja.') },
+    { value: 'help-sitter', label: t('I want to help', 'Haluan auttaa'), description: t('Care for pets nearby and earn credits.', 'Hoida lähialueen lemmikkejä ja ansaitse krediittejä.') },
+    { value: 'both', label: t('A bit of both', 'Molempia'), description: t('Find care and help others too.', 'Löydä hoitoa ja auta myös muita.') },
+  ];
 
   return (
     <ProtectedRoute>
@@ -292,42 +285,45 @@ export default function DashboardPage() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_360px] lg:items-end">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#e96b2c]">
-                Home
+                {t('Home', 'Etusivu')}
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-[-0.03em] text-[#0f2640] sm:text-4xl">
-                Welcome back, {welcomeName}
+                {t('Welcome back,', 'Tervetuloa takaisin,')} {welcomeName}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[#425266] sm:text-base">
-                TassuKaveri helps you find trusted sitters, help nearby pet owners, and exchange credits without money changing hands.
+                {t(
+                  'TassuKaveri helps you find trusted sitters, help nearby pet owners, and exchange credits without money changing hands.',
+                  'TassuKaverissa löydät luotettavia hoitajia, autat lähialueen lemmikinomistajia ja vaihdat hoitoapua krediiteillä ilman rahaa.'
+                )}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/exchange?tab=my-requests&create=1"
                   className="rounded-full bg-[#e96b2c] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d95f23]"
                 >
-                  Ask for pet care
+                  {t('Ask for pet care', 'Pyydä lemmikinhoitoa')}
                 </Link>
                 <Link
                   href="/sitters"
                   className="rounded-full border border-[#d8cbbb] bg-[#fffdf9] px-5 py-3 text-sm font-bold text-[#0f2640] transition-colors hover:bg-[#fff7ef]"
                 >
-                  Find a sitter
+                  {t('Find a sitter', 'Etsi hoitaja')}
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-[18px] border border-[#e3d7c7] bg-[#fffaf6] p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Credits</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Credits', 'Krediitit')}</p>
                 <p className="mt-2 text-4xl font-bold text-[#0f2640]">{wallet?.balance ?? 0}</p>
                 <p className="mt-2 text-sm leading-5 text-[#6b7280]">
-                  Spend credits for care. Earn them by helping others.
+                  {t('Spend credits for care. Earn them by helping others.', 'Käytä krediittejä hoitoon ja ansaitse niitä auttamalla muita.')}
                 </p>
               </div>
               <div className="rounded-[18px] border border-[#e3d7c7] bg-[#fffaf6] p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">Active care</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#7a8794]">{t('Active care', 'Aktiiviset hoidot')}</p>
                 <p className="mt-2 text-4xl font-bold text-[#0f2640]">{openItems}</p>
-                <p className="mt-2 text-sm leading-5 text-[#6b7280]">Open requests and accepted care jobs</p>
+                <p className="mt-2 text-sm leading-5 text-[#6b7280]">{t('Open requests and accepted care jobs', 'Avoimet pyynnöt ja sovitut hoitotehtävät')}</p>
               </div>
             </div>
           </div>
@@ -341,7 +337,7 @@ export default function DashboardPage() {
 
         {loading ? (
           <div className="rounded-[18px] border border-[#ded3c2] bg-white p-6">
-            <p className="text-[#6b7280]">Loading home...</p>
+            <p className="text-[#6b7280]">{t('Loading home...', 'Ladataan etusivua...')}</p>
           </div>
         ) : (
           <>
@@ -349,13 +345,13 @@ export default function DashboardPage() {
               <div className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Get set up</h2>
+                    <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">{t('Get set up', 'Viimeistele aloitus')}</h2>
                     <p className="mt-1 text-sm text-[#425266]">
-                      A few quick steps so sitters know and trust you.
+                      {t('A few quick steps so sitters know and trust you.', 'Muutama nopea vaihe auttaa hoitajia tutustumaan sinuun ja luottamaan profiiliisi.')}
                     </p>
                   </div>
                   <span className="shrink-0 text-sm font-bold text-[#b94f1d]">
-                    {completedSetupCount} of {checklistItems.length} done
+                    {language === 'fi' ? `${completedSetupCount}/${checklistItems.length} valmiina` : `${completedSetupCount} of ${checklistItems.length} done`}
                   </span>
                 </div>
 
@@ -367,10 +363,10 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-[#7a8794]">
-                  What do you want to do?
+                  {t('What do you want to do?', 'Mitä haluat tehdä?')}
                 </p>
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  {ONBOARDING_CHOICES.map((choice) => {
+                  {onboardingChoices.map((choice) => {
                     const selected = onboardingChoice === choice.value;
 
                     return (
@@ -423,10 +419,10 @@ export default function DashboardPage() {
                         </span>
                         <div>
                           <p className="text-sm font-bold text-[#0f2640]">
-                            {item.label.replace(/^Step \d+: /, '')}
+                            {item.label}
                           </p>
                           <p className="mt-1 text-xs text-[#7a8794]">
-                            {item.done ? 'Done' : 'This helps other users understand and trust you.'}
+                            {item.done ? t('Done', 'Valmis') : t('This helps other users understand and trust you.', 'Tämä auttaa muita käyttäjiä tutustumaan sinuun ja luottamaan profiiliisi.')}
                           </p>
                         </div>
                       </div>
@@ -448,28 +444,31 @@ export default function DashboardPage() {
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#e96b2c]">
                     <span className="h-3 w-3 rounded-full bg-[#e96b2c]" />
                   </span>
-                  <h3 className="mt-6 text-lg font-bold text-[#0f2640]">How credits work</h3>
+                  <h3 className="mt-6 text-lg font-bold text-[#0f2640]">{t('How credits work', 'Miten krediitit toimivat')}</h3>
                   <p className="mt-3 text-sm leading-6 text-[#7c3b19]">
-                    Credits replace money. You spend them when someone cares for your pet, and earn them back when you help others. No cash, no pressure.
+                    {t(
+                      'Credits replace money. You spend them when someone cares for your pet, and earn them back when you help others. No cash, no pressure.',
+                      'Krediitit korvaavat rahan. Käytät niitä, kun joku hoitaa lemmikkiäsi, ja ansaitset niitä auttamalla muita. Ei rahaa eikä maksupainetta.'
+                    )}
                   </p>
                 </div>
 
                 <div className="rounded-[22px] bg-[#203344] p-6 text-white">
-                  <h3 className="text-xl font-bold">Your next step</h3>
+                  <h3 className="text-xl font-bold">{t('Your next step', 'Seuraava vaiheesi')}</h3>
                   <p className="mt-3 text-sm leading-6 text-[#dbe5ef]">
                     {profileIncomplete
-                      ? 'Finish your profile so sitters can trust who they are helping.'
+                      ? t('Finish your profile so sitters can trust who they are helping.', 'Täydennä profiilisi, jotta hoitajat tietävät, ketä he auttavat.')
                       : onboardingChoice !== 'help-sitter' && !hasPets
-                        ? 'Add your pet so sitters know who needs care.'
+                        ? t('Add your pet so sitters know who needs care.', 'Lisää lemmikkisi, jotta hoitajat tietävät, kuka tarvitsee hoitoa.')
                         : !onboardingChoice
-                          ? 'Choose whether you need care, want to help, or both.'
+                          ? t('Choose whether you need care, want to help, or both.', 'Valitse, tarvitsetko hoitoa, haluatko auttaa vai molempia.')
                           : (onboardingChoice === 'help-sitter' || onboardingChoice === 'both') && !hasAvailability
-                            ? 'Add the times you can help so nearby pet owners know when to contact you.'
+                            ? t('Add the times you can help so nearby pet owners know when to contact you.', 'Lisää ajat, jolloin voit auttaa, jotta lähialueen lemmikinomistajat tietävät, milloin sinuun voi ottaa yhteyttä.')
                             : onboardingChoice === 'help-sitter'
-                              ? 'Browse open pet-care requests and offer help when the time works for you.'
+                              ? t('Browse open pet-care requests and offer help when the time works for you.', 'Selaa avoimia hoitopyyntöjä ja tarjoa apuasi, kun ajankohta sopii sinulle.')
                               : hasPets
-                            ? 'Pick a sitter profile and send your first care request.'
-                            : 'Add times you can help so owners can find you.'}
+                              ? t('Pick a sitter profile and send your first care request.', 'Valitse hoitajan profiili ja lähetä ensimmäinen hoitopyyntösi.')
+                            : t('Add times you can help so owners can find you.', 'Lisää ajat, jolloin voit auttaa, jotta omistajat löytävät sinut.')}
                   </p>
                   <Link
                     href={primaryNextAction.href}
@@ -484,16 +483,18 @@ export default function DashboardPage() {
             <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Available sitters</h2>
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">{t('Available sitters', 'Saatavilla olevat hoitajat')}</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    People near {profile?.location || 'you'} who may be able to help.
+                    {language === 'fi'
+                      ? `Lähialueen ${profile?.location ? `(${profile.location}) ` : ''}hoitajia, jotka voivat ehkä auttaa.`
+                      : `People near ${profile?.location || 'you'} who may be able to help.`}
                   </p>
                 </div>
                 <Link
                   href="/sitters"
                   className="text-sm font-semibold text-[#ff7a2d] hover:underline"
                 >
-                  See all sitters
+                  {t('See all sitters', 'Näytä kaikki hoitajat')}
                 </Link>
               </div>
 
@@ -501,7 +502,7 @@ export default function DashboardPage() {
                 {nearbySitters.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#d8cbbb] bg-[#fffdf9] p-5 md:col-span-3">
                     <p className="text-sm text-[#6b7280]">
-                      No sitters to preview right now. Open the sitters page to browse more.
+                      {t('No sitters to preview right now. Open the sitters page to browse more.', 'Hoitajia ei ole juuri nyt esikatseltavana. Näet lisää hoitajia hoitajasivulta.')}
                     </p>
                   </div>
                 ) : (
@@ -524,17 +525,18 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <p className="mt-3 line-clamp-2 text-sm text-[#6b7280]">
-                        {entry.profile.bio || 'Friendly sitter profile available to view.'}
+                        {entry.profile.bio || t('Friendly sitter profile available to view.', 'Tutustu hoitajan profiiliin.')}
                       </p>
                       <p className="mt-4 text-sm font-medium text-[#0f2640]">
                         {entry.nextAvailableSlot
-                          ? `Next slot: ${formatDateRange(
+                          ? `${t('Next slot:', 'Seuraava vapaa aika:')} ${formatDateRange(
                               entry.nextAvailableSlot.startAt,
-                              entry.nextAvailableSlot.endAt
+                              entry.nextAvailableSlot.endAt,
+                              language
                             )}`
-                          : 'Open for bookings'}
+                          : t('Open for bookings', 'Vapaa ottamaan pyyntöjä')}
                       </p>
-                      <p className="mt-4 text-sm font-bold text-[#e96b2c]">View full profile</p>
+                      <p className="mt-4 text-sm font-bold text-[#e96b2c]">{t('View full profile', 'Näytä koko profiili')}</p>
                     </Link>
                   ))
                 )}
@@ -544,16 +546,16 @@ export default function DashboardPage() {
             <section className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">Requests to help with</h2>
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-[#0f2640]">{t('Requests to help with', 'Hoitopyynnöt, joissa voit auttaa')}</h2>
                   <p className="mt-1 text-sm text-[#6b7280]">
-                    Pet owners looking for help. Offer only when the time works for you.
+                    {t('Pet owners looking for help. Offer only when the time works for you.', 'Lemmikinomistajat etsivät apua. Tarjoudu vain, kun ajankohta sopii sinulle.')}
                   </p>
                 </div>
                 <Link
                   href="/exchange?tab=community&view=all"
                   className="text-sm font-semibold text-[#ff7a2d] hover:underline"
                 >
-                  Find open requests
+                  {t('Find open requests', 'Etsi avoimia pyyntöjä')}
                 </Link>
               </div>
 
@@ -561,7 +563,7 @@ export default function DashboardPage() {
                 {communityRequests.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#d8cbbb] bg-[#fffdf9] p-5 md:col-span-3">
                     <p className="text-sm text-[#6b7280]">
-                      No community requests to preview right now.
+                      {t('No community requests to preview right now.', 'Yhteisön hoitopyyntöjä ei ole juuri nyt esikatseltavana.')}
                     </p>
                   </div>
                 ) : (
@@ -575,31 +577,31 @@ export default function DashboardPage() {
                         <div className="flex min-w-0 items-start gap-3">
                           <ProfileAvatar
                             uid={request.ownerId}
-                            name={request.ownerName || 'Pet owner'}
+                            name={request.ownerName || t('Pet owner', 'Lemmikinomistaja')}
                             className="h-12 w-12 shrink-0 rounded-full border border-[#efe3ee]"
                           />
                           <div className="min-w-0">
                             <h3 className="truncate text-lg font-bold text-[#0f2640]">
-                              {request.ownerName || 'Pet owner'}
+                              {request.ownerName || t('Pet owner', 'Lemmikinomistaja')}
                             </h3>
                             <p className="truncate text-sm text-[#6b7280]">
-                              {request.petNames.join(', ') || 'Pet care request'}
+                              {request.petNames.join(', ') || t('Pet care request', 'Lemmikinhoitopyyntö')}
                             </p>
                           </div>
                         </div>
                         <span className="shrink-0 rounded-full bg-[#fff1e6] px-3 py-1 text-xs font-medium text-[#ff7a2d]">
-                          {request.creditsOffered} credits
+                          {request.creditsOffered} {t('credits', 'krediittiä')}
                         </span>
                       </div>
                       <p className="mt-3 text-sm text-[#0f2640]">
-                        {formatDateRange(request.startDate, request.endDate)}
+                        {formatDateRange(request.startDate, request.endDate, language)}
                       </p>
                       <p className="mt-1 text-sm text-[#6b7280]">{request.location}</p>
                       <p className="mt-4 text-sm font-medium text-[#0f2640]">
-                        {request.notes || 'Open request from the community'}
+                        {request.notes || t('Open request from the community', 'Yhteisön avoin hoitopyyntö')}
                       </p>
                       <p className="mt-4 text-sm font-bold text-[#e96b2c]">
-                        View and offer help
+                        {t('View and offer help', 'Näytä pyyntö ja tarjoa apua')}
                       </p>
                     </Link>
                   ))

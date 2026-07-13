@@ -3,6 +3,9 @@ import type { E2EUserAccount } from './runtime';
 import { fieldByLabel } from './forms';
 
 export async function login(page: Page, user: Pick<E2EUserAccount, 'email' | 'password'>) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('tassukaveri-language', 'en');
+  });
   await page.goto('/login');
 
   const form = page.locator('form');
@@ -32,6 +35,9 @@ export async function signUp(
     confirmPassword?: string;
   }
 ) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('tassukaveri-language', 'en');
+  });
   await page.goto('/signup');
 
   const form = page.locator('form');

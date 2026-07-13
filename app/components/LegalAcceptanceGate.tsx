@@ -6,6 +6,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { acceptLatestLegalDocuments, getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
+import {
+  clearPendingGoogleSignupConsent,
+  hasPendingGoogleSignupConsent,
+} from '@/lib/googleSignupConsent';
 
 export default function LegalAcceptanceGate({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -36,9 +40,9 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
 
       try {
         setChecking(true);
-        if (window.sessionStorage.getItem('tassukaveri_google_signup_legal_accepted') === 'true') {
+        if (hasPendingGoogleSignupConsent()) {
           await acceptLatestLegalDocuments(user.uid);
-          window.sessionStorage.removeItem('tassukaveri_google_signup_legal_accepted');
+          clearPendingGoogleSignupConsent();
           if (active) {
             setAccepted(true);
             setTermsAccepted(false);

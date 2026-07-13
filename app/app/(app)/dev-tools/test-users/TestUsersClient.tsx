@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { DEMO_USER_PASSWORD, getDetailedDemoUsers } from '@/lib/demoUserPresets';
 
 type TestUserSeedResult = {
@@ -13,26 +14,27 @@ type TestUserSeedResult = {
   message: string;
 };
 
-function summarizeResults(results: TestUserSeedResult[]): string {
+function summarizeResults(results: TestUserSeedResult[], language: 'en' | 'fi'): string {
   const createdCount = results.filter((entry) => entry.status === 'created').length;
   const updatedCount = results.filter((entry) => entry.status === 'updated').length;
   const failedCount = results.filter((entry) => entry.status === 'failed').length;
 
   const parts: string[] = [];
   if (createdCount > 0) {
-    parts.push(`${createdCount} created`);
+    parts.push(language === 'fi' ? `${createdCount} luotu` : `${createdCount} created`);
   }
   if (updatedCount > 0) {
-    parts.push(`${updatedCount} updated`);
+    parts.push(language === 'fi' ? `${updatedCount} päivitetty` : `${updatedCount} updated`);
   }
   if (failedCount > 0) {
-    parts.push(`${failedCount} failed`);
+    parts.push(language === 'fi' ? `${failedCount} epäonnistui` : `${failedCount} failed`);
   }
 
-  return parts.length > 0 ? parts.join(', ') : 'No changes made';
+  return parts.length > 0 ? parts.join(', ') : language === 'fi' ? 'Ei muutoksia' : 'No changes made';
 }
 
 export default function TestUsersClient() {
+  const { t } = useLanguage();
   const [prefix, setPrefix] = useState('user');
   const [domain, setDomain] = useState('example.com');
   const [count, setCount] = useState(5);
@@ -58,7 +60,7 @@ export default function TestUsersClient() {
 
     const responseText = await response.text();
     if (!response.ok) {
-      throw new Error(responseText || 'Failed to run test user action');
+      throw new Error(responseText || t('Failed to run test user action', 'Testikäyttäjätoiminto epäonnistui'));
     }
 
     const parsed = responseText ? (JSON.parse(responseText) as { results?: TestUserSeedResult[] }) : {};
@@ -72,22 +74,22 @@ export default function TestUsersClient() {
     setResults([]);
 
     if (!prefix.trim()) {
-      setError('Email prefix is required.');
+      setError(t('Email prefix is required.', 'Sähköpostin alkuosa on pakollinen.'));
       return;
     }
 
     if (!domain.trim()) {
-      setError('Email domain is required.');
+      setError(t('Email domain is required.', 'Sähköpostin verkkotunnus on pakollinen.'));
       return;
     }
 
     if (!location.trim()) {
-      setError('Location is required.');
+      setError(t('Location is required.', 'Sijainti on pakollinen.'));
       return;
     }
 
     if (password.trim().length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(t('Password must be at least 6 characters.', 'Salasanassa on oltava vähintään kuusi merkkiä.'));
       return;
     }
 
@@ -108,10 +110,13 @@ export default function TestUsersClient() {
       });
 
       setResults(createdUsers);
-      setSuccess(`Custom test user run completed: ${summarizeResults(createdUsers)}.`);
+      setSuccess(t(
+        `Custom test user run completed: ${summarizeResults(createdUsers, 'en')}.`,
+        `Mukautettujen testikäyttäjien luonti valmistui: ${summarizeResults(createdUsers, 'fi')}.`
+      ));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to create test users: ' + message);
+      setError(t('Failed to create test users: ', 'Testikäyttäjien luominen epäonnistui: ') + message);
     } finally {
       setCreatingMode(null);
     }
@@ -128,10 +133,13 @@ export default function TestUsersClient() {
         mode: 'demo',
       });
       setResults(seededUsers);
-      setSuccess(`Detailed demo pack finished: ${summarizeResults(seededUsers)}.`);
+      setSuccess(t(
+        `Detailed demo pack finished: ${summarizeResults(seededUsers, 'en')}.`,
+        `Yksityiskohtaisen demopaketin luonti valmistui: ${summarizeResults(seededUsers, 'fi')}.`
+      ));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('Failed to seed detailed demo users: ' + message);
+      setError(t('Failed to seed detailed demo users: ', 'Yksityiskohtaisten demokäyttäjien luominen epäonnistui: ') + message);
     } finally {
       setCreatingMode(null);
     }
@@ -142,16 +150,16 @@ export default function TestUsersClient() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-[#0f2640]">Test User Creator</h1>
+            <h1 className="text-3xl font-bold text-[#0f2640]">{t('Test User Creator', 'Testikäyttäjien luonti')}</h1>
             <p className="text-[#6b7280] mt-2">
-              Create multiple Supabase test accounts with matching profiles and starter wallets.
+              {t('Create multiple Supabase test accounts with matching profiles and starter wallets.', 'Luo useita Supabase-testitilejä profiileineen ja aloituskrediitteineen.')}
             </p>
           </div>
           <Link
             href="/"
             className="px-4 py-2 border border-gray-300 rounded-lg text-[#0f2640] hover:bg-gray-50 transition-colors font-medium"
           >
-            Back Home
+            {t('Back Home', 'Takaisin etusivulle')}
           </Link>
         </div>
 
@@ -169,12 +177,12 @@ export default function TestUsersClient() {
         <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-[#0f2640]">Detailed Demo Pack</h2>
+              <h2 className="text-lg font-bold text-[#0f2640]">{t('Detailed Demo Pack', 'Yksityiskohtainen demopaketti')}</h2>
               <p className="mt-1 text-sm text-[#355070]">
-                One click creates or updates six realistic demo accounts with profile details, pets, wallets, and sitter availability slots.
+                {t('One click creates or updates six realistic demo accounts with profile details, pets, wallets, and sitter availability slots.', 'Yksi napsautus luo tai päivittää kuusi realistista demotiliä profiilitietoineen, lemmikkeineen, krediitteineen ja hoitajien vapaa-aikoineen.')}
               </p>
               <p className="mt-2 text-sm text-[#355070]">
-                Shared password: <span className="font-semibold">{DEMO_USER_PASSWORD}</span>
+                {t('Shared password:', 'Yhteinen salasana:')} <span className="font-semibold">{DEMO_USER_PASSWORD}</span>
               </p>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#355070]">
                 {demoUsers.map((user) => (
@@ -193,7 +201,7 @@ export default function TestUsersClient() {
               disabled={isCreating}
               className="px-5 py-2 bg-[#0f2640] text-white rounded-lg hover:bg-[#183552] transition-colors font-medium disabled:opacity-50"
             >
-              {creatingMode === 'demo' ? 'Seeding Demo Pack...' : 'Seed 6 Demo Users'}
+              {creatingMode === 'demo' ? t('Seeding Demo Pack...', 'Luodaan demopakettia...') : t('Seed 6 Demo Users', 'Luo 6 demokäyttäjää')}
             </button>
           </div>
         </div>
@@ -201,7 +209,7 @@ export default function TestUsersClient() {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Email Prefix
+              {t('Email Prefix', 'Sähköpostin alkuosa')}
             </label>
             <input
               type="text"
@@ -214,7 +222,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Email Domain
+              {t('Email Domain', 'Sähköpostin verkkotunnus')}
             </label>
             <input
               type="text"
@@ -227,7 +235,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              How Many
+              {t('How Many', 'Käyttäjien määrä')}
             </label>
             <input
               type="number"
@@ -241,7 +249,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Start Number
+              {t('Start Number', 'Aloitusnumero')}
             </label>
             <input
               type="number"
@@ -254,7 +262,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Shared Password
+              {t('Shared Password', 'Yhteinen salasana')}
             </label>
             <input
               type="text"
@@ -266,7 +274,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Default Location
+              {t('Default Location', 'Oletussijainti')}
             </label>
             <input
               type="text"
@@ -279,7 +287,7 @@ export default function TestUsersClient() {
 
           <div>
             <label className="block text-sm font-medium text-[#0f2640] mb-1">
-              Country
+              {t('Country', 'Maa')}
             </label>
             <input
               type="text"
@@ -296,10 +304,10 @@ export default function TestUsersClient() {
               disabled={isCreating}
               className="px-5 py-2 bg-[#ff7a2d] text-white rounded-lg hover:bg-[#e66a1f] transition-colors font-medium disabled:opacity-50"
             >
-              {creatingMode === 'basic' ? 'Creating Test Users...' : 'Create Test Users'}
+              {creatingMode === 'basic' ? t('Creating Test Users...', 'Luodaan testikäyttäjiä...') : t('Create Test Users', 'Luo testikäyttäjiä')}
             </button>
             <p className="text-sm text-[#6b7280]">
-              Example output: {prefix || 'user'}
+              {t('Example output:', 'Esimerkkitulos:')} {prefix || 'user'}
               {startAt}@{domain || 'example.com'}
             </p>
           </div>
@@ -307,9 +315,9 @@ export default function TestUsersClient() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-[#0f2640] mb-3">Results</h2>
+        <h2 className="text-xl font-bold text-[#0f2640] mb-3">{t('Results', 'Tulokset')}</h2>
         {results.length === 0 ? (
-          <p className="text-[#6b7280]">No users created yet.</p>
+          <p className="text-[#6b7280]">{t('No users created yet.', 'Käyttäjiä ei ole vielä luotu.')}</p>
         ) : (
           <div className="space-y-3">
             {results.map((entry) => (
@@ -335,13 +343,13 @@ export default function TestUsersClient() {
                     }`}
                   >
                     {entry.status === 'created'
-                      ? 'Created'
+                      ? t('Created', 'Luotu')
                       : entry.status === 'updated'
-                        ? 'Updated'
-                        : 'Failed'}
+                        ? t('Updated', 'Päivitetty')
+                        : t('Failed', 'Epäonnistui')}
                   </span>
                 </div>
-                <p className="text-sm text-[#6b7280] mt-1">Password: {entry.password}</p>
+                <p className="text-sm text-[#6b7280] mt-1">{t('Password:', 'Salasana:')} {entry.password}</p>
                 {entry.uid && <p className="text-sm text-[#6b7280]">UID: {entry.uid}</p>}
                 <p
                   className={`text-sm mt-1 ${

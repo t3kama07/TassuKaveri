@@ -9,7 +9,7 @@ const CONTACT_EMAIL = 'info@tassukaveri.fi';
 const copy = {
   eyebrow: {
     en: 'Contact us',
-    fi: 'Ota yhteytta',
+    fi: 'Ota yhteyttä',
   },
   title: {
     en: 'We are happy to hear from you.',
@@ -17,11 +17,11 @@ const copy = {
   },
   subtitle: {
     en: 'Questions about TassuKaveri, pet-care exchanges, credits, partnerships, or support? Send us a message and we will get back to you.',
-    fi: 'Kysymyksia TassuKaverista, lemmikkihoitovaihdoista, krediiteista, kumppanuuksista tai tuesta? Laheta meille viesti, niin palaamme asiaan.',
+    fi: 'Onko sinulla kysyttävää TassuKaverista, lemmikinhoitovaihdoista, krediiteistä, kumppanuuksista tai tuesta? Lähetä meille viesti, niin palaamme asiaan.',
   },
   emailLabel: {
     en: 'Email',
-    fi: 'Sahkoposti',
+    fi: 'Sähköposti',
   },
   responseLabel: {
     en: 'Response time',
@@ -33,25 +33,25 @@ const copy = {
   },
   supportTitle: {
     en: 'What can we help with?',
-    fi: 'MissÃ¤ voimme auttaa?',
+    fi: 'Missä voimme auttaa?',
   },
   supportItems: [
     {
       en: 'Questions before joining TassuKaveri',
-      fi: 'Kysymykset ennen TassuKaveriin liittymista',
+      fi: 'Kysymykset ennen TassuKaveriin liittymistä',
     },
     {
       en: 'Help with pet-care requests or sitter profiles',
-      fi: 'Apua lemmikkihoitopyyntoihin tai hoitajaprofiileihin',
+      fi: 'Apua hoitopyyntöihin tai hoitajaprofiileihin',
     },
     {
       en: 'Feedback, safety concerns, or community suggestions',
-      fi: 'Palaute, turvallisuushuomiot tai yhteisoehdotukset',
+      fi: 'Palaute, turvallisuushuomiot tai yhteisöä koskevat ehdotukset',
     },
   ],
   emailButton: {
     en: 'Email us',
-    fi: 'Laheta sahkopostia',
+    fi: 'Lähetä sähköpostia',
   },
   signupButton: {
     en: 'Create an account',

@@ -5,6 +5,12 @@ export const test = base.extend<{
   appUsers: ReturnType<typeof readRunUsers>['users'];
   runId: string;
 }>({
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('tassukaveri-language', 'en');
+    });
+    await use(page);
+  },
   appUsers: async ({}, use) => {
     await use(readRunUsers().users);
   },

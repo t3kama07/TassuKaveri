@@ -6,6 +6,7 @@ import CitySelect from '@/components/CitySelect';
 import ProfileAvatar from '@/components/ProfileAvatar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getProfile,
   isProfileCompleted,
@@ -23,24 +24,6 @@ import { getWallet } from '@/lib/walletService';
 import { AvailabilityStatus, ExperienceLevel, UserProfile } from '@/types/profile';
 
 type ProfileTab = 'details' | 'availability' | 'settings';
-
-const PROFILE_TABS: Array<{ id: ProfileTab; label: string; description: string }> = [
-  {
-    id: 'details',
-    label: 'Basic information',
-    description: 'Your name, photo, location, and care style.',
-  },
-  {
-    id: 'availability',
-    label: 'Times I can help',
-    description: 'Add the times when you can care for pets.',
-  },
-  {
-    id: 'settings',
-    label: 'Trust and verification',
-    description: 'Email and account details.',
-  },
-];
 
 const PET_SIZE_OPTIONS = ['small', 'medium', 'large'];
 
@@ -60,26 +43,40 @@ function sameStringArray(values: string[], otherValues: string[]): boolean {
   return left.every((value, index) => value === right[index]);
 }
 
-function formatOptionLabel(value: string): string {
+function formatOptionLabel(value: string, language: 'en' | 'fi'): string {
+  if (language === 'fi') {
+    return ({
+      small: 'Pieni',
+      medium: 'Keskikokoinen',
+      large: 'Suuri',
+      beginner: 'Aloittelija',
+      intermediate: 'Kokenut',
+      expert: 'Erittäin kokenut',
+    } as Record<string, string>)[value] || value;
+  }
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function formatList(values: string[], emptyLabel: string): string {
-  return values.length > 0 ? values.map(formatOptionLabel).join(', ') : emptyLabel;
+function formatList(values: string[], emptyLabel: string, language: 'en' | 'fi'): string {
+  return values.length > 0 ? values.map((value) => formatOptionLabel(value, language)).join(', ') : emptyLabel;
 }
 
-function formatPetTypeList(values: string[], emptyLabel: string): string {
+function formatPetTypeList(values: string[], emptyLabel: string, language: 'en' | 'fi'): string {
+  const finnishLabels: Record<string, string> = {
+    dog: 'Koirat', cat: 'Kissat', rabbit: 'Kanit', bird: 'Linnut',
+    'small-mammal': 'Piennisäkkäät', reptile: 'Matelijat', fish: 'Kalat', other: 'Muut lemmikit',
+  };
   return values.length > 0
-    ? values.map((value) => getPetTypeLabel(value, true)).join(', ')
+    ? values.map((value) => language === 'fi' ? finnishLabels[value] || value : getPetTypeLabel(value, true)).join(', ')
     : emptyLabel;
 }
 
-function formatDateText(date?: Date): string {
+function formatDateText(date: Date | undefined, language: 'en' | 'fi'): string {
   if (!date || Number.isNaN(date.getTime())) {
-    return 'Not available';
+    return language === 'fi' ? 'Ei saatavilla' : 'Not available';
   }
 
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString(language === 'fi' ? 'fi-FI' : 'en-GB', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -88,6 +85,7 @@ function formatDateText(date?: Date): string {
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<ProfileTab>('details');
@@ -148,12 +146,12 @@ export default function ProfilePage() {
         setExperienceWithSeniorPets(profileData.experienceWithSeniorPets);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not load your profile right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not load your profile right now. Please try again. ', 'Profiiliasi ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [t, user]);
 
   useEffect(() => {
     void loadProfile();
@@ -172,10 +170,10 @@ export default function ProfilePage() {
       const parsedLng = longitude.trim() === '' ? undefined : Number(longitude);
 
       if (parsedLat !== undefined && (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90)) {
-        throw new Error('Latitude must be between -90 and 90');
+        throw new Error(t('Latitude must be between -90 and 90', 'Leveysasteen on oltava välillä −90–90'));
       }
       if (parsedLng !== undefined && (!Number.isFinite(parsedLng) || parsedLng < -180 || parsedLng > 180)) {
-        throw new Error('Longitude must be between -180 and 180');
+        throw new Error(t('Longitude must be between -180 and 180', 'Pituusasteen on oltava välillä −180–180'));
       }
 
       await updateProfile(user.uid, {
@@ -199,12 +197,12 @@ export default function ProfilePage() {
 
       await updateUserLocation(user.uid, location);
 
-      setSuccess('Profile saved.');
+      setSuccess(t('Profile saved.', 'Profiili tallennettu.'));
       setIsEditing(false);
       await loadProfile();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not save your profile right now. Please check the fields and try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not save your profile right now. Please check the fields and try again. ', 'Profiilia ei voitu tallentaa. Tarkista tiedot ja yritä uudelleen. ') + message);
     } finally {
       setSaving(false);
     }
@@ -225,10 +223,10 @@ export default function ProfilePage() {
     try {
       const uploadedPhotoURL = await uploadProfileImage(user.uid, selectedFile);
       setPhotoURL(uploadedPhotoURL);
-      setSuccess('Profile photo uploaded. Save changes to update your profile.');
+      setSuccess(t('Profile photo uploaded. Save changes to update your profile.', 'Profiilikuva ladattu. Päivitä profiili tallentamalla muutokset.'));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError('We could not upload this photo right now. Please try again. ' + message);
+      const message = err instanceof Error ? err.message : t('Unknown error', 'Tuntematon virhe');
+      setError(t('We could not upload this photo right now. Please try again. ', 'Kuvaa ei voitu ladata juuri nyt. Yritä uudelleen. ') + message);
     } finally {
       setPhotoUploading(false);
     }
@@ -263,7 +261,7 @@ export default function ProfilePage() {
     if (isEditing) {
       if (hasUnsavedChanges) {
         const shouldDiscard = window.confirm(
-          'You have unsaved profile changes. Discard them and switch tabs?'
+          t('You have unsaved profile changes. Discard them and switch tabs?', 'Profiilissa on tallentamattomia muutoksia. Hylätäänkö ne ja vaihdetaan välilehteä?')
         );
 
         if (!shouldDiscard) {
@@ -309,33 +307,43 @@ export default function ProfilePage() {
       setExperienceWithLargeDogs(false);
     }
   }
-  const profileName = profile?.name.trim() || user?.email?.split('@')[0] || 'Your profile';
-  const profileLocation = profile ? `${profile.location}, ${profile.country}` : 'Location not added yet';
+  const profileName = profile?.name.trim() || user?.email?.split('@')[0] || t('Your profile', 'Profiilisi');
+  const profileLocation = profile
+    ? `${profile.location}, ${language === 'fi' && profile.country === 'Finland' ? 'Suomi' : profile.country}`
+    : t('Location not added yet', 'Sijaintia ei ole vielä lisätty');
   const heroBio =
-    profile?.bio.trim() || 'Add a short intro so pet owners quickly understand your style.';
+    profile?.bio.trim() || t('Add a short intro so pet owners quickly understand your style.', 'Lisää lyhyt esittely, jotta lemmikinomistajat tutustuvat nopeasti tapaasi toimia.');
   const selectedPresetAvatar = PROFILE_AVATAR_OPTIONS.find(
     (option) => photoURL === getProfileAvatarUrl(option.id)
   )?.id;
   const hasCoordinates = latitude.trim() !== '' && longitude.trim() !== '';
   const ratingSummary =
     profile && profile.ratingCount > 0
-      ? `${profile.ratingAverage.toFixed(1)} / 5 (${profile.ratingCount} review${profile.ratingCount > 1 ? 's' : ''})`
-      : 'No ratings yet';
+      ? t(
+          `${profile.ratingAverage.toFixed(1)} / 5 (${profile.ratingCount} review${profile.ratingCount > 1 ? 's' : ''})`,
+          `${profile.ratingAverage.toFixed(1)} / 5 (${profile.ratingCount} ${profile.ratingCount === 1 ? 'arvostelu' : 'arvostelua'})`
+        )
+      : t('No ratings yet', 'Ei vielä arvosteluja');
   const checklistItems = [
-    { label: 'Name and location added', done: Boolean(name.trim()) && Boolean(location.trim()) },
-    { label: 'Profile photo or avatar selected', done: Boolean(photoURL.trim()) },
-    { label: 'Short bio added', done: Boolean(bio.trim()) },
-    { label: 'Pet experience added', done: Boolean(petExperience.trim()) },
-    { label: 'Pet types added', done: petTypeExperience.length > 0 },
+    { label: t('Name and location added', 'Nimi ja sijainti lisätty'), done: Boolean(name.trim()) && Boolean(location.trim()) },
+    { label: t('Profile photo or avatar selected', 'Profiilikuva tai hahmokuva valittu'), done: Boolean(photoURL.trim()) },
+    { label: t('Short bio added', 'Lyhyt esittely lisätty'), done: Boolean(bio.trim()) },
+    { label: t('Pet experience added', 'Kokemus lemmikeistä lisätty'), done: Boolean(petExperience.trim()) },
+    { label: t('Pet types added', 'Eläinlajit lisätty'), done: petTypeExperience.length > 0 },
   ];
   const checklistDoneCount = checklistItems.filter((item) => item.done).length;
   const checklistProgress = Math.round((checklistDoneCount / checklistItems.length) * 100);
   const careHighlights = [
-    experienceWithDogs ? 'Dog experience' : null,
-    experienceWithCats ? 'Cat experience' : null,
-    experienceWithLargeDogs ? 'Large dog care' : null,
-    experienceWithSeniorPets ? 'Senior pet care' : null,
+    experienceWithDogs ? t('Dog experience', 'Kokemusta koirista') : null,
+    experienceWithCats ? t('Cat experience', 'Kokemusta kissoista') : null,
+    experienceWithLargeDogs ? t('Large dog care', 'Suurten koirien hoito') : null,
+    experienceWithSeniorPets ? t('Senior pet care', 'Ikääntyneiden lemmikkien hoito') : null,
   ].filter((item): item is string => item !== null);
+  const profileTabs: Array<{ id: ProfileTab; label: string; description: string }> = [
+    { id: 'details', label: t('Basic information', 'Perustiedot'), description: t('Your name, photo, location, and care style.', 'Nimi, kuva, sijainti ja tapasi hoitaa lemmikkejä.') },
+    { id: 'availability', label: t('Times I can help', 'Ajat, jolloin voin auttaa'), description: t('Add the times when you can care for pets.', 'Lisää ajat, jolloin voit hoitaa lemmikkejä.') },
+    { id: 'settings', label: t('Trust and verification', 'Luottamus ja vahvistukset'), description: t('Email and account details.', 'Sähköposti- ja tilitiedot.') },
+  ];
 
   function renderDetailsTab() {
     if (!profile) {
@@ -347,9 +355,9 @@ export default function ProfilePage() {
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-[#0f2640]">Basic information</h2>
+              <h2 className="text-xl font-bold text-[#0f2640]">{t('Basic information', 'Perustiedot')}</h2>
               <p className="mt-1 text-sm text-[#6b7280]">
-                Your profile helps other users decide if they can trust you.
+                {t('Your profile helps other users decide if they can trust you.', 'Profiilisi auttaa muita käyttäjiä arvioimaan, sopisitko heidän lemmikkinsä hoitajaksi.')}
               </p>
             </div>
             {!isEditing && (
@@ -358,7 +366,7 @@ export default function ProfilePage() {
                 onClick={() => setIsEditing(true)}
                 className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
               >
-                Edit Profile
+                {t('Edit Profile', 'Muokkaa profiilia')}
               </button>
             )}
           </div>
@@ -366,7 +374,7 @@ export default function ProfilePage() {
           {isEditing ? (
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               <div className="rounded-2xl border border-[#e5edf6] bg-[#f8fbff] p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Profile photo</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">{t('Profile photo', 'Profiilikuva')}</h3>
                 <div className="mt-4 rounded-2xl border border-dashed border-[#d7e2ef] bg-white p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                     <ProfileAvatar
@@ -377,9 +385,9 @@ export default function ProfilePage() {
                     />
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#0f2640]">Profile photo</p>
+                      <p className="text-sm font-medium text-[#0f2640]">{t('Profile photo', 'Profiilikuva')}</p>
                       <p className="mt-1 text-sm text-[#6b7280]">
-                        Upload a clear image or choose a friendly avatar for your profile.
+                        {t('Upload a clear image or choose a friendly avatar for your profile.', 'Lataa selkeä kuva tai valitse profiiliisi ystävällinen hahmokuva.')}
                       </p>
 
                       <input
@@ -397,7 +405,7 @@ export default function ProfilePage() {
                           disabled={photoUploading}
                           className="rounded-full bg-[#ff7a2d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
                         >
-                          {photoUploading ? 'Uploading...' : photoURL ? 'Replace image' : 'Upload image'}
+                          {photoUploading ? t('Uploading...', 'Ladataan...') : photoURL ? t('Replace image', 'Vaihda kuva') : t('Upload image', 'Lataa kuva')}
                         </button>
                         {photoURL && (
                           <button
@@ -406,7 +414,7 @@ export default function ProfilePage() {
                             disabled={photoUploading}
                             className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc] disabled:opacity-50"
                           >
-                            Remove image
+                            {t('Remove image', 'Poista kuva')}
                           </button>
                         )}
                       </div>
@@ -414,7 +422,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="mt-5 border-t border-[#edf2f7] pt-4">
-                    <p className="text-sm font-semibold text-[#0f2640]">Choose an avatar</p>
+                    <p className="text-sm font-semibold text-[#0f2640]">{t('Choose an avatar', 'Valitse hahmokuva')}</p>
                     <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {PROFILE_AVATAR_OPTIONS.map((option) => {
                         const avatarUrl = getProfileAvatarUrl(option.id);
@@ -446,12 +454,12 @@ export default function ProfilePage() {
                     </div>
                     {!photoURL && (
                       <p className="mt-3 text-xs text-[#6b7280]">
-                        If you do not choose one, TassuKaveri shows an automatic avatar.
+                        {t('If you do not choose one, TassuKaveri shows an automatic avatar.', 'Jos et valitse kuvaa, TassuKaveri näyttää automaattisesti luodun hahmokuvan.')}
                       </p>
                     )}
                     {photoURL && isProfileAvatarUrl(photoURL) && (
                       <p className="mt-3 text-xs text-[#6b7280]">
-                        Save changes to use this avatar across your profile.
+                        {t('Save changes to use this avatar across your profile.', 'Tallenna muutokset, jotta hahmokuva näkyy profiilissasi.')}
                       </p>
                     )}
                   </div>
@@ -459,7 +467,7 @@ export default function ProfilePage() {
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label htmlFor="profile-name" className="mb-1 block text-sm font-medium text-[#0f2640]">Name</label>
+                    <label htmlFor="profile-name" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Name', 'Nimi')}</label>
                     <input
                       id="profile-name"
                       type="text"
@@ -470,7 +478,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="profile-city" className="mb-1 block text-sm font-medium text-[#0f2640]">City</label>
+                    <label htmlFor="profile-city" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('City', 'Kaupunki')}</label>
                     <CitySelect
                       id="profile-city"
                       value={location}
@@ -480,11 +488,11 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="profile-country" className="mb-1 block text-sm font-medium text-[#0f2640]">Country</label>
+                    <label htmlFor="profile-country" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Country', 'Maa')}</label>
                     <input
                       id="profile-country"
                       type="text"
-                      value={country}
+                      value={language === 'fi' && country === 'Finland' ? 'Suomi' : country}
                       readOnly
                       aria-readonly="true"
                       className={inputClassName}
@@ -494,10 +502,10 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-white p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">About you</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">{t('About you', 'Tietoa sinusta')}</h3>
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label htmlFor="profile-bio" className="mb-1 block text-sm font-medium text-[#0f2640]">Short intro</label>
+                    <label htmlFor="profile-bio" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Short intro', 'Lyhyt esittely')}</label>
                     <textarea
                       id="profile-bio"
                       value={bio}
@@ -507,7 +515,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="profile-pet-experience" className="mb-1 block text-sm font-medium text-[#0f2640]">Pet care experience</label>
+                    <label htmlFor="profile-pet-experience" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Pet care experience', 'Kokemus lemmikkien hoidosta')}</label>
                     <textarea
                       id="profile-pet-experience"
                       value={petExperience}
@@ -520,42 +528,42 @@ export default function ProfilePage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5edf6] bg-white p-5">
-                <h3 className="text-lg font-bold text-[#0f2640]">Care experience and preferences</h3>
+                <h3 className="text-lg font-bold text-[#0f2640]">{t('Care experience and preferences', 'Hoitokokemus ja toiveet')}</h3>
                 <p className="mt-1 text-sm text-[#6b7280]">
-                  Be specific about the animals and care you are comfortable providing. Owners use these details when choosing a sitter.
+                  {t('Be specific about the animals and care you are comfortable providing. Owners use these details when choosing a sitter.', 'Kerro tarkasti, mitä eläimiä ja millaista hoitoa pystyt tarjoamaan. Omistajat käyttävät näitä tietoja hoitajaa valitessaan.')}
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
-                    <label htmlFor="profile-availability" className="mb-1 block text-sm font-medium text-[#0f2640]">Can you help now?</label>
+                    <label htmlFor="profile-availability" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Can you help now?', 'Voitko auttaa nyt?')}</label>
                     <select
                       id="profile-availability"
                       value={availability}
                       onChange={(e) => setAvailability(e.target.value as AvailabilityStatus)}
                       className={inputClassName}
                     >
-                      <option value="available">Available</option>
-                      <option value="unavailable">Unavailable</option>
+                      <option value="available">{t('Available', 'Saatavilla')}</option>
+                      <option value="unavailable">{t('Unavailable', 'Ei saatavilla')}</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="profile-experience-level" className="mb-1 block text-sm font-medium text-[#0f2640]">Experience level</label>
+                    <label htmlFor="profile-experience-level" className="mb-1 block text-sm font-medium text-[#0f2640]">{t('Experience level', 'Kokemustaso')}</label>
                     <select
                       id="profile-experience-level"
                       value={experienceLevel}
                       onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
                       className={inputClassName}
                     >
-                      <option value="beginner">Beginner</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="expert">Expert</option>
+                      <option value="beginner">{t('Beginner', 'Aloittelija')}</option>
+                      <option value="intermediate">{t('Intermediate', 'Kokenut')}</option>
+                      <option value="expert">{t('Expert', 'Erittäin kokenut')}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="mt-4 space-y-4">
                   <div>
-                    <p className="mb-1 text-sm font-medium text-[#0f2640]">Animals you can care for</p>
-                    <p className="mb-3 text-sm text-[#6b7280]">Select every type you can care for confidently.</p>
+                    <p className="mb-1 text-sm font-medium text-[#0f2640]">{t('Animals you can care for', 'Eläimet, joita voit hoitaa')}</p>
+                    <p className="mb-3 text-sm text-[#6b7280]">{t('Select every type you can care for confidently.', 'Valitse kaikki eläinlajit, joita osaat hoitaa turvallisesti.')}</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_TYPE_OPTIONS.map((option) => {
                         const selected = petTypeExperience.includes(option.value);
@@ -572,7 +580,7 @@ export default function ProfilePage() {
                                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-[#f7fafc]'
                             }`}
                           >
-                            {option.pluralLabel}
+                            {formatPetTypeList([option.value], option.pluralLabel, language)}
                           </button>
                         );
                       })}
@@ -580,8 +588,8 @@ export default function ProfilePage() {
                   </div>
                   {petTypeExperience.includes('dog') && (
                   <div className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-4">
-                    <p className="mb-1 text-sm font-medium text-[#0f2640]">Dog sizes you are comfortable with</p>
-                    <p className="mb-3 text-sm text-[#6b7280]">Select all sizes you are prepared to handle safely.</p>
+                    <p className="mb-1 text-sm font-medium text-[#0f2640]">{t('Dog sizes you are comfortable with', 'Sinulle sopivat koirien koot')}</p>
+                    <p className="mb-3 text-sm text-[#6b7280]">{t('Select all sizes you are prepared to handle safely.', 'Valitse kaikki koot, joita pystyt käsittelemään turvallisesti.')}</p>
                     <div className="flex flex-wrap gap-2">
                       {PET_SIZE_OPTIONS.map((option) => {
                         const selected = preferredPetSize.includes(option);
@@ -601,7 +609,7 @@ export default function ProfilePage() {
                                 : 'border border-gray-300 bg-white text-[#0f2640] hover:bg-[#f7fafc]'
                             }`}
                           >
-                            {formatOptionLabel(option)}
+                            {formatOptionLabel(option, language)}
                           </button>
                         );
                       })}
@@ -611,7 +619,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="mt-5">
-                  <p className="mb-3 text-sm font-medium text-[#0f2640]">Additional care experience</p>
+                  <p className="mb-3 text-sm font-medium text-[#0f2640]">{t('Additional care experience', 'Muu hoitokokemus')}</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                   {petTypeExperience.includes('dog') && (
                   <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
@@ -620,7 +628,7 @@ export default function ProfilePage() {
                       checked={experienceWithLargeDogs}
                       onChange={(e) => setExperienceWithLargeDogs(e.target.checked)}
                     />
-                    Confident handling large dogs
+                    {t('Confident handling large dogs', 'Osaan käsitellä suuria koiria turvallisesti')}
                   </label>
                   )}
                   <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-[#fcfdff] px-4 py-3 text-sm text-[#0f2640]">
@@ -629,7 +637,7 @@ export default function ProfilePage() {
                       checked={experienceWithSeniorPets}
                       onChange={(e) => setExperienceWithSeniorPets(e.target.checked)}
                     />
-                    Experienced with senior pets
+                    {t('Experienced with senior pets', 'Kokemusta ikääntyneiden lemmikkien hoidosta')}
                   </label>
                   </div>
                 </div>
@@ -641,7 +649,7 @@ export default function ProfilePage() {
                   disabled={saving}
                   className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('Saving...', 'Tallennetaan...') : t('Save Changes', 'Tallenna muutokset')}
                 </button>
                 <button
                   type="button"
@@ -649,7 +657,7 @@ export default function ProfilePage() {
                   disabled={saving}
                   className="rounded-full border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-[#0f2640] transition-colors hover:bg-[#f7fafc]"
                 >
-                  Cancel
+                  {t('Cancel', 'Peruuta')}
                 </button>
               </div>
             </form>
@@ -663,53 +671,53 @@ export default function ProfilePage() {
               />
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Name</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Name', 'Nimi')}</p>
                   <p className="mt-1 text-sm text-[#516173]">{profile.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Location</p>
-                  <p className="mt-1 text-sm text-[#516173]">{profile.location}, {profile.country}</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Location', 'Sijainti')}</p>
+                  <p className="mt-1 text-sm text-[#516173]">{profile.location}, {language === 'fi' && profile.country === 'Finland' ? 'Suomi' : profile.country}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Times I can help</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Times I can help', 'Ajat, jolloin voin auttaa')}</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    {profile.availability === 'available' ? 'Open for bookings' : 'Bookings paused'}
+                    {profile.availability === 'available' ? t('Open for bookings', 'Ottaa vastaan hoitopyyntöjä') : t('Bookings paused', 'Hoitopyynnöt keskeytetty')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Experience level</p>
-                  <p className="mt-1 text-sm capitalize text-[#516173]">{profile.experienceLevel}</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Experience level', 'Kokemustaso')}</p>
+                  <p className="mt-1 text-sm capitalize text-[#516173]">{formatOptionLabel(profile.experienceLevel, language)}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Pet types</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Pet types', 'Eläinlajit')}</p>
                   <p className="mt-1 text-sm text-[#516173]">
-                    {formatPetTypeList(petTypeExperience, 'Not specified yet')}
+                    {formatPetTypeList(petTypeExperience, t('Not specified yet', 'Ei vielä määritetty'), language)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#0f2640]">Dog size comfort</p>
+                  <p className="text-sm font-semibold text-[#0f2640]">{t('Dog size comfort', 'Sopivat koirien koot')}</p>
                   <p className="mt-1 text-sm text-[#516173]">
                     {petTypeExperience.includes('dog')
-                      ? formatList(preferredPetSize, 'Not specified yet')
-                      : 'Not applicable'}
+                      ? formatList(preferredPetSize, t('Not specified yet', 'Ei vielä määritetty'), language)
+                      : t('Not applicable', 'Ei koske tätä profiilia')}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-2xl bg-[#f8fbff] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">About you</p>
-                <p className="mt-2 text-sm text-[#516173]">{profile.bio || 'No bio added yet.'}</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('About you', 'Tietoa sinusta')}</p>
+                <p className="mt-2 text-sm text-[#516173]">{profile.bio || t('No bio added yet.', 'Esittelyä ei ole vielä lisätty.')}</p>
               </div>
 
               <div className="rounded-2xl bg-[#fffaf6] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Pet care experience</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Pet care experience', 'Kokemus lemmikkien hoidosta')}</p>
                 <p className="mt-2 text-sm text-[#516173]">
-                  {profile.petExperience || 'No pet care notes added yet.'}
+                  {profile.petExperience || t('No pet care notes added yet.', 'Hoitokokemuksesta ei ole vielä lisätty tietoja.')}
                 </p>
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Care Highlights</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Care Highlights', 'Hoitokokemuksen vahvuudet')}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {careHighlights.length > 0 ? (
                     careHighlights.map((item) => (
@@ -722,7 +730,7 @@ export default function ProfilePage() {
                     ))
                   ) : (
                     <span className="rounded-full bg-[#f3f4f6] px-3 py-1 text-sm font-medium text-[#4b5563]">
-                      Add highlights while editing your profile.
+                      {t('Add highlights while editing your profile.', 'Lisää profiilisi vahvuudet muokkaustilassa.')}
                     </span>
                   )}
                 </div>
@@ -735,9 +743,9 @@ export default function ProfilePage() {
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-[#0f2640]">Profile strength</h2>
+                <h2 className="text-xl font-bold text-[#0f2640]">{t('Profile strength', 'Profiilin kattavuus')}</h2>
                 <p className="mt-1 text-sm text-[#6b7280]">
-                  Small wins that make the profile easier to trust.
+                  {t('Small wins that make the profile easier to trust.', 'Pienet täydennykset tekevät profiilistasi luotettavamman.')}
                 </p>
               </div>
               <p className="text-sm font-semibold text-[#0f2640]">
@@ -762,7 +770,7 @@ export default function ProfilePage() {
                       item.done ? 'bg-[#ecfdf3] text-[#047857]' : 'bg-[#fff7ed] text-[#c2410c]'
                     }`}
                   >
-                    {item.done ? 'Done' : 'To do'}
+                    {item.done ? t('Done', 'Valmis') : t('To do', 'Täydennettävä')}
                   </span>
                 </div>
               ))}
@@ -782,25 +790,25 @@ export default function ProfilePage() {
       <section className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
         <div className="space-y-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-[#0f2640]">Times I can help</h2>
+            <h2 className="text-xl font-bold text-[#0f2640]">{t('Times I can help', 'Ajat, jolloin voin auttaa')}</h2>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Add the times when you are open to pet care requests.
+              {t('Add the times when you are open to pet care requests.', 'Lisää ajat, jolloin voit ottaa vastaan hoitopyyntöjä.')}
             </p>
 
             <div className="mt-6 grid gap-4">
               <div className="rounded-2xl bg-[#f8fbff] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Current booking status</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Current booking status', 'Nykyinen varaustilanne')}</p>
                 <p className="mt-2 text-sm text-[#516173]">
                   {availability === 'available'
-                    ? 'Your profile is open for new booking requests.'
-                    : 'Your profile is paused. Turn it back on from Basic information when ready.'}
+                    ? t('Your profile is open for new booking requests.', 'Profiilisi ottaa vastaan uusia hoitopyyntöjä.')
+                    : t('Your profile is paused. Turn it back on from Basic information when ready.', 'Profiilisi ei ota nyt vastaan pyyntöjä. Voit avata sen uudelleen Perustiedot-välilehdellä.')}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#fffaf6] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Recommended setup</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Recommended setup', 'Suositeltu asetus')}</p>
                 <p className="mt-2 text-sm text-[#516173]">
-                  Add your next few open windows so owners can request help faster without too much back and forth.
+                  {t('Add your next few open windows so owners can request help faster without too much back and forth.', 'Lisää muutama seuraava vapaa ajankohta, jotta omistajat voivat pyytää apuasi ilman turhaa edestakaista viestittelyä.')}
                 </p>
               </div>
 
@@ -821,16 +829,16 @@ export default function ProfilePage() {
     return (
       <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-[#0f2640]">Trust and verification</h2>
+          <h2 className="text-xl font-bold text-[#0f2640]">{t('Trust and verification', 'Luottamus ja vahvistukset')}</h2>
           <p className="mt-1 text-sm text-[#6b7280]">
-            Verified information helps other users feel safer choosing you.
+            {t('Verified information helps other users feel safer choosing you.', 'Vahvistetut tiedot lisäävät muiden käyttäjien turvallisuuden tunnetta hoitajaa valittaessa.')}
           </p>
 
           <div className="mt-6 max-w-xl">
             <div className="rounded-2xl border border-gray-200 bg-[#fcfdff] p-4">
-              <p className="text-sm text-[#6b7280]">Email status</p>
+              <p className="text-sm text-[#6b7280]">{t('Email status', 'Sähköpostin tila')}</p>
               <p className="mt-2 text-lg font-bold text-[#0f2640]">
-                {profile.emailVerified ? 'Verified' : 'Pending'}
+                {profile.emailVerified ? t('Verified', 'Vahvistettu') : t('Pending', 'Odottaa vahvistusta')}
               </p>
               <p className="mt-1 text-sm text-[#6b7280]">{profile.email}</p>
             </div>
@@ -839,48 +847,48 @@ export default function ProfilePage() {
 
         <div className="space-y-6">
           <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-[#0f2640]">Account overview</h2>
+            <h2 className="text-xl font-bold text-[#0f2640]">{t('Account overview', 'Tilin yhteenveto')}</h2>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Useful details to keep handy.
+              {t('Useful details to keep handy.', 'Hyödylliset tilitiedot yhdessä paikassa.')}
             </p>
             <div className="mt-6 space-y-5">
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Credits</p>
-                <p className="mt-1 text-sm text-[#516173]">{creditBalance} credits</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Credits', 'Krediitit')}</p>
+                <p className="mt-1 text-sm text-[#516173]">{t(`${creditBalance} credits`, `${creditBalance} krediittiä`)}</p>
                 <p className="mt-1 text-sm text-[#6b7280]">
-                  Spend credits when someone cares for your pet. Earn credits when you help others.
+                  {t('Spend credits when someone cares for your pet. Earn credits when you help others.', 'Käytä krediittejä, kun joku hoitaa lemmikkiäsi. Ansaitse krediittejä auttamalla muita.')}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Role</p>
-                <p className="mt-1 text-sm text-[#516173]">{profile.role === 'admin' ? 'Admin' : 'Member'}</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Role', 'Rooli')}</p>
+                <p className="mt-1 text-sm text-[#516173]">{profile.role === 'admin' ? t('Admin', 'Ylläpitäjä') : t('Member', 'Jäsen')}</p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Member since</p>
-                <p className="mt-1 text-sm text-[#516173]">{formatDateText(profile.createdAt)}</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Member since', 'Jäsen alkaen')}</p>
+                <p className="mt-1 text-sm text-[#516173]">{formatDateText(profile.createdAt, language)}</p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Last updated</p>
-                <p className="mt-1 text-sm text-[#516173]">{formatDateText(profile.updatedAt)}</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Last updated', 'Viimeksi päivitetty')}</p>
+                <p className="mt-1 text-sm text-[#516173]">{formatDateText(profile.updatedAt, language)}</p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Location detail</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Location detail', 'Sijaintitiedot')}</p>
                 <p className="mt-1 text-sm text-[#516173]">
-                  {hasCoordinates ? 'Exact location added' : 'Using city-level location'}
+                  {hasCoordinates ? t('Exact location added', 'Tarkka sijainti lisätty') : t('Using city-level location', 'Käytössä paikkakuntatasoinen sijainti')}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Trust level</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Trust level', 'Luottamustaso')}</p>
                 <p className="mt-1 text-sm text-[#516173]">{profile.trustScore}</p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#0f2640]">Rating</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Rating', 'Arvosana')}</p>
                 <p className="mt-1 text-sm text-[#516173]">{ratingSummary}</p>
               </div>
               <div className="rounded-2xl border border-dashed border-gray-300 bg-[#fafafa] p-4">
-                <p className="text-sm font-semibold text-[#0f2640]">Best next step</p>
+                <p className="text-sm font-semibold text-[#0f2640]">{t('Best next step', 'Suositeltu seuraava vaihe')}</p>
                 <p className="mt-2 text-sm text-[#516173]">
-                  Finish your details, keep your email verified, and add a few times you can help.
+                  {t('Finish your details, keep your email verified, and add a few times you can help.', 'Täydennä profiilisi, pidä sähköpostiosoitteesi vahvistettuna ja lisää muutama ajankohta, jolloin voit auttaa.')}
                 </p>
               </div>
             </div>
@@ -907,11 +915,11 @@ export default function ProfilePage() {
 
         {loading ? (
           <div className="rounded-3xl border border-gray-200 bg-white p-6">
-            <p className="text-[#6b7280]">Loading profile...</p>
+            <p className="text-[#6b7280]">{t('Loading profile...', 'Ladataan profiilia...')}</p>
           </div>
         ) : !profile ? (
           <div className="rounded-3xl border border-gray-200 bg-white p-6">
-            <p className="text-red-700">Profile not found. Please contact support.</p>
+            <p className="text-red-700">{t('Profile not found. Please contact support.', 'Profiilia ei löytynyt. Ota yhteyttä tukeen.')}</p>
           </div>
         ) : (
           <>
@@ -919,7 +927,7 @@ export default function ProfilePage() {
               <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
                 <div>
                   <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#ff7a2d]">
-                    My Profile
+                    {t('My Profile', 'Oma profiili')}
                   </p>
 
                   <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -948,60 +956,60 @@ export default function ProfilePage() {
                       }}
                       className="rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e66a1f]"
                     >
-                      {profileComplete ? 'Edit profile' : 'Finish profile'}
+                      {profileComplete ? t('Edit profile', 'Muokkaa profiilia') : t('Finish profile', 'Viimeistele profiili')}
                     </button>
                     <p className="text-sm text-[#6b7280]">
-                      Use the tabs below to manage your profile and times you can help.
+                      {t('Use the tabs below to manage your profile and times you can help.', 'Hallitse profiiliasi ja vapaita hoitoaikojasi alla olevilla välilehdillä.')}
                     </p>
                   </div>
 
                   <div className="mt-6 flex flex-wrap gap-2">
                     <span className="rounded-full bg-[#eef5ff] px-3 py-1 text-sm font-medium text-[#0f2640]">
-                      {profile.availability === 'available' ? 'Open for bookings' : 'Bookings paused'}
+                      {profile.availability === 'available' ? t('Open for bookings', 'Ottaa vastaan pyyntöjä') : t('Bookings paused', 'Pyynnöt tauolla')}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-sm font-medium ${
                         profileComplete ? 'bg-[#ecfdf3] text-[#047857]' : 'bg-[#fff7ed] text-[#c2410c]'
                       }`}
                     >
-                      {profileComplete ? 'Profile complete' : 'Profile needs attention'}
+                      {profileComplete ? t('Profile complete', 'Profiili valmis') : t('Profile needs attention', 'Profiili kaipaa täydennystä')}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-sm font-medium ${
                         profile.emailVerified ? 'bg-[#eef5ff] text-[#1d4ed8]' : 'bg-[#f3f4f6] text-[#4b5563]'
                       }`}
                     >
-                      {profile.emailVerified ? 'Email verified' : 'Email not verified'}
+                      {profile.emailVerified ? t('Email verified', 'Sähköposti vahvistettu') : t('Email not verified', 'Sähköpostia ei ole vahvistettu')}
                     </span>
                   </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Profile status</p>
+                    <p className="text-sm text-[#6b7280]">{t('Profile status', 'Profiilin tila')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">
-                      {profileComplete ? 'Ready' : 'In progress'}
+                      {profileComplete ? t('Ready', 'Valmis') : t('In progress', 'Kesken')}
                     </p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      {profileComplete ? 'You look ready for matching.' : 'A few details still need attention.'}
+                      {profileComplete ? t('You look ready for matching.', 'Profiilisi on valmis hoitovaihtoon.') : t('A few details still need attention.', 'Muutama tieto puuttuu vielä.')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Credits</p>
+                    <p className="text-sm text-[#6b7280]">{t('Credits', 'Krediitit')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{creditBalance}</p>
-                    <p className="mt-1 text-sm text-[#6b7280]">Available for upcoming exchanges.</p>
+                    <p className="mt-1 text-sm text-[#6b7280]">{t('Available for upcoming exchanges.', 'Käytettävissä tuleviin hoitovaihtoihin.')}</p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Trust level</p>
+                    <p className="text-sm text-[#6b7280]">{t('Trust level', 'Luottamustaso')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">{profile.trustScore}</p>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                      Based on your verified email, profile, completed care, and reviews.
+                      {t('Based on your verified email, profile, completed care, and reviews.', 'Perustuu vahvistettuun sähköpostiin, profiiliin, toteutuneisiin hoitoihin ja arvosteluihin.')}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm">
-                    <p className="text-sm text-[#6b7280]">Rating</p>
+                    <p className="text-sm text-[#6b7280]">{t('Rating', 'Arvosana')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#0f2640]">
-                      {profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : 'New'}
+                      {profile.ratingCount > 0 ? profile.ratingAverage.toFixed(1) : t('New', 'Uusi')}
                     </p>
                     <p className="mt-1 text-sm text-[#6b7280]">{ratingSummary}</p>
                   </div>
@@ -1011,7 +1019,7 @@ export default function ProfilePage() {
 
             <section className="rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
               <div className="grid gap-2 md:grid-cols-3">
-                {PROFILE_TABS.map((tab) => (
+                {profileTabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
