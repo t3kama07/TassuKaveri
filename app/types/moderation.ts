@@ -12,3 +12,12 @@ export interface ReportRecord {
   status: ReportStatus;
   createdAt: Date;
 }
+
+export interface AdminActionLogRecord {
+  id: string;
+  adminId: string;
+  targetUserId: string;
+  action: 'freeze-account' | 'unfreeze-account';
+  reason: string;
+  createdAt: Date;
+}

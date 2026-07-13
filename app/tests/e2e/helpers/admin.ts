@@ -132,6 +132,12 @@ export async function deletePlaywrightTestUsers(userIds: string[]): Promise<void
             or target_owner_uid = any($1::text[])`,
         [ids]
       );
+      await database.query(
+        `delete from public.admin_action_logs
+         where admin_uid = any($1::text[])
+            or target_user_uid = any($1::text[])`,
+        [ids]
+      );
 
       for (const statement of [
         'delete from public.notifications where user_uid = any($1::text[])',
@@ -417,6 +423,39 @@ export async function getProfileFrozen(uid: string): Promise<boolean> {
   }
 
   return Boolean(data?.frozen);
+}
+
+export async function getAdminActionLogsForTarget(uid: string): Promise<
+  Array<{
+    action: 'freeze-account' | 'unfreeze-account';
+    reason: string;
+    adminUid: string;
+  }>
+> {
+  const supabase = createTestSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('admin_action_logs')
+    .select('action, reason, admin_uid')
+    .eq('target_user_uid', uid)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to read admin action logs: ${error.message}`);
+  }
+
+  return (data || []).map((row) => ({
+    action: row.action as 'freeze-account' | 'unfreeze-account',
+    reason: row.reason,
+    adminUid: row.admin_uid,
+  }));
+}
+
+export async function deleteAdminActionLogsForTarget(uid: string): Promise<void> {
+  const supabase = createTestSupabaseAdminClient();
+  const { error } = await supabase.from('admin_action_logs').delete().eq('target_user_uid', uid);
+  if (error) {
+    throw new Error(`Failed to delete admin action logs: ${error.message}`);
+  }
 }
 
 function mapWalletRow(row: {

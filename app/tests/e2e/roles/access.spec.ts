@@ -1,6 +1,8 @@
 import { expect, test } from '../fixtures/app.fixtures';
 import { login, logout } from '../helpers/auth';
 import {
+  deleteAdminActionLogsForTarget,
+  getAdminActionLogsForTarget,
   getProfileFrozen,
   getWalletBalance,
   readWalletState,
@@ -8,6 +10,20 @@ import {
   setProfileFrozen,
   setProfileRole,
 } from '../helpers/admin';
+
+async function getCurrentAccessToken(page: Parameters<typeof login>[0]): Promise<string> {
+  return page.evaluate(() => {
+    const storageKey = Object.keys(window.localStorage).find(
+      (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+    );
+    const storedSession = storageKey ? window.localStorage.getItem(storageKey) : null;
+    const session = storedSession ? (JSON.parse(storedSession) as { access_token?: string }) : null;
+    if (!session?.access_token) {
+      throw new Error('Supabase access token not found');
+    }
+    return session.access_token;
+  });
+}
 
 function dashboardCreditsCard(page: Parameters<typeof login>[0]) {
   return page.locator('div').filter({
@@ -126,6 +142,94 @@ test.describe('Role-based Access', () => {
     } finally {
       await setProfileFrozen(appUsers.profileOwner.uid, false);
       await setProfileRole(appUsers.profileOwner.uid, 'user');
+    }
+  });
+
+  test('blocks a frozen member at the API layer and records freeze history', async ({
+    page,
+    appUsers,
+  }) => {
+    const adminUser = appUsers.profileOwner;
+    const targetUser = appUsers.accessMember;
+    const freezeReason = `Playwright safety review ${Date.now()}`;
+    const unfreezeReason = `Playwright appeal approved ${Date.now()}`;
+
+    await setProfileRole(adminUser.uid, 'admin');
+    await setProfileFrozen(targetUser.uid, false);
+    await deleteAdminActionLogsForTarget(targetUser.uid);
+
+    try {
+      await login(page, adminUser);
+      await page.goto('/admin');
+      await page.getByRole('tab', { name: 'Moderation', exact: true }).click();
+
+      const accountControls = page
+        .getByRole('heading', { name: 'Account Controls', exact: true })
+        .locator('..');
+      await accountControls.getByPlaceholder('Target user ID').fill(targetUser.uid);
+      await accountControls.getByPlaceholder('Reason or internal note').fill(freezeReason);
+      await accountControls.getByRole('button', { name: 'Freeze account', exact: true }).click();
+
+      await expect(page.getByText('Account frozen.', { exact: true })).toBeVisible();
+      await expect.poll(() => getProfileFrozen(targetUser.uid)).toBe(true);
+      await expect(page.getByTestId('admin-account-action-log')).toContainText(freezeReason);
+
+      const freezeLogs = await getAdminActionLogsForTarget(targetUser.uid);
+      expect(freezeLogs[0]).toEqual({
+        action: 'freeze-account',
+        reason: freezeReason,
+        adminUid: adminUser.uid,
+      });
+
+      await logout(page);
+      await login(page, targetUser);
+      await expect(page.getByRole('heading', { name: 'Account paused', exact: true })).toBeVisible();
+
+      const accessToken = await getCurrentAccessToken(page);
+      const walletApiStatus = await page.evaluate(
+        async ({ token, uid }) => {
+          const response = await fetch(`/api/supabase-read/wallet?userId=${encodeURIComponent(uid)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          return response.status;
+        },
+        { token: accessToken, uid: targetUser.uid }
+      );
+      expect(walletApiStatus).toBe(401);
+
+      await logout(page);
+      await login(page, adminUser);
+      await page.goto('/admin');
+      await page.getByRole('tab', { name: 'Moderation', exact: true }).click();
+
+      const unfreezeControls = page
+        .getByRole('heading', { name: 'Account Controls', exact: true })
+        .locator('..');
+      await unfreezeControls.getByPlaceholder('Target user ID').fill(targetUser.uid);
+      await unfreezeControls.getByPlaceholder('Reason or internal note').fill(unfreezeReason);
+      await unfreezeControls.getByRole('button', { name: 'Unfreeze account', exact: true }).click();
+
+      await expect(page.getByText('Account unfrozen.', { exact: true })).toBeVisible();
+      await expect.poll(() => getProfileFrozen(targetUser.uid)).toBe(false);
+      await expect(page.getByTestId('admin-account-action-log')).toContainText(unfreezeReason);
+
+      const actionLogs = await getAdminActionLogsForTarget(targetUser.uid);
+      expect(actionLogs.slice(0, 2)).toEqual([
+        {
+          action: 'unfreeze-account',
+          reason: unfreezeReason,
+          adminUid: adminUser.uid,
+        },
+        {
+          action: 'freeze-account',
+          reason: freezeReason,
+          adminUid: adminUser.uid,
+        },
+      ]);
+    } finally {
+      await setProfileFrozen(targetUser.uid, false);
+      await setProfileRole(adminUser.uid, 'user');
+      await deleteAdminActionLogsForTarget(targetUser.uid);
     }
   });
 });

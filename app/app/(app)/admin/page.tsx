@@ -11,10 +11,16 @@ import {
   deleteAbusiveReview,
   setAccountFrozen,
   updateReportStatus,
+  viewAdminActionLogs,
   viewAdminUsers,
   viewOpenReports,
 } from '@/lib/moderationService';
-import { ReportRecord, ReportStatus, ReportType } from '@/types/moderation';
+import {
+  AdminActionLogRecord,
+  ReportRecord,
+  ReportStatus,
+  ReportType,
+} from '@/types/moderation';
 
 type ReportGroup = {
   title: string;
@@ -114,6 +120,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<ReportRecord[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUserCreditRecord[]>([]);
+  const [adminActionLogs, setAdminActionLogs] = useState<AdminActionLogRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'moderation'>('users');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userPage, setUserPage] = useState(1);
@@ -142,15 +149,18 @@ export default function AdminPage() {
       if (!admin) {
         setReports([]);
         setAdminUsers([]);
+        setAdminActionLogs([]);
         return;
       }
 
-      const [nextReports, nextAdminUsers] = await Promise.all([
+      const [nextReports, nextAdminUsers, nextAdminActionLogs] = await Promise.all([
         viewOpenReports(user.uid),
         viewAdminUsers(user.uid),
+        viewAdminActionLogs(user.uid),
       ]);
       setReports(nextReports);
       setAdminUsers(nextAdminUsers);
+      setAdminActionLogs(nextAdminActionLogs);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(t('We could not load admin tools right now. Please try again. ', 'Ylläpitotyökaluja ei voitu ladata. Yritä uudelleen. ') + message);
@@ -271,8 +281,13 @@ export default function AdminPage() {
 
   function handleAccountFrozenChange(frozen: boolean) {
     const trimmedTarget = targetUserId.trim();
+    const trimmedReason = accountReason.trim();
     if (!trimmedTarget) {
       setError(t('Enter a target user ID first.', 'Anna ensin kohdekäyttäjän tunnus.'));
+      return;
+    }
+    if (!trimmedReason) {
+      setError(t('Enter a reason or internal note.', 'Anna syy tai sisäinen huomautus.'));
       return;
     }
 
@@ -284,7 +299,7 @@ export default function AdminPage() {
           user?.uid || '',
           trimmedTarget,
           frozen,
-          accountReason.trim() || 'Admin action'
+          trimmedReason
         );
         setTargetUserId('');
         setAccountReason('');
@@ -674,6 +689,64 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <div
+                  data-testid="admin-account-action-log"
+                  className="rounded-[22px] border border-[#ded3c2] bg-white p-6 shadow-sm"
+                >
+                  <h2 className="text-xl font-bold text-[#0f2640]">
+                    {t('Account action history', 'Tilitoimintojen historia')}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#6b7280]">
+                    {t(
+                      'Every freeze and unfreeze action is recorded with the administrator, target account, reason, and time.',
+                      'Jokaisesta tilin jäädytyksestä ja jäädytyksen poistamisesta tallennetaan ylläpitäjä, kohdetili, syy ja ajankohta.'
+                    )}
+                  </p>
+
+                  {adminActionLogs.length === 0 ? (
+                    <p className="mt-5 rounded-2xl border border-dashed border-[#d8cbbb] bg-[#fffdf9] p-5 text-sm text-[#6b7280]">
+                      {t('No account actions have been recorded yet.', 'Tilitoimintoja ei ole vielä tallennettu.')}
+                    </p>
+                  ) : (
+                    <div className="mt-5 overflow-x-auto">
+                      <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-[#eadfce] text-xs uppercase tracking-[0.12em] text-[#7a8794]">
+                            <th className="py-3 pr-4 font-bold">{t('Action', 'Toiminto')}</th>
+                            <th className="px-4 py-3 font-bold">{t('Target ID', 'Kohdetunnus')}</th>
+                            <th className="px-4 py-3 font-bold">{t('Reason', 'Syy')}</th>
+                            <th className="px-4 py-3 font-bold">{t('Administrator', 'Ylläpitäjä')}</th>
+                            <th className="py-3 pl-4 font-bold">{t('Time', 'Ajankohta')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0e7dc]">
+                          {adminActionLogs.slice(0, 10).map((action) => (
+                            <tr key={action.id} className="align-top">
+                              <td className="py-4 pr-4 font-semibold text-[#0f2640]">
+                                {action.action === 'freeze-account'
+                                  ? t('Frozen', 'Jäädytetty')
+                                  : t('Unfrozen', 'Jäädytys poistettu')}
+                              </td>
+                              <td className="max-w-[210px] break-all px-4 py-4 font-mono text-xs text-[#0f2640]">
+                                {action.targetUserId}
+                              </td>
+                              <td className="max-w-[300px] break-words px-4 py-4 text-[#5c6b7a]">
+                                {action.reason}
+                              </td>
+                              <td className="max-w-[210px] break-all px-4 py-4 font-mono text-xs text-[#5c6b7a]">
+                                {action.adminId}
+                              </td>
+                              <td className="whitespace-nowrap py-4 pl-4 text-[#5c6b7a]">
+                                {formatReportDate(action.createdAt)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
                 <div>

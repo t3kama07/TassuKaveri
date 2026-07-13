@@ -79,6 +79,25 @@ async function assertCanFreezeAccount(targetUserId: string) {
   }
 }
 
+async function setAccountFrozenWithAudit(params: {
+  adminId: string;
+  targetUserId: string;
+  frozen: boolean;
+  reason: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.rpc('set_account_frozen_with_audit', {
+    p_admin_uid: params.adminId,
+    p_target_user_uid: params.targetUserId,
+    p_frozen: params.frozen,
+    p_reason: params.reason,
+  });
+
+  if (error) {
+    throw new Error(`Failed to update frozen account status: ${error.message}`);
+  }
+}
+
 function getReviewMetrics(requests: Awaited<ReturnType<typeof getSitterRequestsFromSupabase>>) {
   const reviews = requests
     .filter((request) => request.status === 'completed' && Boolean(request.ownerReview ?? request.review))
@@ -235,24 +254,22 @@ export async function POST(request: NextRequest) {
       if (typeof payload.frozen !== 'boolean') {
         return NextResponse.json({ error: 'frozen is required' }, { status: 400 });
       }
+      const reason = payload.reason?.trim();
+      if (!reason) {
+        return NextResponse.json({ error: 'A reason or internal note is required' }, { status: 400 });
+      }
 
       await assertAdmin(payload.actorId);
       if (payload.frozen) {
         await assertCanFreezeAccount(payload.targetUserId.trim());
       }
 
-      const supabase = createSupabaseAdminClient();
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          frozen: payload.frozen,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('uid', payload.targetUserId.trim());
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+      await setAccountFrozenWithAudit({
+        adminId: payload.actorId,
+        targetUserId: payload.targetUserId.trim(),
+        frozen: payload.frozen,
+        reason,
+      });
 
       return NextResponse.json({ ok: true });
     }
@@ -261,22 +278,20 @@ export async function POST(request: NextRequest) {
       if (typeof payload.targetUserId !== 'string' || !payload.targetUserId.trim()) {
         return NextResponse.json({ error: 'targetUserId is required' }, { status: 400 });
       }
+      const reason = payload.reason?.trim();
+      if (!reason) {
+        return NextResponse.json({ error: 'A reason or internal note is required' }, { status: 400 });
+      }
 
       await assertAdmin(payload.actorId);
       await assertCanFreezeAccount(payload.targetUserId.trim());
 
-      const supabase = createSupabaseAdminClient();
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          frozen: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('uid', payload.targetUserId.trim());
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+      await setAccountFrozenWithAudit({
+        adminId: payload.actorId,
+        targetUserId: payload.targetUserId.trim(),
+        frozen: true,
+        reason,
+      });
 
       return NextResponse.json({ ok: true });
     }

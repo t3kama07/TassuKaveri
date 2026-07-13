@@ -7,7 +7,6 @@ import {
   createProfile,
   ensureSupportedLocation,
   getProfile,
-  profileExists,
   setEmailVerifiedStatus,
 } from '@/lib/profileService';
 import { PILOT_CITY, PILOT_COUNTRY } from '@/lib/platformPolicy';
@@ -234,7 +233,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Authenticated user is missing an email address');
       }
 
-      const hasProfile = await profileExists(authUser.uid);
+      const existingProfile = await getProfile(authUser.uid);
+      const hasProfile = Boolean(existingProfile);
+
+      // Keep the signed-in identity and frozen profile available long enough
+      // for ProtectedRoute to render the account-paused notice. All other
+      // authenticated APIs reject frozen accounts on the server.
+      if (!overwriteProfile && existingProfile?.frozen) {
+        return existingProfile;
+      }
       const googleIntent = getGoogleAuthIntent();
       if (!overwriteProfile && googleIntent === 'login') {
         const legalStatus = hasProfile

@@ -1,4 +1,9 @@
-import { ReportRecord, ReportStatus, ReportType } from '@/types/moderation';
+import {
+  AdminActionLogRecord,
+  ReportRecord,
+  ReportStatus,
+  ReportType,
+} from '@/types/moderation';
 import { createSupabaseAdminClient } from './supabaseAdmin';
 
 type DateInput = Date | string | number | null | undefined;
@@ -11,6 +16,15 @@ type SupabaseReportRow = {
   target_request_id: string | null;
   reason: string;
   status: ReportStatus;
+  created_at: string;
+};
+
+type SupabaseAdminActionLogRow = {
+  id: string;
+  admin_uid: string;
+  target_user_uid: string;
+  action: AdminActionLogRecord['action'];
+  reason: string;
   created_at: string;
 };
 
@@ -129,4 +143,29 @@ export async function getReportsFromSupabase(filters: {
   }
 
   return (data || []).map(mapSupabaseRowToReport);
+}
+
+export async function getAdminActionLogsFromSupabase(
+  limit = 50
+): Promise<AdminActionLogRecord[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('admin_action_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+    .returns<SupabaseAdminActionLogRow[]>();
+
+  if (error) {
+    throw new Error(`Failed to read admin action logs from Supabase: ${error.message}`);
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    adminId: row.admin_uid,
+    targetUserId: row.target_user_uid,
+    action: row.action,
+    reason: row.reason,
+    createdAt: toDate(row.created_at),
+  }));
 }

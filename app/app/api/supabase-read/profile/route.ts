@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing authorization token' }, { status: 401 });
     }
 
-    const sessionUser = await verifySessionToken(idToken);
+    // Frozen users may read their own profile so the client can show the
+    // account-paused screen. Every other authenticated API rejects them.
+    const sessionUser = await verifySessionToken(idToken, { allowFrozen: true });
     if (!sessionUser) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }

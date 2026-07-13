@@ -338,6 +338,15 @@ create table if not exists public.reports (
   created_at timestamptz not null default timezone('utc'::text, now())
 );
 
+create table if not exists public.admin_action_logs (
+  id text primary key,
+  admin_uid text not null,
+  target_user_uid text not null,
+  action text not null check (action in ('freeze-account', 'unfreeze-account')),
+  reason text not null,
+  created_at timestamptz not null default timezone('utc'::text, now())
+);
+
 create table if not exists public.conversations (
   id text primary key,
   owner_uid text not null,
@@ -391,6 +400,10 @@ create index if not exists idx_legal_acceptances_user_uid
 create index if not exists idx_favorites_owner_uid on public.favorites(owner_uid);
 create index if not exists idx_reports_type_status on public.reports(report_type, status);
 create index if not exists idx_reports_created_at on public.reports(created_at desc);
+create index if not exists idx_admin_action_logs_created_at
+  on public.admin_action_logs(created_at desc);
+create index if not exists idx_admin_action_logs_target_user_uid
+  on public.admin_action_logs(target_user_uid, created_at desc);
 create index if not exists idx_conversations_owner_uid on public.conversations(owner_uid);
 create index if not exists idx_conversations_sitter_uid on public.conversations(sitter_uid);
 create index if not exists idx_conversations_request_id on public.conversations(request_id);
@@ -473,6 +486,7 @@ alter table public.email_subscriptions enable row level security;
 alter table public.legal_acceptances enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reports enable row level security;
+alter table public.admin_action_logs enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
 
@@ -488,8 +502,74 @@ revoke all on public.email_subscriptions from anon, authenticated;
 revoke all on public.legal_acceptances from anon, authenticated;
 revoke all on public.favorites from anon, authenticated;
 revoke all on public.reports from anon, authenticated;
+revoke all on public.admin_action_logs from anon, authenticated;
+grant select, insert on public.admin_action_logs to service_role;
 revoke all on public.conversations from anon, authenticated;
 revoke all on public.messages from anon, authenticated;
+
+create or replace function public.set_account_frozen_with_audit(
+  p_admin_uid text,
+  p_target_user_uid text,
+  p_frozen boolean,
+  p_reason text
+)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set
+    frozen = p_frozen,
+    updated_at = timezone('utc'::text, now())
+  where uid = p_target_user_uid;
+
+  if not found then
+    raise exception 'Target user not found';
+  end if;
+
+  insert into public.admin_action_logs (
+    id,
+    admin_uid,
+    target_user_uid,
+    action,
+    reason,
+    created_at
+  )
+  values (
+    gen_random_uuid()::text,
+    p_admin_uid,
+    p_target_user_uid,
+    case when p_frozen then 'freeze-account' else 'unfreeze-account' end,
+    coalesce(nullif(trim(p_reason), ''), 'No reason provided'),
+    timezone('utc'::text, now())
+  );
+end;
+$$;
+
+revoke all on function public.set_account_frozen_with_audit(text, text, boolean, text)
+  from public, anon, authenticated;
+grant execute on function public.set_account_frozen_with_audit(text, text, boolean, text)
+  to service_role;
+
+create or replace function public.is_current_user_active()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.uid = auth.uid()::text
+      and profiles.frozen = false
+  );
+$$;
+
+revoke all on function public.is_current_user_active() from public, anon;
+grant execute on function public.is_current_user_active() to authenticated;
 
 drop trigger if exists sync_profile_email_from_auth_user on auth.users;
 create trigger sync_profile_email_from_auth_user
@@ -513,6 +593,7 @@ for select
 to authenticated
 using (
   auth.uid() is not null
+  and public.is_current_user_active()
   and (
     auth.uid()::text = owner_uid
     or auth.uid()::text = sitter_uid
@@ -526,7 +607,8 @@ on public.messages
 for select
 to authenticated
 using (
-  exists (
+  public.is_current_user_active()
+  and exists (
     select 1
     from public.conversations
     where conversations.id = messages.conversation_id

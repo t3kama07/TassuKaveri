@@ -1,5 +1,5 @@
 import { REPEATED_PAIR_ACTIVITY_THRESHOLD } from './platformPolicy';
-import { ReportRecord, ReportStatus } from '@/types/moderation';
+import { AdminActionLogRecord, ReportRecord, ReportStatus } from '@/types/moderation';
 import { fetchSupabaseReadJson } from './supabaseReadClient';
 import { getSupabaseAuthHeaders } from './supabaseAuthClient';
 
@@ -42,6 +42,20 @@ function mapAdminUserCreditRecord(data: Record<string, unknown>): AdminUserCredi
     name: (data.name as string) || '',
     email: (data.email as string) || '',
     creditAmount: typeof data.creditAmount === 'number' ? data.creditAmount : 0,
+    createdAt:
+      typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
+        ? new Date(data.createdAt)
+        : new Date(),
+  };
+}
+
+function mapAdminActionLogRecord(data: Record<string, unknown>): AdminActionLogRecord {
+  return {
+    id: (data.id as string) || '',
+    adminId: (data.adminId as string) || '',
+    targetUserId: (data.targetUserId as string) || '',
+    action: (data.action as AdminActionLogRecord['action']) || 'freeze-account',
+    reason: (data.reason as string) || '',
     createdAt:
       typeof data.createdAt === 'string' || typeof data.createdAt === 'number'
         ? new Date(data.createdAt)
@@ -149,6 +163,15 @@ export async function viewAdminUsers(adminId: string): Promise<AdminUserCreditRe
   );
 
   return payload.users.map(mapAdminUserCreditRecord);
+}
+
+export async function viewAdminActionLogs(adminId: string): Promise<AdminActionLogRecord[]> {
+  const payload = await fetchSupabaseReadJson<{ actions: Array<Record<string, unknown>> }>(
+    `/api/supabase-read/moderation?scope=admin-action-logs&adminId=${encodeURIComponent(adminId)}`,
+    { requireAuth: true }
+  );
+
+  return payload.actions.map(mapAdminActionLogRecord);
 }
 
 export async function logRepeatedPairActivity(
