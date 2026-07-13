@@ -9,6 +9,7 @@ import { profileExists } from '@/lib/profileService';
 import { getLegalAcceptanceStatus } from '@/lib/legalAcceptanceService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { clearPendingGoogleSignupConsent } from '@/lib/googleSignupConsent';
+import { clearGoogleAuthIntent, getGoogleAuthIntent } from '@/lib/googleAuthIntent';
 
 function getOAuthError(): string | null {
   const query = new URLSearchParams(window.location.search);
@@ -28,6 +29,7 @@ export default function AuthCallbackPage() {
     async function finishGoogleLogin() {
       const oauthError = getOAuthError();
       if (oauthError) {
+        clearGoogleAuthIntent();
         clearPendingGoogleSignupConsent();
         setError(oauthError);
         return;
@@ -39,12 +41,14 @@ export default function AuthCallbackPage() {
       }
 
       if (sessionError) {
+        clearGoogleAuthIntent();
         clearPendingGoogleSignupConsent();
         setError(sessionError.message);
         return;
       }
 
       if (!data.session) {
+        clearGoogleAuthIntent();
         clearPendingGoogleSignupConsent();
         setError(
           t(
@@ -57,7 +61,7 @@ export default function AuthCallbackPage() {
 
       const intent =
         new URLSearchParams(window.location.search).get('intent') ||
-        window.sessionStorage.getItem('tassukaveri_google_auth_intent');
+        getGoogleAuthIntent();
       if (intent === 'login') {
         const authUser = mapSupabaseUserToAuthUser(data.session.user);
         const hasAccount = await profileExists(authUser.uid);
@@ -70,13 +74,15 @@ export default function AuthCallbackPage() {
 
         if (!hasAccount || !legalStatus.accepted) {
           await supabase.auth.signOut().catch(() => undefined);
-          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+          clearGoogleAuthIntent();
           router.replace('/signup?from=google-login');
           return;
         }
       }
 
-      window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+      if (intent !== 'signup') {
+        clearGoogleAuthIntent();
+      }
       router.replace('/dashboard');
     }
 

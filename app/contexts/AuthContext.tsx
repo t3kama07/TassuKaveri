@@ -20,14 +20,18 @@ import {
   clearPendingGoogleSignupConsent,
   hasPendingGoogleSignupConsent,
 } from '@/lib/googleSignupConsent';
+import {
+  clearGoogleAuthIntent,
+  getGoogleAuthIntent,
+  markGoogleAuthIntent,
+  type GoogleAuthIntent,
+} from '@/lib/googleAuthIntent';
 
 type SignupResult = {
   user: AuthUser | null;
   requiresEmailVerification: boolean;
   email: string;
 };
-
-type GoogleAuthIntent = 'login' | 'signup';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -47,6 +51,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const GOOGLE_REGISTRATION_REQUIRED = 'Please register first before using Google login.';
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -127,16 +132,6 @@ function normalizeEmailForAuth(email: string): string {
   const extractedEmail = normalizedEmail.match(/<([^<>]+)>/)?.[1] ?? normalizedEmail;
 
   return extractedEmail.replace(/["'`“”‘’]/g, '').replace(/\s+/g, '').toLowerCase();
-}
-
-function getGoogleAuthIntent(): GoogleAuthIntent {
-  if (typeof window === 'undefined') {
-    return 'signup';
-  }
-
-  return window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login'
-    ? 'login'
-    : 'signup';
 }
 
 async function signInSupabaseWithPassword(email: string, password: string): Promise<Session | null> {
@@ -240,15 +235,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const hasProfile = await profileExists(authUser.uid);
-      if (!overwriteProfile && getGoogleAuthIntent() === 'login') {
+      const googleIntent = getGoogleAuthIntent();
+      if (!overwriteProfile && googleIntent === 'login') {
         const legalStatus = hasProfile
           ? await getLegalAcceptanceStatus(authUser.uid).catch(() => ({ accepted: false }))
           : { accepted: false };
 
         if (!hasProfile || !legalStatus.accepted) {
-          await signOutSupabaseQuietly();
-          throw new Error('Please register first before using Google login.');
+          if (window.location.pathname !== '/auth/callback') {
+            await signOutSupabaseQuietly();
+            clearGoogleAuthIntent();
+            window.location.replace('/signup?from=google-login');
+          }
+          throw new Error(GOOGLE_REGISTRATION_REQUIRED);
         }
+      }
+
+      if (!overwriteProfile && !hasProfile && authUser.provider === 'google' && googleIntent !== 'signup') {
+        if (window.location.pathname !== '/auth/callback') {
+          await signOutSupabaseQuietly();
+          clearGoogleAuthIntent();
+          window.location.replace('/signup?from=google-login');
+        }
+        throw new Error(GOOGLE_REGISTRATION_REQUIRED);
       }
 
       if (overwriteProfile && profileData) {
@@ -273,6 +282,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Keep the pending marker so LegalAcceptanceGate can retry after navigation.
           console.error('Failed to finalize Google signup legal acceptance:', acceptanceError);
         }
+      }
+
+      if (googleIntent === 'signup') {
+        clearGoogleAuthIntent();
       }
 
       return getProfile(authUser.uid);
@@ -360,7 +373,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(bootstrappedProfile);
         }
       } catch (error) {
-        console.error('Failed to bootstrap signed-in user:', error);
+        if (!(error instanceof Error && error.message === GOOGLE_REGISTRATION_REQUIRED)) {
+          console.error('Failed to bootstrap signed-in user:', error);
+        }
         if (active) {
           setUser(null);
           setProfile(null);
@@ -380,6 +395,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabaseReady, supabaseUserId]);
 
   const login = async (email: string, password: string) => {
+    clearGoogleAuthIntent();
+    clearPendingGoogleSignupConsent();
     const trimmedEmail = normalizeEmailForAuth(email);
     const trimmedPassword = password.trim();
     setLoading(true);
@@ -405,7 +422,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async (intent: GoogleAuthIntent = 'signup') => {
     if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem('tassukaveri_google_auth_intent', intent);
+      markGoogleAuthIntent(intent);
       if (intent === 'login') {
         clearPendingGoogleSignupConsent();
       }
@@ -423,6 +440,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
+      clearGoogleAuthIntent();
       throw normalizeAuthError(error);
     }
   };
@@ -455,6 +473,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (email: string, password: string, profileData: CreateProfileData) => {
+    clearGoogleAuthIntent();
+    clearPendingGoogleSignupConsent();
     const trimmedEmail = normalizeEmailForAuth(email);
     const trimmedPassword = password.trim();
     setLoading(true);
@@ -520,6 +540,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     setLoading(true);
+    clearGoogleAuthIntent();
+    clearPendingGoogleSignupConsent();
     await signOutSupabaseQuietly();
     setUser(null);
     setProfile(null);

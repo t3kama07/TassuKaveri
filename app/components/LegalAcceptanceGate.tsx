@@ -10,6 +10,7 @@ import {
   clearPendingGoogleSignupConsent,
   hasPendingGoogleSignupConsent,
 } from '@/lib/googleSignupConsent';
+import { clearGoogleAuthIntent, getGoogleAuthIntent } from '@/lib/googleAuthIntent';
 
 export default function LegalAcceptanceGate({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -52,8 +53,8 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
         }
 
         const status = await getLegalAcceptanceStatus(user.uid);
-        if (!status.accepted && window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login') {
-          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+        if (!status.accepted && getGoogleAuthIntent() === 'login') {
+          clearGoogleAuthIntent();
           await logout();
           router.replace('/signup?from=google-login');
           return;
@@ -66,8 +67,8 @@ export default function LegalAcceptanceGate({ children }: { children: React.Reac
         }
       } catch (statusError) {
         console.error('Failed to check legal acceptance:', statusError);
-        if (window.sessionStorage.getItem('tassukaveri_google_auth_intent') === 'login') {
-          window.sessionStorage.removeItem('tassukaveri_google_auth_intent');
+        if (getGoogleAuthIntent() === 'login') {
+          clearGoogleAuthIntent();
           await logout();
           router.replace('/signup?from=google-login');
           return;

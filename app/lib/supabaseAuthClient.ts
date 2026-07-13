@@ -7,6 +7,7 @@ export function mapSupabaseUserToAuthUser(user: SupabaseUser): AuthUser {
     uid: user.id,
     email: user.email ?? null,
     emailVerified: Boolean(user.email_confirmed_at ?? user.confirmed_at),
+    provider: typeof user.app_metadata?.provider === 'string' ? user.app_metadata.provider : undefined,
   };
 }
 
