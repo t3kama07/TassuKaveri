@@ -130,7 +130,7 @@ export const publicContent = {
     landing: {
       hero: {
         eyebrow: 'Yhteisöllistä lemmikkihoitoa Suomessa',
-        titleStart: 'Luotettavaa lemmikkihoitoa ilman rahaa -',
+        titleStart: 'Luotettavaa lemmikkihoitoa ilman rahaa',
         titleAccent: 'yhteisön voimin',
         body:
           'Vaihda lemmikkiapua krediiteillä. Ei maksuja, vain vastavuoroista apua. Liity kasvavaan yhteisöön ympäri Suomea.',
