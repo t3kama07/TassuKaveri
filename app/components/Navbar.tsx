@@ -60,21 +60,25 @@ function LanguageSwitcher({
   language,
   setLanguage,
   className = '',
+  compact = false,
 }: {
   language: Language;
   setLanguage: (language: Language) => void;
   className?: string;
+  compact?: boolean;
 }) {
   return (
     <div
-      className={`inline-flex items-center rounded-full border border-[#dbe2ea] bg-white p-1 text-[0.8rem] font-semibold text-[#0f2640] shadow-[0_1px_0_rgba(15,38,64,0.02)] ${className}`}
+      className={`inline-flex items-center rounded-full border border-[#dbe2ea] bg-white font-semibold text-[#0f2640] shadow-[0_1px_0_rgba(15,38,64,0.02)] ${
+        compact ? 'p-0.5 text-[0.68rem]' : 'p-1 text-[0.8rem]'
+      } ${className}`}
     >
       {(['fi', 'en'] as const).map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => setLanguage(option)}
-          className={`rounded-full px-3 py-1.5 transition-colors ${
+          className={`rounded-full transition-colors ${compact ? 'px-2 py-1' : 'px-3 py-1.5'} ${
             language === option
               ? 'bg-[#ff7a2d] text-white shadow-[0_6px_14px_rgba(255,122,45,0.22)]'
               : 'text-[#0f2640] hover:bg-[#fff2e9] hover:text-[#ff7a2d]'
@@ -249,13 +253,12 @@ export default function Navbar() {
           )}
 
           <div className="flex items-center gap-2 md:hidden">
-            {mobileMenuOpen && (
-              <LanguageSwitcher
-                language={language}
-                setLanguage={setLanguage}
-                className="scale-[0.92] origin-right shadow-none"
-              />
-            )}
+            <LanguageSwitcher
+              language={language}
+              setLanguage={setLanguage}
+              compact
+              className="shrink-0 shadow-none"
+            />
             <div className="relative">
               <button
                 type="button"

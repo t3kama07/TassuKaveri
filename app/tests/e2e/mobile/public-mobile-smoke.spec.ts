@@ -12,6 +12,9 @@ test.describe('Mobile public smoke', () => {
   test('opens the mobile menu and keeps auth forms usable', async ({ page }) => {
     await page.goto('/');
 
+    await expect(page.getByRole('button', { name: 'FI', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'EN', exact: true })).toBeVisible();
+
     const menuButton = page.getByRole('button', { name: 'Open menu' });
     await expect(menuButton).toBeVisible();
     await menuButton.click();
