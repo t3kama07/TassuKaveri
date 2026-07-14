@@ -56,81 +56,100 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-14 sm:px-6">
-      <h1 className="mb-2 text-4xl font-bold text-[#0f2640] sm:text-[2.75rem]">
-        {t('Log in', 'Kirjaudu')}
-      </h1>
-      <p className="mb-8 text-[#6b7280]">
-        {t('Continue to your pet-care requests, messages, and credits.', 'Jatka hoitopyyntöihin, viesteihin ja krediitteihin.')}
-      </p>
-      
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      <GoogleAuthButton
-        onClick={handleGoogleLogin}
-        disabled={loading || googleLoading}
-      />
-
-      <div className="my-6 flex items-center gap-4 text-sm text-[#6b7280]">
-        <span className="h-px flex-1 bg-gray-200" />
-        <span>{t('or use email', 'tai käytä sähköpostia')}</span>
-        <span className="h-px flex-1 bg-gray-200" />
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label htmlFor="login-email" className="mb-2 block text-base font-medium text-[#0f2640]">
-            {t('Email', 'Sähköposti')}
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-3.5 text-[1.05rem] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-          />
+    <main className="min-h-[calc(100vh-72px)] bg-[linear-gradient(135deg,#fff7ef_0%,#f4eee5_48%,#eef5ff_100%)] px-4 py-8 sm:py-12">
+      <section className="mx-auto w-full max-w-[30rem] overflow-hidden rounded-[28px] border border-[#ead9ca] bg-white/92 p-5 shadow-[0_22px_70px_rgba(15,38,64,0.14)] sm:p-7">
+        <div className="mb-6 flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ff7a2d] text-xl font-black text-white shadow-sm">
+            T
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e96b2c]">
+              TassuKaveri
+            </p>
+            <h1 className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#0f2640]">
+              {t('Log in', 'Kirjaudu')}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[#516173]">
+              {t(
+                'Continue to your pet-care requests, messages, and credits.',
+                'Jatka hoitopyyntöihin, viesteihin ja krediitteihin.'
+              )}
+            </p>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="login-password" className="mb-2 block text-base font-medium text-[#0f2640]">
-            {t('Password', 'Salasana')}
-          </label>
-          <input
-            id="login-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-3.5 text-[1.05rem] focus:outline-none focus:ring-2 focus:ring-[#ff7a2d]"
-          />
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <GoogleAuthButton
+          onClick={handleGoogleLogin}
+          disabled={loading || googleLoading}
+        />
+
+        <div className="my-5 flex items-center gap-4 text-sm text-[#6b7280]">
+          <span className="h-px flex-1 bg-[#ead9ca]" />
+          <span>{t('or use email', 'tai käytä sähköpostia')}</span>
+          <span className="h-px flex-1 bg-[#ead9ca]" />
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-[#ff7a2d] px-4 py-3.5 text-[1.05rem] font-semibold text-white transition-colors hover:bg-[#e66a1f] disabled:opacity-50"
-        >
-          {loading ? t('Logging in...', 'Kirjaudutaan...') : t('Log in', 'Kirjaudu')}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div>
+            <label htmlFor="login-email" className="mb-1 block text-sm font-bold text-[#0f2640]">
+              {t('Email', 'Sähköposti')}
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+            />
+          </div>
 
-      <p className="mt-5 text-center text-[1.02rem] text-[#6b7280]">
-        <Link href="/forgot-password" className="text-[#ff7a2d] hover:underline">
-          {t('Forgot password?', 'Unohditko salasanan?')}
-        </Link>
-      </p>
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-4">
+              <label htmlFor="login-password" className="text-sm font-bold text-[#0f2640]">
+                {t('Password', 'Salasana')}
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-bold text-[#ff7a2d] hover:underline"
+              >
+                {t('Forgot password?', 'Unohditko salasanan?')}
+              </Link>
+            </div>
+            <input
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="w-full rounded-2xl border border-[#d7e0ea] bg-white px-4 py-3 text-sm text-[#0f2640] outline-none transition focus:border-[#ff7a2d] focus:ring-2 focus:ring-[#ff7a2d]/20"
+            />
+          </div>
 
-      <p className="mt-2 text-center text-[1.02rem] text-[#6b7280]">
-        {t("Don't have an account?", 'Eikö sinulla ole tiliä?')}{' '}
-        <Link href="/signup" className="text-[#ff7a2d] hover:underline">
-          {t('Sign up', 'Rekisteröidy')}
-        </Link>
-      </p>
+          <button
+            type="submit"
+            disabled={loading || googleLoading}
+            className="w-full rounded-full bg-[#ff7a2d] px-5 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#e66a1f] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {loading ? t('Logging in...', 'Kirjaudutaan...') : t('Log in', 'Kirjaudu')}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-sm text-[#6b7280]">
+          {t("Don't have an account?", 'Eikö sinulla ole tiliä?')}{' '}
+          <Link href="/signup" className="font-bold text-[#ff7a2d] hover:underline">
+            {t('Sign up', 'Rekisteröidy')}
+          </Link>
+        </p>
+      </section>
     </main>
   );
 }
