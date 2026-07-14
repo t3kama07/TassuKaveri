@@ -390,25 +390,17 @@ export default function LandingPage() {
 
   return (
     <main className="bg-[#f4eee5] text-[#0f2640]">
-      <section className="relative flex min-h-[480px] items-center overflow-hidden lg:min-h-[600px] max-sm:min-h-[640px]">
-        <div className="absolute inset-0">
+      <section className="relative overflow-hidden sm:flex sm:min-h-[480px] sm:items-center lg:min-h-[600px]">
+        <div className="absolute inset-0 hidden sm:block">
           <Image
             src="/images/heroimage.webp"
             alt={copy.hero.imageAlt}
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center lg:object-[center_40%] max-sm:object-[72%_center]"
+            className="object-cover object-center lg:object-[center_40%]"
           />
         </div>
-
-        <div
-          className="absolute inset-0 z-[1] sm:hidden"
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.84) 22%, rgba(255,255,255,0.56) 58%, rgba(255,255,255,0.16) 100%), linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.80) 48%, rgba(255,255,255,0.18) 100%)',
-          }}
-        />
 
         <div
           className="absolute inset-0 z-[1] hidden sm:block"
@@ -418,12 +410,39 @@ export default function LandingPage() {
           }}
         />
 
-        <HeroContent
-          className="relative z-[2] w-full px-8 py-16 sm:px-12 lg:px-20 xl:px-24 2xl:px-28 max-sm:py-14"
-          titleClassName="max-w-[840px]"
-          bodyClassName="max-w-[690px]"
-          trustClassName="max-w-[980px] md:flex-nowrap"
-        />
+        <div className="w-full sm:hidden">
+          <div className="bg-[linear-gradient(145deg,#fffaf5_0%,#f8f1e8_100%)]">
+            <HeroContent
+              className="w-full px-6 py-10"
+              titleClassName="max-w-[19rem]"
+              bodyClassName="max-w-[19rem]"
+            />
+          </div>
+
+          <div className="relative h-[240px] overflow-hidden">
+            <Image
+              src="/images/heroimage.webp"
+              alt={copy.hero.imageAlt}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-[center_42%]"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#f8f1e8] to-transparent"
+            />
+          </div>
+        </div>
+
+        <div className="relative z-[2] hidden w-full sm:block">
+          <HeroContent
+            className="w-full px-12 py-16 lg:px-20 xl:px-24 2xl:px-28"
+            titleClassName="max-w-[840px]"
+            bodyClassName="max-w-[690px]"
+            trustClassName="max-w-[980px] md:flex-nowrap"
+          />
+        </div>
       </section>
 
       <section id="how-it-works" className="py-16 sm:py-20">
