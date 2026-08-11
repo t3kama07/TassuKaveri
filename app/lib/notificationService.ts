@@ -110,7 +110,7 @@ export function subscribeUnreadNotificationCount(
     }
   }
 
-  void refreshCount();
+  timeoutId = setTimeout(refreshCount, 1500);
 
   return () => {
     cancelled = true;

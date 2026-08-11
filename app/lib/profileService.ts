@@ -218,12 +218,35 @@ export async function setEmailVerifiedStatus(uid: string, emailVerified: boolean
     throw new Error('Profile not found');
   }
 
+  if (profile.emailVerified === emailVerified) {
+    return;
+  }
+
   await saveProfile({
     ...profile,
     emailVerified,
     updatedAt: new Date(),
   });
   await recalculateTrustScore(uid);
+}
+
+export async function setProfileEmailVerifiedStatus(
+  profile: UserProfile,
+  emailVerified: boolean
+): Promise<UserProfile> {
+  if (profile.emailVerified === emailVerified) {
+    return profile;
+  }
+
+  const nextProfile = {
+    ...profile,
+    emailVerified,
+    updatedAt: new Date(),
+  };
+
+  await saveProfile(nextProfile);
+  await recalculateTrustScore(profile.uid);
+  return nextProfile;
 }
 
 export async function ensureSupportedLocation(uid: string): Promise<void> {
@@ -257,4 +280,34 @@ export async function ensureSupportedLocation(uid: string): Promise<void> {
   });
 
   await syncPublicProfile(uid);
+}
+
+export async function ensureProfileSupportedLocation(profile: UserProfile): Promise<UserProfile> {
+  const selectedLocation = getCityLocationPayload(profile.location);
+  if (!selectedLocation) {
+    return profile;
+  }
+
+  const needsPilotLocation =
+    profile.location !== selectedLocation.location ||
+    profile.country !== selectedLocation.country ||
+    profile.latitude !== selectedLocation.latitude ||
+    profile.longitude !== selectedLocation.longitude;
+
+  if (!needsPilotLocation) {
+    return profile;
+  }
+
+  const nextProfile = {
+    ...profile,
+    location: selectedLocation.location,
+    country: selectedLocation.country,
+    latitude: selectedLocation.latitude,
+    longitude: selectedLocation.longitude,
+    updatedAt: new Date(),
+  };
+
+  await saveProfile(nextProfile);
+  await syncPublicProfile(profile.uid);
+  return nextProfile;
 }

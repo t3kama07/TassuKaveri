@@ -163,6 +163,10 @@ export async function deletePlaywrightTestUsers(userIds: string[]): Promise<void
   for (const id of ids) {
     const { error } = await supabase.auth.admin.deleteUser(id);
     if (error) {
+      if (error.message.toLowerCase().includes('user not found')) {
+        continue;
+      }
+
       throw new Error(`Failed to delete Playwright auth user ${id}: ${error.message}`);
     }
   }

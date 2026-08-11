@@ -10,7 +10,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { addFavoriteSitter, getFavoriteSitters, removeFavoriteSitter } from '@/lib/favoriteService';
 import { PET_TYPE_OPTIONS } from '@/lib/petOptions';
 import { reportUser } from '@/lib/moderationService';
-import { getProfile } from '@/lib/profileService';
 import { getAvailableSitters, NearbySitter } from '@/lib/sitterService';
 
 function formatAvailabilityWindow(startAt: Date, endAt: Date, language: 'en' | 'fi'): string {
@@ -79,7 +78,7 @@ interface SitterSearchFilters {
 }
 
 export default function SittersPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { language, t } = useLanguage();
   const [sitters, setSitters] = useState<NearbySitter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,10 +101,7 @@ export default function SittersPage() {
       try {
         setLoading(true);
         setError('');
-        const [profile, favorites] = await Promise.all([
-          getProfile(user.uid),
-          getFavoriteSitters(user.uid),
-        ]);
+        const favorites = await getFavoriteSitters(user.uid);
 
         setFavoriteSitterIds(favorites.map((favorite) => favorite.sitterId));
 
@@ -126,7 +122,7 @@ export default function SittersPage() {
         setLoading(false);
       }
     })();
-  }, [t, user]);
+  }, [profile, t, user]);
 
   async function runSearch(filters: SitterSearchFilters = {}) {
     if (!user) return;

@@ -369,10 +369,6 @@ export const privacyPolicyPageContent = {
           en: 'We may process account details, email verification status, profile details, location, pet details, availability, photos, care requests, direct asks, accepted care records, messages, credit reservations and releases, reviews, trust score, cancellation history, support messages, moderation reports, and security logs.',
           fi: 'Voimme käsitellä tilitietoja, sähköpostin vahvistustilaa, profiilitietoja, sijaintia, lemmikkitietoja, saatavuutta, kuvia, hoitopyyntöjä, suoria pyyntöjä, hyväksyttyjä hoitotapahtumia, viestejä, krediittien varauksia ja vapautuksia, arvosteluja, luottamustasoa, peruutushistoriaa, tukiviestejä, moderointi-ilmoituksia ja turvallisuuslokeja.',
         },
-        {
-          en: 'If you submit your email through the website popup, we save the email address, submission date, and source as website_popup so we can send TassuKaveri details and updates.',
-          fi: 'Jos lähetät sähköpostiosoitteesi verkkosivuston ponnahdusikkunassa, tallennamme sähköpostiosoitteen, lähetyspäivän ja lähteen website_popup, jotta voimme lähettää TassuKaveri-tietoja ja päivityksiä.',
-        },
       ],
     },
     {
@@ -386,8 +382,8 @@ export const privacyPolicyPageContent = {
           fi: 'Käytämme tietoja tilien luomiseen, sähköpostiosoitteiden vahvistamiseen, olennaisten profiilien ja pyyntöjen näyttämiseen, viestien tukemiseen, krediittien varaamiseen ja vapauttamiseen, arvostelujen näyttämiseen, tukipyyntöihin vastaamiseen, väärinkäytösten estämiseen ja palvelun suojaamiseen.',
         },
         {
-          en: 'The legal bases may include contract performance for account and care features, consent for email updates and optional analytics, legitimate interests for safety and abuse prevention, and legal obligations where applicable.',
-          fi: 'Oikeusperusteita voivat olla sopimuksen täyttäminen tili- ja hoito-ominaisuuksissa, suostumus sähköpostipäivityksiin ja valinnaiseen analytiikkaan, oikeutettu etu turvallisuuden ja väärinkäytösten estämisessä sekä sovellettavat lakisääteiset velvoitteet.',
+          en: 'The legal bases may include contract performance for account and care features, consent for optional analytics, legitimate interests for safety and abuse prevention, and legal obligations where applicable.',
+          fi: 'Oikeusperusteita voivat olla sopimuksen täyttäminen tili- ja hoito-ominaisuuksissa, suostumus valinnaiseen analytiikkaan, oikeutettu etu turvallisuuden ja väärinkäytösten estämisessä sekä sovellettavat lakisääteiset velvoitteet.',
         },
       ],
     },
@@ -398,8 +394,8 @@ export const privacyPolicyPageContent = {
       },
       paragraphs: [
         {
-          en: 'We use necessary browser storage for login sessions, language choice, onboarding choices, and to remember whether the email popup was closed or submitted. These are needed for the website experience to work properly.',
-          fi: 'Käytämme välttämätöntä selaintallennusta kirjautumiseen, kielivalintaan, aloitusvalintoihin ja siihen, muistetaanko sähköpostiponnahdusikkunan sulkeminen tai lähetys. Näitä tarvitaan sivuston toimivuuteen.',
+          en: 'We use necessary browser storage for login sessions, language choice, and onboarding choices. These are needed for the website experience to work properly.',
+          fi: 'Käytämme välttämätöntä selaintallennusta kirjautumiseen, kielivalintaan ja aloitusvalintoihin. Näitä tarvitaan sivuston toimivuuteen.',
         },
         {
           en: 'Optional analytics, such as Google Analytics or Google Tag Manager, only loads after you accept analytics cookies. You can change this choice on the Cookie Preferences page.',
@@ -430,8 +426,8 @@ export const privacyPolicyPageContent = {
       },
       paragraphs: [
         {
-          en: 'We keep account and service information for as long as it is needed to operate the account, provide the pet-care exchange, protect trust and safety, resolve disputes, and meet legal obligations. Email update subscriptions are kept until you ask us to remove them or until they are no longer needed.',
-          fi: 'Säilytämme tili- ja palvelutietoja niin kauan kuin niitä tarvitaan tilin ylläpitoon, lemmikkihoidon vaihtopalvelun tarjoamiseen, luottamuksen ja turvallisuuden suojaamiseen, riitojen ratkaisemiseen ja lakisääteisten velvoitteiden täyttämiseen. Sähköpostipäivitysten tilaukset säilytetään, kunnes pyydät poistamista tai kunnes niitä ei enää tarvita.',
+          en: 'We keep account and service information for as long as it is needed to operate the account, provide the pet-care exchange, protect trust and safety, resolve disputes, and meet legal obligations.',
+          fi: 'Säilytämme tili- ja palvelutietoja niin kauan kuin niitä tarvitaan tilin ylläpitoon, lemmikkihoidon vaihtopalvelun tarjoamiseen, luottamuksen ja turvallisuuden suojaamiseen, riitojen ratkaisemiseen ja lakisääteisten velvoitteiden täyttämiseen.',
         },
         {
           en: 'Depending on the legal basis and situation, you may have the right to access your data, correct it, request deletion, restrict processing, object to processing, receive portable data, and withdraw consent. You can also contact the Finnish Data Protection Ombudsman if you believe your rights have not been respected.',

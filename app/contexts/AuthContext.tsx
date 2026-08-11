@@ -5,9 +5,9 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import {
   createProfile,
-  ensureSupportedLocation,
+  ensureProfileSupportedLocation,
   getProfile,
-  setEmailVerifiedStatus,
+  setProfileEmailVerifiedStatus,
 } from '@/lib/profileService';
 import { PILOT_CITY, PILOT_COUNTRY } from '@/lib/platformPolicy';
 import { initializeWallet } from '@/lib/walletService';
@@ -267,19 +267,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(GOOGLE_REGISTRATION_REQUIRED);
       }
 
+      let profileAfterBootstrap = existingProfile;
+
       if (overwriteProfile && profileData) {
         await createProfile(authUser.uid, email, profileData);
+        profileAfterBootstrap = await getProfile(authUser.uid);
       } else if (!hasProfile) {
         await createProfile(
           authUser.uid,
           email,
           profileData ?? getBootstrapProfileData(authUser)
         );
+        profileAfterBootstrap = await getProfile(authUser.uid);
       }
 
-      await ensureSupportedLocation(authUser.uid);
-      await initializeWallet(authUser.uid);
-      await setEmailVerifiedStatus(authUser.uid, authUser.emailVerified);
+      if (!profileAfterBootstrap) {
+        throw new Error('Profile not found after account setup');
+      }
+
+      const profileMaintenancePromise = (async () => {
+        let nextProfile = profileAfterBootstrap;
+        nextProfile = await ensureProfileSupportedLocation(nextProfile);
+        nextProfile = await setProfileEmailVerifiedStatus(nextProfile, authUser.emailVerified);
+        return nextProfile;
+      })();
+
+      const [maintainedProfile] = await Promise.all([
+        profileMaintenancePromise,
+        initializeWallet(authUser.uid),
+      ]);
 
       if (hasPendingGoogleSignupConsent()) {
         try {
@@ -295,7 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearGoogleAuthIntent();
       }
 
-      return getProfile(authUser.uid);
+      return maintainedProfile;
     })();
 
     bootstrapPromisesRef.current.set(authUser.uid, bootstrapPromise);

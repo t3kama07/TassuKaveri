@@ -292,7 +292,7 @@ function RequestsPageContent() {
 
     window.addEventListener('focus', refreshQuietly);
     document.addEventListener('visibilitychange', refreshWhenVisible);
-    const refreshIntervalId = window.setInterval(refreshQuietly, 15000);
+    const refreshIntervalId = window.setInterval(refreshQuietly, 60000);
 
     return () => {
       window.removeEventListener('focus', refreshQuietly);

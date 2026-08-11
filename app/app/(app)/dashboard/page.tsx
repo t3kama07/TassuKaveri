@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAvailabilitySlots } from '@/lib/availabilityService';
 import { getUserPets } from '@/lib/petService';
-import { getProfile, isProfileCompleted } from '@/lib/profileService';
+import { isProfileCompleted } from '@/lib/profileService';
 import {
   getAllOpenRequests,
   getSitterRequests,
@@ -101,7 +101,7 @@ function getPreviewRequests(requests: Request[], profile: UserProfile | null): R
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, profile: authProfile } = useAuth();
   const { language, t } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -142,16 +142,15 @@ export default function DashboardPage() {
           setError('');
         }
 
-        const userProfile = await getProfile(user.uid);
         const [userWallet, userRequests, userSits, sitters, openRequests, userPets, slots] = await Promise.all([
           getWallet(user.uid),
           getUserRequests(user.uid),
           getSitterRequests(user.uid),
           getAvailableSitters({
             excludeUserId: user.uid,
-            city: userProfile?.location || '',
-            latitude: userProfile?.latitude,
-            longitude: userProfile?.longitude,
+            city: authProfile?.location || '',
+            latitude: authProfile?.latitude,
+            longitude: authProfile?.longitude,
             maxDistanceKm: 15,
             limit: 24,
           }),
@@ -171,7 +170,7 @@ export default function DashboardPage() {
           ['accepted', 'awaiting_confirmation'].includes(request.status)
         );
 
-        setProfile(userProfile);
+        setProfile(authProfile);
         setWallet(
           userWallet ?? {
             balance: 0,
@@ -181,7 +180,7 @@ export default function DashboardPage() {
         );
         setOpenItems(activeOwnerRequests.length + activeSits.length);
         setNearbySitters(sitters.slice(0, 3));
-        setCommunityRequests(getPreviewRequests(openRequests, userProfile));
+        setCommunityRequests(getPreviewRequests(openRequests, authProfile));
         setPetCount(userPets.length);
         setAvailabilityCount(slots.length);
       } catch (err: unknown) {
@@ -205,7 +204,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [t, user]);
+  }, [authProfile, t, user]);
 
   const welcomeName = profile?.name.trim() || user?.email?.split('@')[0] || t('there', 'sinä');
   const profileIncomplete = !profile || !isProfileCompleted(profile);

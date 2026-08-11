@@ -3,7 +3,6 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
-import EmailSubscriptionPopup from "@/components/EmailSubscriptionPopup";
 import SeoScripts from "@/components/SeoScripts";
 import { getSiteUrl } from "@/lib/seo";
 
@@ -57,7 +56,6 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>
             {children}
-            <EmailSubscriptionPopup />
             <CookieConsentBanner />
           </LanguageProvider>
         </AuthProvider>
